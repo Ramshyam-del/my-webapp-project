@@ -16,12 +16,30 @@ const MiningPayout = require('./models/MiningPayout');
 const { sendOtp } = require('./utils/sendOtp');
 
 // MongoDB connection
-const MONGODB_URI = 'mongodb+srv://jonasangela491:iexTSV5wbMuBuV@cluster0.reyfc3h.mongodb.net/quantex?retryWrites=true&w=majority&appName=Cluster0';
-mongoose.connect(MONGODB_URI)
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://jonasangela491:iexTSV5wbMuBuV@cluster0.reyfc3h.mongodb.net/quantex?retryWrites=true&w=majority&appName=Cluster0';
+
+// Add connection options to handle IP whitelist issues
+const mongooseOptions = {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+  socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+  family: 4 // Use IPv4, skip trying IPv6
+};
+
+mongoose.connect(MONGODB_URI, mongooseOptions)
   .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    // Continue running the server even if MongoDB fails
+    console.log('Server will continue without database connection');
+  });
+
 const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+db.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+  // Don't crash the server on connection errors
+});
 db.once('open', () => {
   console.log('Connected to MongoDB');
 });

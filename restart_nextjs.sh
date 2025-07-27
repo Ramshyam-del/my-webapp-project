@@ -1,23 +1,31 @@
 #!/bin/bash
 
-# Check if port 3000 is in use
-PID=$(lsof -ti:3000)
+echo "=== Pulling latest changes from GitHub ==="
+git reset --hard
+git pull origin main
 
-if [ -n "$PID" ]; then
-  echo "Port 3000 is in use by PID $PID. Killing..."
-  kill -9 $PID
-  echo "Process $PID killed."
-else
-  echo "Port 3000 is not in use."
-fi
+echo "=== Stopping any running processes on ports 4000 and 3000 ==="
+pkill -f "node server.js" || true
+pkill -f "next" || true
 
-# Start Next.js app in dev mode
-nohup npm run dev > frontend.log 2>&1 &
+echo "=== Starting Backend ==="
+cd /root/pro/backend
+npm install --force
+nohup node server.js > backend.log 2>&1 &
 
-# Wait a moment for the app to start
-sleep 2
+echo "=== Building and Starting Frontend (Production Mode) ==="
+cd /root/pro
+npm install --force
+npm run build
+nohup npm run start > frontend.log 2>&1 &
 
-echo "Next.js app restarted with 'npm run dev'."
+echo "=== Checking Running Processes ==="
+ps aux | grep -E "node|next"
 
-echo "Current processes using port 3000:"
-lsof -i :3000 
+echo "=== Last 30 lines of Backend Log ==="
+tail -n 30 /root/pro/backend/backend.log
+
+echo "=== Last 30 lines of Frontend Log ==="
+tail -n 30 /root/pro/frontend.log
+
+echo "✅ Restart Complete! Check logs if any issue."
