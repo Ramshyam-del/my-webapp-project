@@ -10,36 +10,101 @@ const defaultCards = [
   { key: 'todayContractVolume', title: 'Today Seconds Contract Volume', gradient: 'from-blue-400 to-cyan-600' },
 ];
 
-export const DashboardCards = () => {
-  const [metrics, setMetrics] = useState(null);
-  const [loading, setLoading] = useState(true);
+export const DashboardCards = ({ stats }) => {
+  const cards = [
+    {
+      title: 'Total Users',
+      value: stats.totalUsers.toLocaleString(),
+      change: '+12%',
+      changeType: 'positive',
+      icon: '👥',
+      color: 'blue',
+      description: 'Registered users'
+    },
+    {
+      title: 'Active Users',
+      value: stats.activeUsers.toLocaleString(),
+      change: '+8%',
+      changeType: 'positive',
+      icon: '🟢',
+      color: 'green',
+      description: 'Online today'
+    },
+    {
+      title: 'Total Transactions',
+      value: stats.totalTransactions.toLocaleString(),
+      change: '+23%',
+      changeType: 'positive',
+      icon: '💳',
+      color: 'purple',
+      description: 'This month'
+    },
+    {
+      title: 'Total Recharge',
+      value: `$${stats.totalRecharge.toLocaleString()}`,
+      change: '+15%',
+      changeType: 'positive',
+      icon: '💰',
+      color: 'yellow',
+      description: 'Total deposits'
+    },
+    {
+      title: 'Total Withdrawals',
+      value: `$${stats.totalWithdrawals.toLocaleString()}`,
+      change: '+5%',
+      changeType: 'positive',
+      icon: '💸',
+      color: 'orange',
+      description: 'Total withdrawals'
+    },
+    {
+      title: 'Pending KYC',
+      value: stats.pendingKYC,
+      change: '-3',
+      changeType: 'negative',
+      icon: '⏳',
+      color: 'red',
+      description: 'Awaiting verification'
+    }
+  ];
 
-  useEffect(() => {
-    fetch('http://localhost:4000/api/metrics')
-      .then(res => res.json())
-      .then(data => {
-        setMetrics(data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
+  const getColorClasses = (color, type = 'bg') => {
+    const colors = {
+      blue: type === 'bg' ? 'bg-blue-500' : 'text-blue-600',
+      green: type === 'bg' ? 'bg-green-500' : 'text-green-600',
+      purple: type === 'bg' ? 'bg-purple-500' : 'text-purple-600',
+      yellow: type === 'bg' ? 'bg-yellow-500' : 'text-yellow-600',
+      orange: type === 'bg' ? 'bg-orange-500' : 'text-orange-600',
+      red: type === 'bg' ? 'bg-red-500' : 'text-red-600'
+    };
+    return colors[color] || colors.blue;
+  };
 
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8 px-2 sm:px-0">
-      {defaultCards.map((card) => (
-        <div
-          key={card.key}
-          className={`rounded-xl shadow-lg p-5 sm:p-6 bg-gradient-to-br ${card.gradient} text-white flex flex-col items-start justify-between min-h-[100px] sm:min-h-[120px]`}
-        >
-          <div className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">{card.title}</div>
-          <div className="text-xl sm:text-2xl font-bold">
-            {loading
-              ? '...'
-              : metrics && metrics[card.key] !== undefined
-                ? (typeof metrics[card.key] === 'number'
-                    ? metrics[card.key].toLocaleString(undefined, { maximumFractionDigits: 2 })
-                    : metrics[card.key])
-                : 'N/A'}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {cards.map((card, index) => (
+        <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-3 mb-2">
+                <div className={`w-10 h-10 ${getColorClasses(card.color)} rounded-lg flex items-center justify-center`}>
+                  <span className="text-white text-lg">{card.icon}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{card.title}</p>
+                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">{card.description}</p>
+              <div className="flex items-center space-x-2">
+                <span className={`text-sm font-medium ${
+                  card.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {card.change}
+                </span>
+                <span className="text-xs text-gray-500">from last month</span>
+              </div>
+            </div>
           </div>
         </div>
       ))}

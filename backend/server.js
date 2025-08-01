@@ -1,516 +1,574 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const fetch = require('node-fetch');
-const helmet = require('helmet'); // Security middleware
-const rateLimit = require('express-rate-limit'); // Rate limiting
-const User = require('./models/User');
-const Transaction = require('./models/Transaction');
-const OperationLog = require('./models/OperationLog');
-const MiningPayout = require('./models/MiningPayout');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const crypto = require('crypto');
+
+// Import security configurations
+const { 
+  securityConfig, 
+  validatePassword, 
+  validateEmail, 
+  hashPassword, 
+  comparePassword,
+  sanitizeObject 
+} = require('./config/security');
+
+// Import middleware
+const {
+  authenticateToken,
+  requireAdmin,
+  requireVIPLevel,
+  authRateLimit,
+  validateInput,
+  csrfProtection,
+  securityHeaders,
+  requestLogger,
+  errorHandler
+} = require('./middleware/auth');
+
+// Import utilities
 const { sendOtp } = require('./utils/sendOtp');
 
-// MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://jonasangela491:iexTSV5wbMuBuV@cluster0.reyfc3h.mongodb.net/quantex?retryWrites=true&w=majority&appName=Cluster0';
+// Apply security middleware
+app.use(securityHeaders);
+app.use(requestLogger);
+// Simplified helmet for development
+app.use(helmet({
+  contentSecurityPolicy: false // Disable CSP for development
+}));
 
-// Add connection options to handle IP whitelist issues
-const mongooseOptions = {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-  socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-  family: 4 // Use IPv4, skip trying IPv6
-};
+// CORS configuration - simplified for development
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
-mongoose.connect(MONGODB_URI, mongooseOptions)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
-    // Continue running the server even if MongoDB fails
-    console.log('Server will continue without database connection');
+// Body parser with size limits
+app.use(express.json({ limit: securityConfig.api.maxRequestSize }));
+app.use(express.urlencoded({ extended: true, limit: securityConfig.api.maxRequestSize }));
+
+// Rate limiting
+const limiter = rateLimit(securityConfig.rateLimit);
+app.use(limiter);
+
+// TODO: Replace MongoDB connection with Supabase client initialization
+// const MONGODB_URI = process.env.MONGO_URI;
+// const mongooseOptions = {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true,
+//   serverSelectionTimeoutMS: 5000,
+//   socketTimeoutMS: 45000,
+//   family: 4,
+// };
+// mongoose.connect(MONGODB_URI, mongooseOptions)
+//   .then(() => console.log('Connected to MongoDB'))
+//   .catch(err => {
+//     console.error('MongoDB connection error:', err);
+//     console.log('Server will continue without database connection');
+//   });
+// const db = mongoose.connection;
+// db.on('error', err => {
+//   console.error('MongoDB connection error:', err);
+// });
+// db.once('open', () => {
+//   console.log('Connected to MongoDB');
+// });
+
+// Secure admin configuration
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@quantex.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || crypto.randomBytes(32).toString('hex');
+
+// In-memory storage for demo (replace with Supabase later)
+const users = [];
+
+// Generate secure admin token
+const adminToken = jwt.sign(
+  { 
+    email: ADMIN_EMAIL, 
+    role: 'admin',
+    id: 'admin',
+    vipLevel: 'VIP3'
+  }, 
+  securityConfig.jwt.secret,
+  { expiresIn: securityConfig.jwt.expiresIn }
+);
+
+// Remove old requireAdminAuth function - replaced by middleware
+
+// Basic API routes for testing
+app.get('/', (req, res) => {
+  res.json({ message: 'Quantex Backend API is running!' });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend server is healthy',
+    timestamp: new Date().toISOString()
   });
-
-const db = mongoose.connection;
-db.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-  // Don't crash the server on connection errors
-});
-db.once('open', () => {
-  console.log('Connected to MongoDB');
 });
 
-// User schema/model
-// REMOVE the userSchema and UserModel definitions from server.js
-// Only use the imported User model from './models/User'
-// Replace all 'UserModel' usages with 'User'
+// Authentication routes with enhanced security
+app.post('/api/register', 
+  authRateLimit,
+  validateInput({
+    email: validateEmail,
+    password: validatePassword
+  }),
+  async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      // Check if user already exists
+      const existingUser = users.find(u => u.email === email);
+      if (existingUser) {
+        return res.status(400).json({ 
+          error: 'User already exists',
+          code: 'USER_EXISTS'
+        });
+      }
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+      // Hash password with enhanced security
+      const hashedPassword = await hashPassword(password);
+    
+      // Create user with enhanced security
+      const newUser = {
+        id: Date.now().toString(),
+        email,
+        password: hashedPassword,
+        role: 'user',
+        vipLevel: 'VIP0',
+        createdAt: new Date(),
+        isVerified: false,
+        lastLogin: null,
+        failedLoginAttempts: 0,
+        accountLocked: false,
+        lockUntil: null
+      };
 
-// JWT middleware
-function requireAdminAuth(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Missing or invalid token' });
-  }
-  try {
-    const token = auth.split(' ')[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'admin') throw new Error('Not admin');
-    req.admin = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
-  }
-}
+      users.push(newUser);
 
-// Admin login endpoint
-app.post('/api/admin/login', (req, res) => {
-  const { email, password } = req.body;
-  if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-    const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET, { expiresIn: '2h' });
-    return res.json({ token });
-  }
-  res.status(401).json({ message: 'Invalid admin credentials' });
-});
+      // Generate JWT token with enhanced security
+      const token = jwt.sign(
+        { 
+          id: newUser.id, 
+          email: newUser.email, 
+          role: newUser.role,
+          vipLevel: newUser.vipLevel
+        }, 
+        securityConfig.jwt.secret,
+        { expiresIn: securityConfig.jwt.expiresIn }
+      );
 
-// Protect all /api/users routes except login/register
-app.use('/api/users', (req, res, next) => {
-  if (
-    (req.method === 'POST' && req.path === '/register') ||
-    (req.method === 'POST' && req.path === '/login')
-  ) {
-    return next();
-  }
-  requireAdminAuth(req, res, next);
-});
-
-app.get('/api/metrics', (req, res) => {
-  res.json(metrics);
-});
-
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching users', error: err.message });
-  }
-});
-
-// Register endpoint
-app.post('/api/register', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ message: 'Missing email or password' });
-  const existing = await User.findOne({ email });
-  if (existing) return res.status(400).json({ message: 'User already exists' });
-  const passwordHash = await bcrypt.hash(password, 10);
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-  const user = new User({ email, passwordHash, otp, otpExpires, isVerified: false });
-  await user.save();
-  await sendOtp(email, otp);
-  res.json({ message: 'OTP sent. Please verify your email.' });
-});
-// OTP Verification
-app.post('/api/verify-otp', async (req, res) => {
-  const { email, otp } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: 'User not found' });
-  if (user.isVerified) return res.status(400).json({ message: 'User already verified' });
-  if (user.otp !== otp || !user.otpExpires || user.otpExpires < new Date()) {
-    return res.status(400).json({ message: 'Invalid or expired OTP' });
-  }
-  user.otp = undefined;
-  user.otpExpires = undefined;
-  user.isVerified = true;
-  await user.save();
-  res.json({ message: 'Email verified. You can now log in.' });
-});
-// Login endpoint
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: 'User not found' });
-  if (!user.isVerified) return res.status(400).json({ message: 'Email not verified' });
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return res.status(400).json({ message: 'Invalid password' });
-  const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, user });
-});
-
-// Forgot Password: Request OTP
-app.post('/api/forgot-password', async (req, res) => {
-  const { email } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: 'User not found' });
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  user.otp = otp;
-  user.otpExpires = new Date(Date.now() + 5 * 60 * 1000); // 5 min
-  await user.save();
-  await sendOtp(email, otp);
-  res.json({ message: 'OTP sent to your email.' });
-});
-// Forgot Password: Reset
-app.post('/api/reset-password', async (req, res) => {
-  const { email, otp, newPassword } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json({ message: 'User not found' });
-  if (user.otp !== otp || !user.otpExpires || user.otpExpires < new Date()) {
-    return res.status(400).json({ message: 'Invalid or expired OTP' });
-  }
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  user.otp = undefined;
-  user.otpExpires = undefined;
-  await user.save();
-  res.json({ message: 'Password reset successful. You can now log in.' });
-});
-
-// --- User CRUD Endpoints ---
-// Add user
-app.post('/api/users', async (req, res) => {
-  try {
-    const { email, invitationCode, vipLevel, balanceStatus, creditScore, realNameAuth, totalAssets, totalRecharge, totalWithdrawal, superiorAccount, registered } = req.body;
-    const user = new User({
-      email,
-      invitationCode,
-      vipLevel,
-      balanceStatus,
-      creditScore,
-      realNameAuth,
-      totalAssets,
-      totalRecharge,
-      totalWithdrawal,
-      superiorAccount,
-      registered: registered || new Date().toISOString().slice(0, 10),
-    });
-    await user.save();
-    res.status(201).json(user);
-  } catch (err) {
-    res.status(400).json({ message: 'Error adding user', error: err.message });
-  }
-});
-
-// Update user
-app.put('/api/users/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const update = req.body;
-    const user = await User.findByIdAndUpdate(id, update, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ message: 'Error updating user', error: err.message });
-  }
-});
-
-// Delete user
-app.delete('/api/users/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findByIdAndDelete(id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User deleted' });
-  } catch (err) {
-    res.status(400).json({ message: 'Error deleting user', error: err.message });
-  }
-});
-
-// Freeze user endpoint
-app.post('/api/users/:id/freeze', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findByIdAndUpdate(id, { balanceStatus: 'Frozen' }, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ message: 'User frozen', user });
-  } catch (err) {
-    res.status(400).json({ message: 'Error freezing user', error: err.message });
-  }
-});
-
-// One-click login endpoint
-app.post('/api/users/:id/login', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    // Simulate login action
-    res.json({ message: 'One-click login successful', user });
-  } catch (err) {
-    res.status(400).json({ message: 'Error logging in user', error: err.message });
-  }
-});
-
-// PATCH endpoint to update user status fields
-app.patch('/api/users/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const update = {};
-    ['withdrawalStatus', 'transactionStatus', 'accountStatus'].forEach(field => {
-      if (typeof req.body[field] === 'boolean') update[field] = req.body[field];
-    });
-    const user = await User.findByIdAndUpdate(id, update, { new: true });
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ message: 'Error updating status', error: err.message });
-  }
-});
-
-// --- User Bank Card Endpoints ---
-// Get all bank cards for a user
-app.get('/api/users/:id/bank-cards', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user.bankCards || []);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching bank cards', error: err.message });
-  }
-});
-
-// Add a new bank card for a user
-app.post('/api/users/:id/bank-cards', async (req, res) => {
-  try {
-    const { cardNumber, bankName, holderName } = req.body;
-    if (!cardNumber || !bankName || !holderName) {
-      return res.status(400).json({ message: 'Missing card fields' });
+      res.status(201).json({
+        message: 'User registered successfully',
+        token,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          role: newUser.role,
+          vipLevel: newUser.vipLevel
+        }
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ 
+        error: 'Registration failed',
+        code: 'REGISTRATION_ERROR'
+      });
     }
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    user.bankCards = user.bankCards || [];
-    user.bankCards.push({ cardNumber, bankName, holderName });
-    await user.save();
-    res.status(201).json(user.bankCards);
-  } catch (err) {
-    res.status(500).json({ message: 'Error adding bank card', error: err.message });
   }
-});
+);
 
-// Remove a bank card from a user
-app.delete('/api/users/:id/bank-cards/:cardId', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    user.bankCards = user.bankCards || [];
-    user.bankCards = user.bankCards.filter(card => card._id.toString() !== req.params.cardId);
-    await user.save();
-    res.json(user.bankCards);
-  } catch (err) {
-    res.status(500).json({ message: 'Error removing bank card', error: err.message });
-  }
-});
+app.post('/api/login', 
+  authRateLimit,
+  validateInput({
+    email: validateEmail,
+    password: (password) => ({ valid: password && password.length > 0, message: 'Password is required' })
+  }),
+  async (req, res) => {
+    try {
+      const { email, password } = req.body;
 
-// --- User Notification Endpoints ---
-// Get all notifications for a user
-app.get('/api/users/:id/notifications', async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user.notifications || []);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching notifications', error: err.message });
-  }
-});
+      // Find user
+      const user = users.find(u => u.email === email);
+      if (!user) {
+        return res.status(401).json({ 
+          error: 'Invalid credentials',
+          code: 'INVALID_CREDENTIALS'
+        });
+      }
 
-// Add a notification for a user
-app.post('/api/users/:id/notifications', async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    if (!title || !content) {
-      return res.status(400).json({ message: 'Missing notification fields' });
+      // Check if account is locked
+      if (user.accountLocked && user.lockUntil && new Date() < user.lockUntil) {
+        return res.status(423).json({ 
+          error: 'Account is temporarily locked',
+          code: 'ACCOUNT_LOCKED',
+          lockUntil: user.lockUntil
+        });
+      }
+
+      // Check password with enhanced security
+      const isValidPassword = await comparePassword(password, user.password);
+      if (!isValidPassword) {
+        // Increment failed login attempts
+        user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1;
+        
+        // Lock account after 5 failed attempts
+        if (user.failedLoginAttempts >= 5) {
+          user.accountLocked = true;
+          user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        }
+
+        return res.status(401).json({ 
+          error: 'Invalid credentials',
+          code: 'INVALID_CREDENTIALS',
+          remainingAttempts: 5 - user.failedLoginAttempts
+        });
+      }
+
+      // Reset failed login attempts on successful login
+      user.failedLoginAttempts = 0;
+      user.accountLocked = false;
+      user.lockUntil = null;
+      user.lastLogin = new Date();
+
+      // Generate JWT token with enhanced security
+      const token = jwt.sign(
+        { 
+          id: user.id, 
+          email: user.email, 
+          role: user.role,
+          vipLevel: user.vipLevel
+        }, 
+        securityConfig.jwt.secret,
+        { expiresIn: securityConfig.jwt.expiresIn }
+      );
+      
+      res.json({ 
+        message: 'Login successful',
+        token,
+        user: { 
+          id: user.id,
+          email: user.email, 
+          role: user.role,
+          vipLevel: user.vipLevel
+        }
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ 
+        error: 'Login failed',
+        code: 'LOGIN_ERROR'
+      });
     }
-    const user = await User.findById(req.params.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    user.notifications = user.notifications || [];
-    user.notifications.push({ title, content });
-    await user.save();
-    res.status(201).json(user.notifications);
-  } catch (err) {
-    res.status(500).json({ message: 'Error adding notification', error: err.message });
   }
-});
+);
 
-// Batch notification to multiple users
-app.post('/api/users/batch-notification', async (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
   try {
-    const { userIds, title, content } = req.body;
-    if (!Array.isArray(userIds) || !title || !content) {
-      return res.status(400).json({ message: 'Missing fields' });
+    const { email, password } = req.body;
+    
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      const token = jwt.sign({ email, role: 'admin' }, JWT_SECRET);
+      res.json({ 
+        message: 'Admin login successful',
+        token,
+        user: { email, role: 'admin' }
+      });
+    } else {
+      res.status(401).json({ message: 'Invalid admin credentials' });
     }
-    const result = await User.updateMany(
-      { _id: { $in: userIds } },
-      { $push: { notifications: { title, content, createdAt: new Date() } } }
-    );
-    res.json({ notified: result.nModified || result.modifiedCount || 0 });
-  } catch (err) {
-    res.status(500).json({ message: 'Error sending batch notification', error: err.message });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-// GET /api/user/assets - get asset balances for logged-in user
-app.get('/api/user/assets', requireAdminAuth, async (req, res) => {
+// User management routes
+app.get('/api/users', requireAdmin, (req, res) => {
+  const userList = users.map(user => ({
+    _id: user.id,
+    email: user.email,
+    isVerified: user.isVerified,
+    createdAt: user.createdAt,
+    // Add mock data for admin panel
+    invitationCode: 'INV' + Math.random().toString(36).substr(2, 6),
+    vipLevel: 'VIP0',
+    balanceStatus: 'Normal',
+    creditScore: 100,
+    realNameAuth: 'uncertified',
+    totalAssets: 0,
+    totalRecharge: 0,
+    totalWithdrawal: 0,
+    superiorAccount: '',
+    registered: user.createdAt.toISOString().split('T')[0],
+    withdrawalStatus: true,
+    transactionStatus: true,
+    accountStatus: true
+  }));
+  
+  res.json(userList);
+});
+
+// Trading API routes
+app.get('/api/trading/price/:symbol', async (req, res) => {
   try {
-    const email = req.admin?.email;
-    if (!email) return res.status(401).json({ message: 'Unauthorized' });
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const { symbol } = req.params;
+    
+    // Mock data for development
+    const mockPrices = {
+      'BTCUSDT': { price: 45000 + Math.random() * 5000, change: 2.5 + Math.random() * 10 - 5 },
+      'ETHUSDT': { price: 2800 + Math.random() * 500, change: 1.8 + Math.random() * 8 - 4 },
+      'BNBUSDT': { price: 320 + Math.random() * 50, change: 0.5 + Math.random() * 6 - 3 },
+      'SOLUSDT': { price: 120 + Math.random() * 30, change: 3.2 + Math.random() * 12 - 6 },
+      'ADAUSDT': { price: 0.45 + Math.random() * 0.1, change: 1.1 + Math.random() * 4 - 2 }
+    };
+    
+    const mockData = mockPrices[symbol] || { 
+      price: 100 + Math.random() * 100, 
+      change: Math.random() * 10 - 5 
+    };
+    
     res.json({
-      usdt: user.usdt || 0,
-      btc: user.btc || 0,
-      eth: user.eth || 0,
+      symbol: symbol,
+      price: mockData.price.toFixed(2),
+      priceChange: (mockData.price * mockData.change / 100).toFixed(2),
+      priceChangePercent: mockData.change.toFixed(2),
+      volume: (Math.random() * 1000000).toFixed(2),
+      high24h: (mockData.price * 1.05).toFixed(2),
+      low24h: (mockData.price * 0.95).toFixed(2)
     });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching assets', error: err.message });
+    
+  } catch (error) {
+    console.error('Price fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// GET /api/market - fetch real market data from CoinGecko
-app.get('/api/market', async (req, res) => {
+app.get('/api/trading/orderbook/:symbol', async (req, res) => {
   try {
-    const ids = 'bitcoin,ethereum,binancecoin,solana,cardano';
-    const vs = 'usdt';
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=${vs}&include_24hr_change=true`;
-    const response = await fetch(url);
-    const data = await response.json();
-    const result = [
+    const { symbol } = req.params;
+    const { limit = 10 } = req.query;
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 5000);
+    });
+    
+    const fetchPromise = fetch(`https://api.binance.com/api/v3/depth?symbol=${symbol}&limit=${limit}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+    if (response.ok) {
+      const data = await response.json();
+      
+      const asks = data.asks.map(([price, quantity]) => ({
+        price: parseFloat(price),
+        amount: parseFloat(quantity)
+      }));
+
+      const bids = data.bids.map(([price, quantity]) => ({
+        price: parseFloat(price),
+        amount: parseFloat(quantity)
+      }));
+
+      res.json({ asks, bids });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch order book' });
+    }
+  } catch (error) {
+    console.error('Order book fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Place order endpoint (simulated for now)
+app.post('/api/trading/order', async (req, res) => {
+  try {
+    const { symbol, side, type, quantity, price, timeInForce = 'GTC' } = req.body;
+
+    // Validate required fields
+    if (!symbol || !side || !type || !quantity || !price) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate order parameters
+    if (parseFloat(quantity) <= 0 || parseFloat(price) <= 0) {
+      return res.status(400).json({ error: 'Invalid quantity or price' });
+    }
+
+    // Simulate order placement (in real implementation, this would call Binance API)
+    const orderId = Math.floor(Math.random() * 1000000);
+    const timestamp = new Date().toISOString();
+
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    res.json({
+      orderId,
+      symbol,
+      side,
+      type,
+      quantity: parseFloat(quantity),
+      price: parseFloat(price),
+      status: 'FILLED',
+      timestamp,
+      message: 'Order placed successfully'
+    });
+
+  } catch (error) {
+    console.error('Order placement error:', error);
+    res.status(500).json({ error: 'Failed to place order' });
+  }
+});
+
+// Get account information
+app.get('/api/trading/account', async (req, res) => {
+  try {
+    // Simulate account data (in real implementation, this would fetch from Binance)
+    const accountInfo = {
+      makerCommission: 15,
+      takerCommission: 15,
+      buyerCommission: 0,
+      sellerCommission: 0,
+      canTrade: true,
+      canWithdraw: true,
+      canDeposit: true,
+      updateTime: 0,
+      accountType: 'SPOT',
+      balances: [
+        {
+          asset: 'BTC',
+          free: '0.00000000',
+          locked: '0.00000000'
+        },
+        {
+          asset: 'USDT',
+          free: '1000.00000000',
+          locked: '0.00000000'
+        }
+      ]
+    };
+
+    res.json(accountInfo);
+  } catch (error) {
+    console.error('Account info error:', error);
+    res.status(500).json({ error: 'Failed to fetch account information' });
+  }
+});
+
+// Get open orders
+app.get('/api/trading/open-orders', async (req, res) => {
+  try {
+    // Simulate open orders (in real implementation, this would fetch from Binance)
+    const openOrders = [
       {
-        name: 'BTC/USDT',
-        price: data.bitcoin.usdt,
-        change: data.bitcoin.usdt_24h_change,
-      },
-      {
-        name: 'ETH/USDT',
-        price: data.ethereum.usdt,
-        change: data.ethereum.usdt_24h_change,
-      },
-      {
-        name: 'BNB/USDT',
-        price: data.binancecoin.usdt,
-        change: data.binancecoin.usdt_24h_change,
-      },
-      {
-        name: 'SOL/USDT',
-        price: data.solana.usdt,
-        change: data.solana.usdt_24h_change,
-      },
-      {
-        name: 'ADA/USDT',
-        price: data.cardano.usdt,
-        change: data.cardano.usdt_24h_change,
-      },
+        symbol: 'BTCUSDT',
+        orderId: 123456,
+        orderListId: -1,
+        clientOrderId: 'abc123',
+        price: '50000.00',
+        origQty: '0.001',
+        executedQty: '0.000',
+        cummulativeQuoteQty: '0.000',
+        status: 'NEW',
+        timeInForce: 'GTC',
+        type: 'LIMIT',
+        side: 'BUY',
+        stopPrice: '0.00',
+        icebergQty: '0.000',
+        time: 1640995200000,
+        updateTime: 1640995200000,
+        isWorking: true,
+        origQuoteOrderQty: '0.000'
+      }
     ];
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching market data', error: err.message });
+
+    res.json(openOrders);
+  } catch (error) {
+    console.error('Open orders error:', error);
+    res.status(500).json({ error: 'Failed to fetch open orders' });
   }
 });
 
-// --- Transaction Endpoints ---
-// Create a transaction
-app.post('/api/transactions', async (req, res) => {
+// Cancel order
+app.delete('/api/trading/order/:orderId', async (req, res) => {
   try {
-    const tx = new Transaction(req.body);
-    await tx.save();
-    res.status(201).json(tx);
-  } catch (err) {
-    res.status(400).json({ message: 'Error creating transaction', error: err.message });
-  }
-});
-// Get all transactions
-app.get('/api/transactions', async (req, res) => {
-  try {
-    const txs = await Transaction.find().populate('user', 'email');
-    res.json(txs);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching transactions', error: err.message });
-  }
-});
-// Get a single transaction
-app.get('/api/transactions/:id', async (req, res) => {
-  try {
-    const tx = await Transaction.findById(req.params.id).populate('user', 'email');
-    if (!tx) return res.status(404).json({ message: 'Transaction not found' });
-    res.json(tx);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching transaction', error: err.message });
-  }
-});
-// Update a transaction
-app.put('/api/transactions/:id', async (req, res) => {
-  try {
-    const tx = await Transaction.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!tx) return res.status(404).json({ message: 'Transaction not found' });
-    res.json(tx);
-  } catch (err) {
-    res.status(400).json({ message: 'Error updating transaction', error: err.message });
-  }
-});
-// Delete a transaction
-app.delete('/api/transactions/:id', async (req, res) => {
-  try {
-    const tx = await Transaction.findByIdAndDelete(req.params.id);
-    if (!tx) return res.status(404).json({ message: 'Transaction not found' });
-    res.json({ message: 'Transaction deleted' });
-  } catch (err) {
-    res.status(500).json({ message: 'Error deleting transaction', error: err.message });
+    const { orderId } = req.params;
+    const { symbol } = req.query;
+
+    if (!symbol) {
+      return res.status(400).json({ error: 'Symbol is required' });
+    }
+
+    // Simulate order cancellation
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    res.json({
+      orderId: parseInt(orderId),
+      symbol,
+      status: 'CANCELED',
+      message: 'Order cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ error: 'Failed to cancel order' });
   }
 });
 
-// --- Operation Log Endpoints ---
-// Create an operation log
-app.post('/api/operation-logs', async (req, res) => {
+// Get trading history
+app.get('/api/trading/history', async (req, res) => {
   try {
-    const log = new OperationLog(req.body);
-    await log.save();
-    res.status(201).json(log);
-  } catch (err) {
-    res.status(400).json({ message: 'Error creating log', error: err.message });
-  }
-});
-// Get all operation logs
-app.get('/api/operation-logs', async (req, res) => {
-  try {
-    const logs = await OperationLog.find().sort({ date: -1 });
-    res.json(logs);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching logs', error: err.message });
+    const { symbol, limit = 10 } = req.query;
+
+    // Simulate trading history
+    const trades = [
+      {
+        id: 123456,
+        orderId: 123456,
+        orderListId: -1,
+        price: '50000.00',
+        qty: '0.001',
+        quoteQty: '50.00',
+        commission: '0.075',
+        commissionAsset: 'USDT',
+        time: 1640995200000,
+        isBuyer: true,
+        isMaker: false,
+        isBestMatch: false
+      }
+    ];
+
+    res.json(trades);
+  } catch (error) {
+    console.error('Trading history error:', error);
+    res.status(500).json({ error: 'Failed to fetch trading history' });
   }
 });
 
-// --- Mining Payout Endpoints ---
-// Create a mining payout
-app.post('/api/mining-payouts', async (req, res) => {
-  try {
-    const payout = new MiningPayout(req.body);
-    await payout.save();
-    res.status(201).json(payout);
-  } catch (err) {
-    res.status(400).json({ message: 'Error creating mining payout', error: err.message });
-  }
-});
-// Get all mining payouts
-app.get('/api/mining-payouts', async (req, res) => {
-  try {
-    const payouts = await MiningPayout.find().populate('user', 'email');
-    res.json(payouts);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching mining payouts', error: err.message });
-  }
-});
+// Apply error handling middleware
+app.use(errorHandler);
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal server error', error: err.message });
+// 👇 Final fixed listen block
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Quantex Backend Server running on port ${PORT}`);
+  console.log(`🔒 Security features enabled:`);
+  console.log(`   - Rate limiting: ${securityConfig.rateLimit.max} requests per ${securityConfig.rateLimit.windowMs/1000}s`);
+  console.log(`   - Auth rate limiting: ${securityConfig.authRateLimit.max} attempts per ${securityConfig.authRateLimit.windowMs/1000}s`);
+  console.log(`   - JWT expiration: ${securityConfig.jwt.expiresIn}`);
+  console.log(`   - Password rounds: ${securityConfig.password.bcryptRounds}`);
 });
-
-app.listen(PORT, () => {
-  console.log(`Backend API server running on http://localhost:${PORT}`);
-}); 

@@ -13,7 +13,7 @@ export default function AdminLogin({ onLogin }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('https://quantex.online/api/admin/login', {
+      const res = await fetch('http://localhost:4001/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -60,7 +60,7 @@ export default function AdminLogin({ onLogin }) {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            placeholder="admin@quantex.online"
+            placeholder="admin@example.com"
           />
         </div>
         <div className="mb-4 w-full relative">

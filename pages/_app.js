@@ -4,6 +4,7 @@ import { mainnet, sepolia, goerli } from 'wagmi/chains';
 import { publicProvider } from 'wagmi/providers/public';
 import { getDefaultWallets, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
+import ErrorBoundary from '../component/ErrorBoundary';
 
 const { chains, publicClient, webSocketPublicClient } = configureChains(
   [mainnet, sepolia, goerli],
@@ -26,10 +27,12 @@ const config = createConfig({
 
 export default function App({ Component, pageProps }) {
   return (
-    <WagmiConfig config={config}>
-      <RainbowKitProvider chains={chains}>
-        <Component {...pageProps} />
-      </RainbowKitProvider>
-    </WagmiConfig>
+    <ErrorBoundary>
+      <WagmiConfig config={config}>
+        <RainbowKitProvider chains={chains}>
+          <Component {...pageProps} />
+        </RainbowKitProvider>
+      </WagmiConfig>
+    </ErrorBoundary>
   );
 } 

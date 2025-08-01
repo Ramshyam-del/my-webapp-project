@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const menuItems = [
   {
@@ -6,7 +7,8 @@ const menuItems = [
     label: 'Dashboard',
     icon: '📊',
     color: 'blue',
-    description: 'Overview & Analytics'
+    description: 'Overview & Analytics',
+    route: '/admin'
   },
   {
     id: 'users',
@@ -14,10 +16,11 @@ const menuItems = [
     icon: '👥',
     color: 'green',
     description: 'Manage Users & KYC',
+    route: '/admin/users',
     subItems: [
-      { id: 'user-list', label: 'User List', icon: '📋' },
-      { id: 'kyc', label: 'KYC Verification', icon: '✅' },
-      { id: 'duplicates', label: 'Duplicate Detection', icon: '🔍' }
+      { id: 'user-list', label: 'User List', icon: '📋', route: '/admin/users' },
+      { id: 'kyc', label: 'KYC Verification', icon: '✅', route: '/admin/kyc' },
+      { id: 'duplicates', label: 'Duplicate Detection', icon: '🔍', route: '/admin/duplicates' }
     ]
   },
   {
@@ -25,40 +28,46 @@ const menuItems = [
     label: 'Transactions',
     icon: '💳',
     color: 'purple',
-    description: 'Payment & Withdrawals'
+    description: 'Payment & Withdrawals',
+    route: '/admin/transactions'
   },
   {
     id: 'funds',
     label: 'Fund Management',
     icon: '💰',
     color: 'yellow',
-    description: 'Balance & Operations'
+    description: 'Balance & Operations',
+    route: '/admin/funds'
   },
   {
     id: 'mining',
     label: 'Mining Finance',
     icon: '⛏️',
     color: 'orange',
-    description: 'Mining Operations'
+    description: 'Mining Operations',
+    route: '/admin/mining'
   },
   {
     id: 'system',
     label: 'System Settings',
     icon: '⚙️',
     color: 'gray',
-    description: 'Configuration & Security'
+    description: 'Configuration & Security',
+    route: '/admin/system'
   },
   {
     id: 'operations',
     label: 'Operations',
     icon: '🛠️',
     color: 'indigo',
-    description: 'Admin Operations'
+    description: 'Admin Operations',
+    route: '/admin/operate'
   }
 ];
 
-export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentView }) => {
+export default function AdminSidebar({ sidebarOpen, setSidebarOpen, currentPath }) {
   const [expandedItems, setExpandedItems] = useState(['users']);
+  const router = useRouter();
 
   const toggleExpanded = (itemId) => {
     setExpandedItems(prev => 
@@ -68,13 +77,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
     );
   };
 
-  const handleItemClick = (itemId) => {
-    setCurrentView(itemId);
+  const handleItemClick = (route) => {
+    router.push(route);
     setSidebarOpen(false);
   };
 
-  const handleSubItemClick = (itemId) => {
-    setCurrentView(itemId);
+  const handleSubItemClick = (route) => {
+    router.push(route);
     setSidebarOpen(false);
   };
 
@@ -91,6 +100,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
     return colors[color] || colors.blue;
   };
 
+  const isActive = (route) => {
+    if (route === '/admin') {
+      return currentPath === '/admin';
+    }
+    return currentPath.startsWith(route);
+  };
+
   return (
     <>
       {/* Mobile overlay */}
@@ -102,29 +118,26 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-80 bg-white border-r border-gray-200 
-        transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        flex flex-col
+      <div className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        {/* Logo */}
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">Q</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Quantex</h1>
+              <h1 className="text-lg font-bold text-gray-900">Quantex</h1>
               <p className="text-xs text-gray-500">Admin Panel</p>
             </div>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-100"
+            className="lg:hidden p-2 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
           >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -134,19 +147,20 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           {menuItems.map((item) => (
             <div key={item.id}>
+              {/* Main Menu Item */}
               <button
                 onClick={() => {
                   if (item.subItems) {
                     toggleExpanded(item.id);
                   } else {
-                    handleItemClick(item.id);
+                    handleItemClick(item.route);
                   }
                 }}
                 className={`
-                  w-full flex items-center justify-between p-4 rounded-xl transition-all duration-200
-                  ${currentView === item.id 
-                    ? 'bg-blue-50 border border-blue-200 text-blue-700' 
-                    : 'hover:bg-gray-50 text-gray-700'
+                  w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-colors duration-200
+                  ${isActive(item.route) 
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                   }
                 `}
               >
@@ -154,7 +168,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getColorClasses(item.color)}`}>
                     <span className="text-sm">{item.icon}</span>
                   </div>
-                  <div className="text-left">
+                  <div>
                     <div className="font-medium">{item.label}</div>
                     <div className="text-xs text-gray-500">{item.description}</div>
                   </div>
@@ -173,18 +187,18 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
                 )}
               </button>
 
-              {/* Sub-items */}
+              {/* Sub Items */}
               {item.subItems && expandedItems.includes(item.id) && (
-                <div className="ml-12 mt-2 space-y-1">
+                <div className="ml-8 mt-2 space-y-1">
                   {item.subItems.map((subItem) => (
                     <button
                       key={subItem.id}
-                      onClick={() => handleSubItemClick(subItem.id)}
+                      onClick={() => handleSubItemClick(subItem.route)}
                       className={`
-                        w-full flex items-center space-x-3 p-3 rounded-lg transition-all duration-200
-                        ${currentView === subItem.id 
-                          ? 'bg-blue-100 text-blue-700' 
-                          : 'hover:bg-gray-50 text-gray-600'
+                        w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-left transition-colors duration-200
+                        ${isActive(subItem.route) 
+                          ? 'bg-blue-50 text-blue-700' 
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                         }
                       `}
                     >
@@ -199,23 +213,13 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm">👤</span>
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">Admin User</div>
-              <div className="text-xs text-gray-500">admin@quantex.com</div>
-            </div>
-            <button className="p-1 hover:bg-gray-200 rounded">
-              <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
+        <div className="px-4 py-4 border-t border-gray-200">
+          <div className="text-xs text-gray-500 text-center">
+            <p>Admin Panel v2.0</p>
+            <p className="mt-1">Secure & Efficient</p>
           </div>
         </div>
-      </aside>
+      </div>
     </>
   );
-}; 
+} 

@@ -29,7 +29,7 @@ export const LoginForm = () => {
     setToast('');
     setLoading(true);
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch('http://localhost:4001/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -37,6 +37,7 @@ export const LoginForm = () => {
       const data = await res.json();
       if (res.ok) {
         setToast('Login successful!');
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', email);
         router.push('/exchange');
       } else {
@@ -63,7 +64,7 @@ export const LoginForm = () => {
     setLoading(true);
     try {
       if (forgotStep === 'email') {
-        const res = await fetch('/api/forgot-password', {
+        const res = await fetch('http://localhost:4001/api/forgot-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: forgotForm.email }),
@@ -88,7 +89,7 @@ export const LoginForm = () => {
           setLoading(false);
           return;
         }
-        const res = await fetch('/api/reset-password', {
+        const res = await fetch('http://localhost:4001/api/reset-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

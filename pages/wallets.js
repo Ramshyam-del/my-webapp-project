@@ -4,24 +4,57 @@ import { useEffect, useState } from 'react';
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
   { label: 'MARKET', icon: '📊', route: '/market' },
-  { label: 'TRADE', icon: '💱', route: '/trade' },
+  { label: 'SPOT', icon: '💱', route: '/spot' },
   { label: 'FEATURES', icon: '✨', route: '/features' },
   { label: 'WALLETS', icon: '👛', route: '/wallets' },
 ];
 
-function DepositModal({ open, onClose }) {
+function DepositModal({ open, onClose, walletAddresses }) {
+  const [selectedCrypto, setSelectedCrypto] = useState('usdt');
+  
   if (!open) return null;
+
+  const cryptoOptions = [
+    { value: 'usdt', label: 'USDT', icon: '💚', network: 'ERC-20 Token' },
+    { value: 'btc', label: 'BTC', icon: '₿', network: 'Bitcoin Network' },
+    { value: 'eth', label: 'ETH', icon: 'Ξ', network: 'Ethereum Network' }
+  ];
+
+  const currentAddress = walletAddresses[selectedCrypto];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
         <button onClick={onClose} className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
-        <h2 className="text-lg font-bold mb-4">Deposit USDT</h2>
-        <div className="mb-2 text-sm text-gray-700">Send USDT to this address:</div>
-        <div className="mb-4 p-2 bg-gray-100 rounded text-xs font-mono break-all">0x1234abcd5678efgh9012ijkl3456mnop7890qrst</div>
+        <h2 className="text-lg font-bold mb-4">Deposit {selectedCrypto.toUpperCase()}</h2>
+        
+        <div className="mb-4">
+          <label className="block text-sm mb-2 font-medium">Select Cryptocurrency</label>
+          <div className="grid grid-cols-3 gap-2">
+            {cryptoOptions.map((crypto) => (
+              <button
+                key={crypto.value}
+                type="button"
+                onClick={() => setSelectedCrypto(crypto.value)}
+                className={`p-3 rounded-lg border-2 transition-colors ${
+                  selectedCrypto === crypto.value
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="text-lg mb-1">{crypto.icon}</div>
+                <div className="text-xs font-medium">{crypto.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-2 text-sm text-gray-700">Send {selectedCrypto.toUpperCase()} to this address:</div>
+        <div className="mb-4 p-2 bg-gray-100 rounded text-xs font-mono break-all">{currentAddress}</div>
         <div className="flex justify-center mb-4">
           <img src="/qr-mock.png" alt="QR Code" className="w-32 h-32 bg-gray-200 rounded" />
         </div>
-        <div className="text-xs text-gray-500">Only send USDT (ERC20) to this address.</div>
+        <div className="text-xs text-gray-500">Only send {selectedCrypto.toUpperCase()} ({cryptoOptions.find(c => c.value === selectedCrypto)?.network}) to this address.</div>
       </div>
     </div>
   );
@@ -59,6 +92,11 @@ export default function Wallets() {
   const [loading, setLoading] = useState(true);
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [walletAddresses, setWalletAddresses] = useState({
+    usdt: '0x1234abcd5678efgh9012ijkl3456mnop7890qrst',
+    btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+    eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -78,9 +116,74 @@ export default function Wallets() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Load wallet addresses from admin configuration
+  useEffect(() => {
+    const loadWalletAddresses = () => {
+      console.log('Loading wallet addresses...');
+      const savedConfig = localStorage.getItem('webConfig');
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig);
+          console.log('Loaded config:', config);
+          const newAddresses = {
+            usdt: config.usdtAddress || '0x1234abcd5678efgh9012ijkl3456mnop7890qrst',
+            btc: config.btcAddress || 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+            eth: config.ethAddress || '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+          };
+          
+          console.log('New addresses:', newAddresses);
+          
+          // Only update if addresses actually changed
+          setWalletAddresses(prev => {
+            console.log('Previous addresses:', prev);
+            if (JSON.stringify(prev) !== JSON.stringify(newAddresses)) {
+              console.log('Wallet addresses updated:', newAddresses);
+              return newAddresses;
+            }
+            console.log('No change detected');
+            return prev;
+          });
+        } catch (error) {
+          console.error('Error loading wallet addresses:', error);
+        }
+      } else {
+        console.log('No saved config found');
+      }
+    };
+
+    // Load initial addresses
+    loadWalletAddresses();
+
+    // Listen for storage changes (when admin updates configuration)
+    const handleStorageChange = (e) => {
+      if (e.key === 'webConfig') {
+        console.log('Storage change detected for webConfig');
+        loadWalletAddresses();
+      }
+    };
+
+    // Listen for custom events (for same-tab updates)
+    const handleCustomStorageEvent = (event) => {
+      console.log('Custom storage event detected', event);
+      loadWalletAddresses();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('webConfigUpdated', handleCustomStorageEvent);
+
+    // Also check for changes every 1 second (for same-tab updates)
+    const interval = setInterval(loadWalletAddresses, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('webConfigUpdated', handleCustomStorageEvent);
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      <DepositModal open={depositOpen} onClose={() => setDepositOpen(false)} />
+      <DepositModal open={depositOpen} onClose={() => setDepositOpen(false)} walletAddresses={walletAddresses} />
       <WithdrawModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
       <div className="px-4 pt-4 pb-2">
         <h1 className="text-2xl font-extrabold tracking-widest mb-4">WALLETS</h1>
