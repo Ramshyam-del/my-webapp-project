@@ -153,10 +153,10 @@ export default function FeaturesPage() {
     setSelectedLeverage('1x');
   };
 
-  // Fetch crypto data from Binance API
+  // Fetch crypto data from CoinMarketCap API
   const fetchCryptoData = async () => {
     try {
-      const response = await fetch('http://localhost:4001/api/trading/price/BTCUSDT', {
+      const response = await fetch(`http://localhost:3001/api/trading/price/${selectedPair}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -168,32 +168,27 @@ export default function FeaturesPage() {
       if (response.ok) {
         const data = await response.json();
         setCurrentPrice(parseFloat(data.price).toFixed(2));
-        setPriceChange(parseFloat(data.priceChangePercent).toFixed(2));
-        setHigh24h(parseFloat(data.highPrice).toFixed(2));
-        setLow24h(parseFloat(data.lowPrice).toFixed(2));
+        setPriceChange(parseFloat(data.change || 0).toFixed(2));
+        setHigh24h(parseFloat(data.highPrice || data.price).toFixed(2));
+        setLow24h(parseFloat(data.lowPrice || data.price).toFixed(2));
         setVolume24h(parseFloat(data.volume || 0).toFixed(0));
       } else {
-        // Fallback to direct Binance API
-        const binanceResponse = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT', {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          },
-          signal: AbortSignal.timeout(8000),
-        });
-
-        if (binanceResponse.ok) {
-          const binanceData = await binanceResponse.json();
-          setCurrentPrice(parseFloat(binanceData.lastPrice).toFixed(2));
-          setPriceChange(parseFloat(binanceData.priceChangePercent).toFixed(2));
-          setHigh24h(parseFloat(binanceData.highPrice).toFixed(2));
-          setLow24h(parseFloat(binanceData.lowPrice).toFixed(2));
-          setVolume24h(parseFloat(binanceData.volume || 0).toFixed(0));
-        }
+        console.error(`Failed to fetch ${selectedPair} from CoinMarketCap API`);
+        // Use fallback data if API fails
+        setCurrentPrice('0.00');
+        setPriceChange('0.00');
+        setHigh24h('0.00');
+        setLow24h('0.00');
+        setVolume24h('0');
       }
     } catch (error) {
       console.error('Error fetching crypto data:', error);
+      // Use fallback data on error
+      setCurrentPrice('0.00');
+      setPriceChange('0.00');
+      setHigh24h('0.00');
+      setLow24h('0.00');
+      setVolume24h('0');
     }
   };
 
@@ -219,7 +214,7 @@ export default function FeaturesPage() {
       const interval = setInterval(fetchCryptoData, 10000);
       return () => clearInterval(interval);
     }
-  }, [mounted]);
+  }, [mounted, selectedPair]);
 
   if (!mounted) {
     return (
@@ -268,7 +263,22 @@ export default function FeaturesPage() {
         {/* TradingView Chart */}
         <div className="bg-gray-900 rounded-lg p-2 sm:p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-            <h2 className="text-lg sm:text-xl font-bold">BTC/USDT</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg sm:text-xl font-bold">
+                {tradingPairs.find(pair => pair.symbol === selectedPair)?.name || 'BTC/USDT'}
+              </h2>
+              <select
+                value={selectedPair}
+                onChange={(e) => setSelectedPair(e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded px-2 sm:px-3 py-1 sm:py-2 text-white text-xs sm:text-sm focus:outline-none focus:border-blue-500"
+              >
+                {tradingPairs.map((pair) => (
+                  <option key={pair.symbol} value={pair.symbol}>
+                    {pair.icon} {pair.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
               <div className={`font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 ${currentPrice}
@@ -280,9 +290,9 @@ export default function FeaturesPage() {
           </div>
           
           {/* TradingView Widget - Mobile Responsive */}
-          <div className="w-full h-64 sm:h-96 bg-gray-800 rounded-lg overflow-hidden">
+          <div className="w-full h-64 sm:h-80 lg:h-96 bg-gray-800 rounded-lg overflow-hidden">
             <iframe
-              src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_features&symbol=BINANCE%3ABTCUSDT&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ffeatures"
+                              src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_features&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ffeatures`}
               style={{ width: '100%', height: '100%', border: 'none' }}
               allowTransparency={true}
               allowFullScreen={true}
@@ -311,13 +321,13 @@ export default function FeaturesPage() {
         <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
           <button
             onClick={() => handleOrderClick('BUY')}
-            className="bg-green-600 hover:bg-green-700 text-white py-4 px-3 sm:px-6 rounded-lg font-bold text-base sm:text-lg transition-colors"
+            className="bg-green-600 hover:bg-green-700 text-white py-3 sm:py-4 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-colors"
           >
             BUY UP
           </button>
           <button
             onClick={() => handleOrderClick('SELL')}
-            className="bg-red-600 hover:bg-red-700 text-white py-4 px-3 sm:px-6 rounded-lg font-bold text-base sm:text-lg transition-colors"
+            className="bg-red-600 hover:bg-red-700 text-white py-3 sm:py-4 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-colors"
           >
             BUY FALL
           </button>

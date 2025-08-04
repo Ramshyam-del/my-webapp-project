@@ -98,13 +98,184 @@ const UserList = () => {
     setShowDeleteModal(true);
   };
 
-  const handleSaveEdit = (e) => {
-    e.preventDefault();
-    // Simulate API call
-    console.log('Updating user:', editingUser);
-    alert('User updated successfully!');
+  const handleSaveEdit = () => {
+    // Update user in the list
+    setUsers(users.map(user => 
+      user.id === editingUser.id ? editingUser : user
+    ));
     setShowEditModal(false);
     setEditingUser(null);
+    
+    // Show success message
+    alert('User updated successfully!');
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingUser(null);
+  };
+
+  const handleInputChange = (field, value) => {
+    setEditingUser(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && showEditModal) {
+        handleCancelEdit();
+      }
+    };
+
+    if (showEditModal) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showEditModal]);
+
+  // Edit Modal Component
+  const EditModal = () => {
+    if (!showEditModal || !editingUser) return null;
+
+    const handleBackdropClick = (e) => {
+      if (e.target === e.currentTarget) {
+        handleCancelEdit();
+      }
+    };
+
+    const handleFormSubmit = (e) => {
+      e.preventDefault();
+      handleSaveEdit();
+    };
+
+  return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+        onClick={handleBackdropClick}
+      >
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="bg-gray-800 text-white px-4 sm:px-6 py-4 rounded-t-lg flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Edit</h2>
+            <button
+              onClick={handleCancelEdit}
+              className="text-white hover:text-gray-300 text-xl font-bold transition-colors"
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* Form Content */}
+          <form onSubmit={handleFormSubmit} className="p-4 sm:p-6 space-y-4">
+            {/* User Account */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">User account:</label>
+              <input
+                type="email"
+                value={editingUser.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600"
+                disabled
+              />
+            </div>
+
+            {/* Password */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">Password:</label>
+              <input
+                type="text"
+                value="Do not fill or modify"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-400"
+                disabled
+              />
+      </div>
+
+            {/* Withdrawal Password */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">Withdrawal password:</label>
+              <input
+                type="text"
+                value="Do not fill or modify"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-400"
+                disabled
+              />
+    </div>
+
+            {/* Withdrawal Address */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">Withdrawal address:</label>
+          <input
+                type="text"
+                value={editingUser.withdrawalAddress || 'bc1qw0q7glu0uqy04zryjcd3s5q2p563r4zxjyff5a'}
+                onChange={(e) => handleInputChange('withdrawalAddress', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter withdrawal address"
+            required
+          />
+            </div>
+
+            {/* Credit Score */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">Credit score:</label>
+              <input
+                type="number"
+                value={editingUser.creditScore || 100}
+                onChange={(e) => handleInputChange('creditScore', parseInt(e.target.value))}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min="0"
+                max="1000"
+            required
+          />
+      </div>
+
+            {/* VIP Levels */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <label className="w-full sm:w-32 text-sm font-medium text-gray-700">Vip Levels:</label>
+              <select
+                value={editingUser.vipLevel || 'VIP0'}
+                onChange={(e) => handleInputChange('vipLevel', e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              >
+                <option value="VIP0">VIP0</option>
+                <option value="VIP1">VIP1</option>
+                <option value="VIP2">VIP2</option>
+                <option value="VIP3">VIP3</option>
+                <option value="VIP4">VIP4</option>
+                <option value="VIP5">VIP5</option>
+              </select>
+    </div>
+
+            {/* Action Buttons */}
+            <div className="px-4 sm:px-6 py-4 bg-gray-50 rounded-b-lg flex flex-col sm:flex-row justify-end gap-3">
+    <button
+      type="button"
+                onClick={handleCancelEdit}
+                className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+    </button>
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Save
+              </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
   };
 
   const handleConfirmDelete = () => {
@@ -134,7 +305,7 @@ const UserList = () => {
   };
 
   if (loading) {
-    return (
+  return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -143,19 +314,19 @@ const UserList = () => {
               <div key={i} className="h-16 bg-gray-200 rounded"></div>
             ))}
           </div>
-        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-        <div>
+                  <div>
           <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
           <p className="text-sm text-gray-600 mt-1">Manage user accounts and permissions</p>
-        </div>
+                  </div>
         <div className="flex items-center space-x-3 mt-4 sm:mt-0">
           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             + Add User
@@ -163,7 +334,7 @@ const UserList = () => {
           <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
             Export
           </button>
-        </div>
+                </div>
       </div>
 
       {/* Search and Filters */}
@@ -173,7 +344,7 @@ const UserList = () => {
             <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </div>
+    </div>
           <input
             type="text"
             placeholder="Search users..."
@@ -194,8 +365,8 @@ const UserList = () => {
             <option>VIP0</option>
             <option>VIP1</option>
             <option>VIP2</option>
-          </select>
-        </div>
+        </select>
+      </div>
       </div>
 
       {/* Table */}
@@ -285,12 +456,12 @@ const UserList = () => {
                       >
                         Edit
                       </button>
-                      <button 
+                  <button
                         onClick={() => handleDeleteUser(user)}
                         className="text-red-600 hover:text-red-900 cursor-pointer"
                       >
                         Delete
-                      </button>
+                  </button>
                     </div>
                 </td>
               </tr>
@@ -363,88 +534,7 @@ const UserList = () => {
 
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Edit User</h3>
-              <button 
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <form onSubmit={handleSaveEdit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">VIP Level</label>
-                <select
-                  value={editingUser.vipLevel}
-                  onChange={(e) => setEditingUser({...editingUser, vipLevel: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="VIP0">VIP0</option>
-                  <option value="VIP1">VIP1</option>
-                  <option value="VIP2">VIP2</option>
-                  <option value="VIP3">VIP3</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={editingUser.status}
-                  onChange={(e) => setEditingUser({...editingUser, status: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">KYC Status</label>
-                <select
-                  value={editingUser.realNameAuth}
-                  onChange={(e) => setEditingUser({...editingUser, realNameAuth: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="verified">Verified</option>
-                  <option value="pending">Pending</option>
-                  <option value="uncer">Unverified</option>
-                </select>
-              </div>
-              
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEditModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EditModal />
       )}
 
       {/* Delete User Modal */}

@@ -2,29 +2,196 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body {
-  padding: 0;
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
-    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-@media (prefers-color-scheme: dark) {
+/* Mobile Responsive Improvements */
+@layer base {
   html {
-    color-scheme: dark;
+    scroll-behavior: smooth;
   }
-  body {
-    color: white;
-    background: black;
+  
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Mobile-friendly button styles */
+  .btn-mobile {
+    @apply px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-medium rounded-lg transition-all duration-200;
+  }
+  
+  /* Mobile-friendly card styles */
+  .card-mobile {
+    @apply bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-all duration-300;
+  }
+  
+  /* Mobile-friendly input styles */
+  .input-mobile {
+    @apply w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500;
+  }
+  
+  /* Mobile-friendly table styles */
+  .table-mobile {
+    @apply w-full text-sm sm:text-base;
+  }
+  
+  .table-mobile th {
+    @apply px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-wider;
+  }
+  
+  .table-mobile td {
+    @apply px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm sm:text-base;
+  }
+  
+  /* Mobile-friendly grid layouts */
+  .grid-mobile {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  /* Mobile-friendly spacing */
+  .section-mobile {
+    @apply py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8;
+  }
+  
+  /* Mobile-friendly text sizes */
+  .text-mobile {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .text-mobile-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  .text-mobile-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .text-mobile-2xl {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+  
+  /* Mobile-friendly navigation */
+  .nav-mobile {
+    @apply fixed w-full top-0 z-50 bg-gray-900 text-white p-4;
+  }
+  
+  /* Mobile-friendly modal */
+  .modal-mobile {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
+  }
+  
+  .modal-content-mobile {
+    @apply bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md sm:max-w-lg;
+  }
+  
+  /* Mobile-friendly charts */
+  .chart-mobile {
+    @apply w-full h-64 sm:h-80 lg:h-96 bg-gray-800 rounded-lg overflow-hidden;
+  }
+  
+  /* Mobile-friendly status indicators */
+  .status-mobile {
+    @apply flex items-center gap-2 text-xs sm:text-sm;
+  }
+  
+  /* Mobile-friendly loading states */
+  .loading-mobile {
+    @apply flex items-center justify-center py-8;
+  }
+  
+  /* Mobile-friendly error states */
+  .error-mobile {
+    @apply text-center py-8 text-gray-400 text-sm sm:text-base;
+  }
+  
+  /* Mobile-friendly success states */
+  .success-mobile {
+    @apply text-center py-8 text-green-400 text-sm sm:text-base;
+  }
+  
+  /* Mobile-friendly hover effects */
+  .hover-mobile {
+    @apply hover:bg-gray-800 transition-colors duration-200;
+  }
+  
+  /* Mobile-friendly focus states */
+  .focus-mobile {
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50;
+  }
+  
+  /* Mobile-friendly animations */
+  .animate-mobile {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  /* Mobile-friendly shadows */
+  .shadow-mobile {
+    @apply shadow-lg hover:shadow-xl transition-shadow duration-200;
+  }
+}
+
+/* Custom scrollbar for mobile */
+@layer utilities {
+  .scrollbar-mobile {
+    scrollbar-width: thin;
+    scrollbar-color: #4B5563 #1F2937;
+  }
+  
+  .scrollbar-mobile::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-mobile::-webkit-scrollbar-track {
+    background: #1F2937;
+  }
+  
+  .scrollbar-mobile::-webkit-scrollbar-thumb {
+    background: #4B5563;
+    border-radius: 3px;
+  }
+  
+  .scrollbar-mobile::-webkit-scrollbar-thumb:hover {
+    background: #6B7280;
+  }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .mobile-block {
+    display: block;
+  }
+  
+  .mobile-flex {
+    display: flex;
+  }
+  
+  .mobile-grid {
+    display: grid;
+  }
+}
+
+/* Tablet-specific improvements */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-hidden {
+    display: none;
+  }
+  
+  .tablet-block {
+    display: block;
+  }
+}
+
+/* Desktop-specific improvements */
+@media (min-width: 1025px) {
+  .desktop-hidden {
+    display: none;
+  }
+  
+  .desktop-block {
+    display: block;
   }
 } 

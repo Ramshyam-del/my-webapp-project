@@ -3,9 +3,10 @@ import { Herosection } from '../component/Herosection';
 import { Features } from '../component/Features';
 import { Roadmap } from '../component/Roadmap';
 import { Tokenomics } from '../component/Tokenomics';
-import { Footer } from '../component/Footer';
+import Footer from '../component/Footer';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 const glass = "backdrop-blur-md bg-white/20 border border-white/20 rounded-2xl shadow-xl";
 const sectionVariants = {
@@ -100,17 +101,18 @@ const CryptoPrices = () => {
           symbol: crypto.symbol,
           icon: crypto.icon,
           price: cryptoData.usd.toFixed(2),
-          change: cryptoData.usd_24h_change?.toFixed(2) || '0.00',
+          change: cryptoData.usd_24h_change?.toFixed(2) || getMockChange(),
         };
       });
       
       setCryptoData(formattedData);
       setLoading(false);
-    } catch (err) {
-      console.error('Error fetching crypto data:', err);
+    } catch (error) {
+      console.error('Error fetching crypto data:', error);
       setError(true);
+      setLoading(false);
       
-      // Always provide fallback data
+      // Use mock data as fallback
       const mockData = homeCryptoList.map(crypto => ({
         id: crypto.id,
         name: crypto.name,
@@ -119,9 +121,7 @@ const CryptoPrices = () => {
         price: getMockPrice(crypto.symbol),
         change: getMockChange(),
       }));
-      
       setCryptoData(mockData);
-      setLoading(false);
     }
   };
 
@@ -131,71 +131,51 @@ const CryptoPrices = () => {
     return () => clearInterval(interval);
   }, []);
 
-  return (
-    <div className="py-8 md:py-16">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-          🚀 Live Cryptocurrency Prices
-        </h2>
-        <p className="text-blue-100 text-lg">
-          Real-time market data from global exchanges
-        </p>
-        {error && (
-          <div className="mt-4 p-3 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-            <p className="text-yellow-200 text-sm">
-              ⚠️ Using demo data - API temporarily unavailable
-            </p>
-          </div>
-        )}
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <div className="text-lg sm:text-xl mb-4">Loading market data...</div>
       </div>
-      
-      {loading ? (
-        <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {cryptoData.map((crypto) => (
-            <motion.div
-              key={crypto.id}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/20 transition-all duration-300"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl">{crypto.icon}</span>
-                  <div>
-                    <div className="font-semibold text-white">{crypto.symbol}</div>
-                    <div className="text-xs text-blue-200">{crypto.name}</div>
-                  </div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-bold text-white">${crypto.price}</div>
-                <div className={`text-sm font-medium ${
-                  parseFloat(crypto.change) >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {parseFloat(crypto.change) >= 0 ? '+' : ''}{crypto.change}%
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
-      
-      <div className="text-center mt-8">
-        <a
-          href="/exchange"
-          className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 transform hover:scale-105"
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <div className="text-lg sm:text-xl mb-4">Failed to load market data</div>
+        <button 
+          onClick={fetchCryptoData}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
         >
-          View Full Exchange
-          <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </a>
+          Retry
+        </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
+      {cryptoData.map((crypto) => (
+        <div key={crypto.id} className="bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-colors">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center">
+              <span className="text-lg sm:text-xl mr-2">{crypto.icon}</span>
+              <div>
+                <div className="text-sm sm:text-base font-medium text-white">{crypto.name}</div>
+                <div className="text-xs text-gray-400">{crypto.symbol}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-1">
+            <div className="text-lg sm:text-xl font-bold text-white">${crypto.price}</div>
+            <div className={`text-sm ${parseFloat(crypto.change) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {parseFloat(crypto.change) >= 0 ? '+' : ''}{crypto.change}%
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

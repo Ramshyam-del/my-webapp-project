@@ -71,16 +71,17 @@ export default function TradePage() {
     { symbol: 'NMCUSDT', name: 'Namecoin/USDT', base: 'NMC', quote: 'USDT', icon: 'N' }
   ];
 
-  // Fetch crypto data from Binance API
+  // Fetch crypto data from CoinMarketCap API
   const fetchPriceData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Try backend proxy first
-      const response = await fetch(`http://localhost:4001/api/trading/price/${selectedPair}`, {
+      // Use our backend API endpoint
+      const response = await fetch(`http://localhost:3001/api/trading/price/${selectedPair}`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
       
@@ -88,28 +89,8 @@ export default function TradePage() {
         const data = await response.json();
         setPriceData(data);
       } else {
-        // Fallback to direct Binance API
-        const binanceResponse = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${selectedPair}`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
-        if (binanceResponse.ok) {
-          const data = await binanceResponse.json();
-          setPriceData({
-            symbol: data.symbol,
-            price: parseFloat(data.lastPrice),
-            priceChange: parseFloat(data.priceChange),
-            priceChangePercent: parseFloat(data.priceChangePercent),
-            highPrice: parseFloat(data.highPrice),
-            lowPrice: parseFloat(data.lowPrice),
-            volume: parseFloat(data.volume),
-            quoteVolume: parseFloat(data.quoteVolume)
-          });
-        } else {
-          throw new Error('Failed to fetch price data');
-        }
+        console.error('Failed to fetch price data from CoinMarketCap API');
+        setError('Failed to load price data. Please try again.');
       }
     } catch (err) {
       console.error('Error fetching price data:', err);
@@ -132,20 +113,8 @@ export default function TradePage() {
         const data = await response.json();
         setOrderBook(data);
       } else {
-        // Fallback to direct Binance API
-        const binanceResponse = await fetch(`https://api.binance.com/api/v3/depth?symbol=${selectedPair}&limit=20`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
-        if (binanceResponse.ok) {
-          const data = await binanceResponse.json();
-          setOrderBook({
-            bids: data.bids.map(([price, quantity]) => ({ price: parseFloat(price), quantity: parseFloat(quantity) })),
-            asks: data.asks.map(([price, quantity]) => ({ price: parseFloat(price), quantity: parseFloat(quantity) }))
-          });
-        }
+        console.error('Failed to fetch order book from CoinMarketCap API');
+        setOrderBook({ bids: [], asks: [] });
       }
     } catch (err) {
       console.error('Error fetching order book:', err);
@@ -279,11 +248,11 @@ export default function TradePage() {
         </div>
         
         {/* Trading Pair Selector */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <select
             value={selectedPair}
             onChange={(e) => setSelectedPair(e.target.value)}
-            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-auto"
           >
             {tradingPairs.map((pair) => (
               <option key={pair.symbol} value={pair.symbol}>
@@ -291,8 +260,6 @@ export default function TradePage() {
               </option>
             ))}
           </select>
-          
-
         </div>
       </div>
 
@@ -362,7 +329,7 @@ export default function TradePage() {
               <h3 className="text-lg font-bold mb-4">Price Chart</h3>
               <div className="w-full h-96 bg-gray-700 rounded-lg overflow-hidden">
                 <iframe
-                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_${selectedPair}&symbol=BINANCE%3A${selectedPair}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
+                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_${selectedPair}&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
                   style={{ width: '100%', height: '100%', border: 'none' }}
                   allowTransparency={true}
                   allowFullScreen={true}

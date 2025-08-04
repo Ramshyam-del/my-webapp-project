@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
-// Enhanced cryptocurrency list with more trading pairs
+// Top 11 cryptocurrencies by market cap
 const cryptoList = [
   { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: '₿' },
   { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: 'Ξ' },
@@ -13,49 +13,7 @@ const cryptoList = [
   { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: 'Ð' },
   { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: 'A' },
   { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: 'L' },
-  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M' },
-  { id: 'litecoin', name: 'Litecoin/LTC', symbol: 'LTC', icon: 'Ł' },
-  { id: 'uniswap', name: 'Uniswap/UNI', symbol: 'UNI', icon: 'U' },
-  { id: 'bitcoin-cash', name: 'Bitcoin Cash/BCH', symbol: 'BCH', icon: 'B' },
-  { id: 'stellar', name: 'Stellar/XLM', symbol: 'XLM', icon: 'X' },
-  { id: 'vechain', name: 'VeChain/VET', symbol: 'VET', icon: 'V' },
-  { id: 'filecoin', name: 'Filecoin/FIL', symbol: 'FIL', icon: 'F' },
-  { id: 'cosmos', name: 'Cosmos/ATOM', symbol: 'ATOM', icon: 'A' },
-  { id: 'monero', name: 'Monero/XMR', symbol: 'XMR', icon: 'M' },
-  { id: 'algorand', name: 'Algorand/ALGO', symbol: 'ALGO', icon: 'A' },
-  { id: 'tezos', name: 'Tezos/XTZ', symbol: 'XTZ', icon: 'T' },
-  { id: 'aave', name: 'Aave/AAVE', symbol: 'AAVE', icon: 'A' },
-  { id: 'compound', name: 'Compound/COMP', symbol: 'COMP', icon: 'C' },
-  { id: 'synthetix-network-token', name: 'Synthetix/SNX', symbol: 'SNX', icon: 'S' },
-  { id: 'yearn-finance', name: 'Yearn Finance/YFI', symbol: 'YFI', icon: 'Y' },
-  { id: 'decentraland', name: 'Decentraland/MANA', symbol: 'MANA', icon: 'M' },
-  { id: 'the-sandbox', name: 'The Sandbox/SAND', symbol: 'SAND', icon: 'S' },
-  { id: 'enjin-coin', name: 'Enjin Coin/ENJ', symbol: 'ENJ', icon: 'E' },
-  { id: 'axie-infinity', name: 'Axie Infinity/AXS', symbol: 'AXS', icon: 'A' },
-  { id: 'gala', name: 'Gala/GALA', symbol: 'GALA', icon: 'G' },
-  { id: 'flow', name: 'Flow/FLOW', symbol: 'FLOW', icon: 'F' },
-  { id: 'near', name: 'NEAR Protocol/NEAR', symbol: 'NEAR', icon: 'N' },
-  { id: 'fantom', name: 'Fantom/FTM', symbol: 'FTM', icon: 'F' },
-  { id: 'harmony', name: 'Harmony/ONE', symbol: 'ONE', icon: 'O' },
-  { id: 'kusama', name: 'Kusama/KSM', symbol: 'KSM', icon: 'K' },
-  { id: 'zilliqa', name: 'Zilliqa/ZIL', symbol: 'ZIL', icon: 'Z' },
-  { id: 'icon', name: 'ICON/ICX', symbol: 'ICX', icon: 'I' },
-  { id: 'ontology', name: 'Ontology/ONT', symbol: 'ONT', icon: 'O' },
-  { id: 'neo', name: 'NEO/NEO', symbol: 'NEO', icon: 'N' },
-  { id: 'qtum', name: 'Qtum/QTUM', symbol: 'QTUM', icon: 'Q' },
-  { id: 'verge', name: 'Verge/XVG', symbol: 'XVG', icon: 'V' },
-  { id: 'siacoin', name: 'Siacoin/SC', symbol: 'SC', icon: 'S' },
-  { id: 'steem', name: 'Steem/STEEM', symbol: 'STEEM', icon: 'S' },
-  { id: 'waves', name: 'Waves/WAVES', symbol: 'WAVES', icon: 'W' },
-  { id: 'nxt', name: 'NXT/NXT', symbol: 'NXT', icon: 'N' },
-  { id: 'bytecoin', name: 'Bytecoin/BCN', symbol: 'BCN', icon: 'B' },
-  { id: 'digibyte', name: 'DigiByte/DGB', symbol: 'DGB', icon: 'D' },
-  { id: 'vertcoin', name: 'Vertcoin/VTC', symbol: 'VTC', icon: 'V' },
-  { id: 'feathercoin', name: 'Feathercoin/FTC', symbol: 'FTC', icon: 'F' },
-  { id: 'novacoin', name: 'Novacoin/NVC', symbol: 'NVC', icon: 'N' },
-  { id: 'primecoin', name: 'Primecoin/XPM', symbol: 'XPM', icon: 'P' },
-  { id: 'peercoin', name: 'Peercoin/PPC', symbol: 'PPC', icon: 'P' },
-  { id: 'namecoin', name: 'Namecoin/NMC', symbol: 'NMC', icon: 'N' }
+  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M' }
 ];
 
 const navTabs = [
@@ -73,102 +31,43 @@ export default function MarketPage() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('market');
 
-  // Fetch real-time price data from Binance API
+  // Fetch real-time price data from CoinMarketCap API
   const fetchMarketData = async () => {
     try {
       setLoading(true);
       setError('');
       
-      const formattedData = [];
+      // Use the new efficient API endpoint that fetches all cryptocurrencies in one call
+      const response = await fetch('/api/crypto/top-all', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
+      });
       
-      // Fetch data for each cryptocurrency from Binance
-      for (const crypto of cryptoList) {
-        try {
-          const symbol = crypto.symbol + 'USDT';
-          
-          // Use our backend API endpoint for better reliability
-          const response = await fetch(`http://localhost:4001/api/trading/price/${symbol}`, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(10000), // 10 second timeout
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            
-            // Calculate market cap (simplified - in real app you'd get this from API)
-            const marketCap = (parseFloat(data.price) * parseFloat(data.volume || 1000000)).toFixed(0);
-            
-            formattedData.push({
-              id: crypto.id,
-              name: `${crypto.symbol}/USDT`,
-              icon: crypto.icon,
-              price: parseFloat(data.price).toFixed(2),
-              change: parseFloat(data.priceChangePercent).toFixed(2),
-              volume: parseFloat(data.volume || 0).toFixed(0),
-              marketCap: marketCap,
-              isPositive: parseFloat(data.priceChangePercent) >= 0,
-            });
-          } else {
-            // Fallback to direct Binance API
-            const binanceResponse = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`, {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              },
-              signal: AbortSignal.timeout(8000),
-            });
-            
-            if (binanceResponse.ok) {
-              const binanceData = await binanceResponse.json();
-              const marketCap = (parseFloat(binanceData.lastPrice) * parseFloat(binanceData.volume || 1000000)).toFixed(0);
-              
-              formattedData.push({
-                id: crypto.id,
-                name: `${crypto.symbol}/USDT`,
-                icon: crypto.icon,
-                price: parseFloat(binanceData.lastPrice).toFixed(2),
-                change: parseFloat(binanceData.priceChangePercent).toFixed(2),
-                volume: parseFloat(binanceData.volume || 0).toFixed(0),
-                marketCap: marketCap,
-                isPositive: parseFloat(binanceData.priceChangePercent) >= 0,
-              });
-            } else {
-              // Add placeholder data if API fails
-              formattedData.push({
-                id: crypto.id,
-                name: `${crypto.symbol}/USDT`,
-                icon: crypto.icon,
-                price: '0.00',
-                change: '0.00',
-                volume: '0',
-                marketCap: '0',
-                isPositive: true,
-              });
-            }
-          }
-        } catch (err) {
-          console.error(`Error fetching ${crypto.symbol}:`, err);
-          // Add placeholder data if this crypto fails
-          formattedData.push({
-            id: crypto.id,
-            name: `${crypto.symbol}/USDT`,
-            icon: crypto.icon,
-            price: '0.00',
-            change: '0.00',
-            volume: '0',
-            marketCap: '0',
-            isPositive: true,
-          });
-        }
+      if (response.ok) {
+        const data = await response.json();
+        
+        const formattedData = data.data.map(crypto => ({
+          id: crypto.symbol.toLowerCase(),
+          name: `${crypto.symbol}/USDT`,
+          icon: cryptoList.find(c => c.symbol === crypto.symbol)?.icon || '₿',
+          price: parseFloat(crypto.price).toFixed(2),
+          change: parseFloat(crypto.change || 0).toFixed(2),
+          volume: parseFloat(crypto.volume_24h || 0).toFixed(0),
+          marketCap: parseFloat(crypto.market_cap || 0).toFixed(0),
+          isPositive: parseFloat(crypto.change || 0) >= 0,
+        }));
+        
+        setMarketData(formattedData);
+        setLoading(false);
+      } else {
+        console.error('Failed to fetch market data');
+        setError('Failed to load market data. Retrying...');
+        setLoading(false);
       }
-      
-      setMarketData(formattedData);
-      setLoading(false);
       
     } catch (err) {
       console.error('Error in fetchMarketData:', err);
@@ -184,7 +83,7 @@ export default function MarketPage() {
 
   useEffect(() => {
     fetchMarketData();
-    const interval = setInterval(fetchMarketData, 30000); // Update every 30 seconds
+    const interval = setInterval(fetchMarketData, 120000); // Update every 120 seconds to avoid rate limits
     return () => clearInterval(interval);
   }, []);
 
@@ -255,47 +154,84 @@ export default function MarketPage() {
         {/* Market Data Table - Mobile Responsive */}
         {!loading && (
           <div className="bg-gray-900 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="hidden lg:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-800">
                   <tr>
-                    <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ASSET</th>
-                    <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">PRICE</th>
-                    <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H CHANGE</th>
-                    <th className="hidden sm:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H VOLUME</th>
-                    <th className="hidden lg:table-cell px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">MARKET CAP</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ASSET</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">PRICE</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H CHANGE</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H VOLUME</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">MARKET CAP</th>
                   </tr>
                 </thead>
                 <tbody className="bg-gray-900 divide-y divide-gray-800">
                   {marketData.map((crypto, index) => (
                     <tr key={crypto.id} className="hover:bg-gray-800 transition-colors">
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <span className="text-lg sm:text-2xl mr-2 sm:mr-3">{crypto.icon}</span>
+                          <span className="text-2xl mr-3">{crypto.icon}</span>
                           <div>
-                            <div className="text-xs sm:text-sm font-medium text-white">{crypto.name}</div>
+                            <div className="text-sm font-medium text-white">{crypto.name}</div>
                             <div className="text-xs text-gray-400">{crypto.id}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-                        <div className="text-xs sm:text-sm font-medium text-white">${crypto.price}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm font-medium text-white">${crypto.price}</div>
                       </td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-                        <div className={`text-xs sm:text-sm font-medium ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className={`text-sm font-medium ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
                           {crypto.isPositive ? '+' : ''}{crypto.change}%
                         </div>
                       </td>
-                      <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-                        <div className="text-xs sm:text-sm text-gray-300">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-gray-300">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
                       </td>
-                      <td className="hidden lg:table-cell px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
-                        <div className="text-xs sm:text-sm text-gray-300">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-gray-300">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="lg:hidden">
+              <div className="p-4 space-y-4">
+                {marketData.map((crypto, index) => (
+                  <div key={crypto.id} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <span className="text-2xl mr-3">{crypto.icon}</span>
+                        <div>
+                          <div className="text-sm font-medium text-white">{crypto.name}</div>
+                          <div className="text-xs text-gray-400">{crypto.id}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-white">${crypto.price}</div>
+                        <div className={`text-xs ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                          {crypto.isPositive ? '+' : ''}{crypto.change}%
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <div className="text-gray-400">Volume</div>
+                        <div className="text-white">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
+                      </div>
+                      <div>
+                        <div className="text-gray-400">Market Cap</div>
+                        <div className="text-white">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -305,10 +241,10 @@ export default function MarketPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-green-400">Connected to Binance API</span>
+              <span className="text-xs text-green-400">Connected to CoinMarketCap API</span>
             </div>
             <div className="text-xs text-gray-400">
-              Last updated: {new Date().toLocaleTimeString()}
+              Last updated: <span suppressHydrationWarning>{new Date().toLocaleTimeString()}</span>
             </div>
           </div>
         </div>

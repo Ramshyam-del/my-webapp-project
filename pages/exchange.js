@@ -11,107 +11,11 @@ const navTabs = [
 
 export default function ExchangePage() {
   const router = useRouter();
-  const [marketData, setMarketData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-
-  // Fetch real-time price data from Binance API
-  const fetchMarketData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      const cryptoList = ['BTC', 'ETH', 'BNB', 'SOL', 'ADA'];
-      const formattedData = [];
-      
-      // Fetch data for each cryptocurrency from Binance
-      for (const symbol of cryptoList) {
-        try {
-          const response = await fetch(`http://localhost:4001/api/trading/price/${symbol}USDT`, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            signal: AbortSignal.timeout(10000),
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            formattedData.push({
-              symbol: symbol,
-              price: parseFloat(data.price).toFixed(2),
-              change: parseFloat(data.priceChangePercent).toFixed(2),
-              isPositive: parseFloat(data.priceChangePercent) >= 0,
-            });
-          } else {
-            // Fallback to direct Binance API
-            const binanceResponse = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`, {
-              method: 'GET',
-              headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              },
-              signal: AbortSignal.timeout(8000),
-            });
-            
-            if (binanceResponse.ok) {
-              const binanceData = await binanceResponse.json();
-              formattedData.push({
-                symbol: symbol,
-                price: parseFloat(binanceData.lastPrice).toFixed(2),
-                change: parseFloat(binanceData.priceChangePercent).toFixed(2),
-                isPositive: parseFloat(binanceData.priceChangePercent) >= 0,
-              });
-            } else {
-              // Add placeholder data if API fails
-              formattedData.push({
-                symbol: symbol,
-                price: '0.00',
-                change: '0.00',
-                isPositive: true,
-              });
-            }
-          }
-        } catch (err) {
-          console.error(`Error fetching ${symbol}:`, err);
-          // Add placeholder data if this crypto fails
-          formattedData.push({
-            symbol: symbol,
-            price: '0.00',
-            change: '0.00',
-            isPositive: true,
-          });
-        }
-      }
-      
-      setMarketData(formattedData);
-      setLoading(false);
-      
-    } catch (err) {
-      console.error('Error in fetchMarketData:', err);
-      setError('Failed to load market data. Retrying...');
-      setLoading(false);
-      
-      // Retry after 10 seconds
-      setTimeout(() => {
-        fetchMarketData();
-      }, 10000);
-    }
-  };
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (mounted) {
-      fetchMarketData();
-      const interval = setInterval(fetchMarketData, 30000); // Update every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [mounted]);
 
   if (!mounted) {
     return (
@@ -168,115 +72,124 @@ export default function ExchangePage() {
       
       {/* Main Content */}
       <div className="flex-1 bg-black p-2 sm:p-4">
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-900 text-red-200 px-3 sm:px-4 py-2 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-        
-        {/* Loading State */}
-        {loading && (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="text-lg sm:text-xl mb-4">Loading market data...</div>
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <div className="max-w-6xl mx-auto">
+          {/* Hero Section */}
+          <div className="text-center mb-12">
+            <h1 className="text-4xl sm:text-6xl font-bold text-white mb-6">
+              Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Quantex</span>
+            </h1>
+            <p className="text-xl sm:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
+              The ultimate cryptocurrency trading platform with advanced features and real-time market data
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => router.push('/market')}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200 transform hover:scale-105"
+              >
+                View Market
+              </button>
+              <button 
+                onClick={() => router.push('/features')}
+                className="bg-transparent border-2 border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200"
+              >
+                Start Trading
+              </button>
             </div>
           </div>
-        )}
-        
-        {/* Market Overview - Mobile Responsive */}
-        {!loading && (
-          <div className="mb-6">
-            <h2 className="text-lg sm:text-xl font-bold mb-4">Market Overview</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-              {marketData.map((crypto, index) => (
-                <div key={index} className="bg-gray-900 rounded-lg p-3 sm:p-4">
-                  <div className="text-center">
-                    <div className="text-lg sm:text-xl font-bold mb-1">{crypto.symbol}</div>
-                    <div className="text-sm sm:text-base font-medium mb-1">${crypto.price}</div>
-                    <div className={`text-xs sm:text-sm font-medium ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                      {crypto.isPositive ? '+' : ''}{crypto.change}%
-                    </div>
-                  </div>
-                </div>
-              ))}
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">📊</div>
+              <h3 className="text-xl font-bold text-white mb-3">Live Market Data</h3>
+              <p className="text-gray-400">
+                Real-time cryptocurrency prices and market information from CoinMarketCap API
+              </p>
+            </div>
+
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">⚡</div>
+              <h3 className="text-xl font-bold text-white mb-3">Advanced Trading</h3>
+              <p className="text-gray-400">
+                Professional trading interface with BUY UP/BUY FALL options
+              </p>
+            </div>
+
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">🔒</div>
+              <h3 className="text-xl font-bold text-white mb-3">Secure Platform</h3>
+              <p className="text-gray-400">
+                Enterprise-grade security with Supabase authentication
+              </p>
+            </div>
+
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">📈</div>
+              <h3 className="text-xl font-bold text-white mb-3">Portfolio Tracking</h3>
+              <p className="text-gray-400">
+                Monitor your investments and track performance over time
+              </p>
+            </div>
+
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">💱</div>
+              <h3 className="text-xl font-bold text-white mb-3">Multiple Cryptocurrencies</h3>
+              <p className="text-gray-400">
+                Trade Bitcoin, Ethereum, and 9+ other cryptocurrencies
+              </p>
+            </div>
+
+            <div className="bg-gray-900 rounded-xl p-6 hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
+              <div className="text-4xl mb-4">📱</div>
+              <h3 className="text-xl font-bold text-white mb-3">Mobile Responsive</h3>
+              <p className="text-gray-400">
+                Trade anywhere with our mobile-optimized interface
+              </p>
             </div>
           </div>
-        )}
-        
-        {/* Feature Cards - Mobile Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Market Card */}
-          <div className="bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => router.push('/market')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-2xl sm:text-3xl">📊</div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold">Market</h3>
-                <p className="text-xs sm:text-sm text-gray-400">Live cryptocurrency prices</p>
+
+          {/* Stats Section */}
+          <div className="bg-gray-900 rounded-xl p-8 mb-12">
+            <h2 className="text-3xl font-bold text-white text-center mb-8">Platform Statistics</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="text-3xl md:text-4xl font-bold text-blue-400 mb-2">11+</div>
+                <div className="text-gray-400">Cryptocurrencies</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl md:text-4xl font-bold text-green-400 mb-2">24/7</div>
+                <div className="text-gray-400">Market Data</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl md:text-4xl font-bold text-purple-400 mb-2">100%</div>
+                <div className="text-gray-400">Secure</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl md:text-4xl font-bold text-orange-400 mb-2">Real-time</div>
+                <div className="text-gray-400">Trading</div>
               </div>
             </div>
-            <p className="text-xs sm:text-sm text-gray-300 mb-4">Real-time market data with price charts and trading volume</p>
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors">
-              View Market
-            </button>
           </div>
-          
-          {/* Features Card */}
-          <div className="bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => router.push('/features')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-2xl sm:text-3xl">✨</div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold">Features</h3>
-                <p className="text-xs sm:text-sm text-gray-400">Trading interface</p>
-              </div>
-            </div>
-            <p className="text-xs sm:text-sm text-gray-300 mb-4">Advanced trading tools with BUY UP/BUY FALL options</p>
-            <button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors">
-              View Features
-            </button>
-          </div>
-          
-          {/* Portfolio Card */}
-          <div className="bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => router.push('/portfolio')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-2xl sm:text-3xl">📈</div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold">Portfolio</h3>
-                <p className="text-xs sm:text-sm text-gray-400">Track your investments</p>
-              </div>
-            </div>
-            <p className="text-xs sm:text-sm text-gray-300 mb-4">Monitor your cryptocurrency portfolio and track performance</p>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors">
-              View Portfolio
-            </button>
-          </div>
-          
-          {/* Trade Card */}
-          <div className="bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-colors cursor-pointer" onClick={() => router.push('/trade')}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="text-2xl sm:text-3xl">💱</div>
-              <div>
-                <h3 className="text-base sm:text-lg font-bold">Spot Trading</h3>
-                <p className="text-xs sm:text-sm text-gray-400">Professional spot trading</p>
-              </div>
-            </div>
-            <p className="text-xs sm:text-sm text-gray-300 mb-4">Professional spot trading with real-time order book</p>
-            <button className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded text-sm font-medium transition-colors">
-              View Trade
-            </button>
-          </div>
-        </div>
-        
-        {/* API Status - Mobile Responsive */}
-        <div className="mt-6 p-3 bg-gray-800 rounded-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-green-400">Connected to Binance API</span>
-            </div>
-            <div className="text-xs text-gray-400">
-              Last updated: {new Date().toLocaleTimeString()}
+
+          {/* Call to Action */}
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-white mb-6">Ready to Start Trading?</h2>
+            <p className="text-gray-300 mb-8 text-lg">
+              Join thousands of traders who trust Quantex for their cryptocurrency trading needs
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                onClick={() => router.push('/features')}
+                className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200"
+              >
+                Get Started Now
+              </button>
+              <button 
+                onClick={() => router.push('/market')}
+                className="bg-transparent border-2 border-gray-500 text-gray-300 hover:border-white hover:text-white px-8 py-4 rounded-lg font-bold text-lg transition-all duration-200"
+              >
+                Explore Market
+              </button>
             </div>
           </div>
         </div>

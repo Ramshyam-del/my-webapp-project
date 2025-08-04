@@ -98,86 +98,66 @@ export default function Wallets() {
     eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
   });
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    fetch('http://localhost:4000/api/user/assets', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(data => {
-        setAssets({
-          usdt: data.usdt ?? 0,
-          btc: data.btc ?? 0,
-          eth: data.eth ?? 0,
-        });
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  // Load wallet addresses from admin configuration
-  useEffect(() => {
-    const loadWalletAddresses = () => {
-      console.log('Loading wallet addresses...');
-      const savedConfig = localStorage.getItem('webConfig');
-      if (savedConfig) {
-        try {
-          const config = JSON.parse(savedConfig);
-          console.log('Loaded config:', config);
-          const newAddresses = {
-            usdt: config.usdtAddress || '0x1234abcd5678efgh9012ijkl3456mnop7890qrst',
-            btc: config.btcAddress || 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-            eth: config.ethAddress || '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
-          };
-          
-          console.log('New addresses:', newAddresses);
-          
-          // Only update if addresses actually changed
-          setWalletAddresses(prev => {
-            console.log('Previous addresses:', prev);
-            if (JSON.stringify(prev) !== JSON.stringify(newAddresses)) {
-              console.log('Wallet addresses updated:', newAddresses);
-              return newAddresses;
-            }
-            console.log('No change detected');
-            return prev;
+  // Load wallet addresses from database
+  const loadWalletAddresses = async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        if (config.deposit_addresses) {
+          setWalletAddresses({
+            usdt: config.deposit_addresses.usdt || walletAddresses.usdt,
+            btc: config.deposit_addresses.btc || walletAddresses.btc,
+            eth: config.deposit_addresses.eth || walletAddresses.eth
           });
-        } catch (error) {
-          console.error('Error loading wallet addresses:', error);
         }
-      } else {
-        console.log('No saved config found');
       }
-    };
+    } catch (error) {
+      console.error('Error loading wallet addresses:', error);
+    }
+  };
 
-    // Load initial addresses
+  // Real-time update handler
+  const handleConfigUpdate = (event) => {
+    console.log('Wallet config update received:', event.detail);
+    if (event.detail && event.detail.config) {
+      const config = event.detail.config;
+      setWalletAddresses({
+        usdt: config.usdtAddress || walletAddresses.usdt,
+        btc: config.btcAddress || walletAddresses.btc,
+        eth: config.ethAddress || walletAddresses.eth
+      });
+    }
+  };
+
+  // Handle storage changes (cross-tab updates)
+  const handleStorageChange = (e) => {
+    if (e.key === 'webConfig') {
+      try {
+        const config = JSON.parse(e.newValue);
+        handleConfigUpdate({ detail: { config } });
+      } catch (error) {
+        console.error('Error parsing config update:', error);
+      }
+    }
+  };
+
+  // Handle custom events (same-tab updates)
+  const handleCustomStorageEvent = (event) => {
+    handleConfigUpdate(event);
+  };
+
+  useEffect(() => {
     loadWalletAddresses();
-
-    // Listen for storage changes (when admin updates configuration)
-    const handleStorageChange = (e) => {
-      if (e.key === 'webConfig') {
-        console.log('Storage change detected for webConfig');
-        loadWalletAddresses();
-      }
-    };
-
-    // Listen for custom events (for same-tab updates)
-    const handleCustomStorageEvent = (event) => {
-      console.log('Custom storage event detected', event);
-      loadWalletAddresses();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
+    
+    // Add real-time event listeners
     window.addEventListener('webConfigUpdated', handleCustomStorageEvent);
-
-    // Also check for changes every 1 second (for same-tab updates)
-    const interval = setInterval(loadWalletAddresses, 1000);
-
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Cleanup event listeners
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('webConfigUpdated', handleCustomStorageEvent);
-      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 

@@ -1,0 +1,8 @@
+@echo off
+set NEXT_PUBLIC_SUPABASE_URL=https://ishprhrmvubfzohvqqxz.supabase.co
+set SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzaHByaHJtdnViZnpvaHZxcXh6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDEyNDI3NCwiZXhwIjoyMDY5NzAwMjc0fQ.52mnvHi-xqCxbpsbf5lozrVE31K_DlHMQscPLpBnZPQ
+set JWT_SECRET=your-super-secret-jwt-key-here
+set BACKEND_PORT=3001
+set COINMARKETCAP_API_KEY=131fe787-ebd7-425b-8896-fb007eb76f3f
+cd backend
+node server.js 

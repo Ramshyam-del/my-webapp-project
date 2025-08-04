@@ -57,18 +57,62 @@ export default function AdminOperate() {
     }
   }, [showFrontendPreview]);
 
-  const saveConfig = () => {
-    localStorage.setItem('webConfig', JSON.stringify(config));
-    // Trigger a storage event to notify other tabs/windows
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'webConfig',
-      newValue: JSON.stringify(config)
-    }));
-    // Also dispatch a custom event for same-tab updates
-    window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-      detail: { config }
-    }));
-    alert('Configuration saved successfully! Wallet addresses have been updated in the frontend.');
+  const saveConfig = async () => {
+    try {
+      // Save to database
+      const response = await fetch('/api/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+        },
+        body: JSON.stringify({
+          deposit_addresses: {
+            usdt: config.usdtAddress,
+            btc: config.btcAddress,
+            eth: config.ethAddress
+          },
+          system_settings: {
+            title: config.title,
+            official_website_name: config.officialWebsiteName,
+            official_website_link: config.officialWebsiteLink,
+            email: config.email,
+            address: config.address,
+            mobile: config.mobile,
+            working_hours: config.workingHours,
+            menu_management: config.menuManagement,
+            logo: config.logo,
+            favicon: config.favicon,
+            telegram: config.telegram,
+            whatsapp: config.whatsapp,
+            whatsapp_address: config.whatsappAddress,
+            email_address: config.emailAddress,
+            slogan: config.slogan,
+            subbanner: config.subbanner,
+            white_paper_link: config.whitePaperLink
+          }
+        })
+      });
+      
+      if (response.ok) {
+        // Also save to localStorage as backup
+        localStorage.setItem('webConfig', JSON.stringify(config));
+        // Trigger events for frontend updates
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'webConfig',
+          newValue: JSON.stringify(config)
+        }));
+        window.dispatchEvent(new CustomEvent('webConfigUpdated', {
+          detail: { config }
+        }));
+        alert('Configuration saved to database successfully! Wallet addresses have been updated in the frontend.');
+      } else {
+        alert('Failed to save configuration to database. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving config:', error);
+      alert('Error saving configuration. Please try again.');
+    }
   };
 
   const resetConfig = () => {
@@ -425,18 +469,23 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.usdtAddress}
-               onChange={(e) => {
-                 const newValue = e.target.value;
-                 console.log('USDT address changed to:', newValue);
-                 setConfig(prev => ({ ...prev, usdtAddress: newValue }));
-                 // Immediately save and trigger update
-                 const updatedConfig = { ...config, usdtAddress: newValue };
-                 localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                 console.log('Dispatching webConfigUpdated event');
-                 window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                   detail: { config: updatedConfig }
-                 }));
-               }}
+                               onChange={(e) => {
+                  const newValue = e.target.value;
+                  console.log('USDT address changed to:', newValue);
+                  setConfig(prev => ({ ...prev, usdtAddress: newValue }));
+                  // Immediately save and trigger update
+                  const updatedConfig = { ...config, usdtAddress: newValue };
+                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  console.log('Dispatching webConfigUpdated event');
+                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                  // Also dispatch storage event for cross-tab updates
+                  window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'webConfig',
+                    newValue: JSON.stringify(updatedConfig)
+                  }));
+                }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter USDT wallet address"
              />
@@ -485,16 +534,21 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.btcAddress}
-               onChange={(e) => {
-                 const newValue = e.target.value;
-                 setConfig(prev => ({ ...prev, btcAddress: newValue }));
-                 // Immediately save and trigger update
-                 const updatedConfig = { ...config, btcAddress: newValue };
-                 localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                 window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                   detail: { config: updatedConfig }
-                 }));
-               }}
+                               onChange={(e) => {
+                  const newValue = e.target.value;
+                  setConfig(prev => ({ ...prev, btcAddress: newValue }));
+                  // Immediately save and trigger update
+                  const updatedConfig = { ...config, btcAddress: newValue };
+                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                  // Also dispatch storage event for cross-tab updates
+                  window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'webConfig',
+                    newValue: JSON.stringify(updatedConfig)
+                  }));
+                }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter BTC wallet address"
              />
@@ -543,16 +597,21 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.ethAddress}
-               onChange={(e) => {
-                 const newValue = e.target.value;
-                 setConfig(prev => ({ ...prev, ethAddress: newValue }));
-                 // Immediately save and trigger update
-                 const updatedConfig = { ...config, ethAddress: newValue };
-                 localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                 window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                   detail: { config: updatedConfig }
-                 }));
-               }}
+                               onChange={(e) => {
+                  const newValue = e.target.value;
+                  setConfig(prev => ({ ...prev, ethAddress: newValue }));
+                  // Immediately save and trigger update
+                  const updatedConfig = { ...config, ethAddress: newValue };
+                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                  // Also dispatch storage event for cross-tab updates
+                  window.dispatchEvent(new StorageEvent('storage', {
+                    key: 'webConfig',
+                    newValue: JSON.stringify(updatedConfig)
+                  }));
+                }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter ETH wallet address"
              />

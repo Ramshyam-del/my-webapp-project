@@ -8,8 +8,8 @@ export default function DepositPage() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
-  // Cryptocurrency options
-  const cryptoOptions = [
+  // Cryptocurrency options - will be loaded from database
+  const [cryptoOptions, setCryptoOptions] = useState([
     {
       id: 'bitcoin',
       name: 'Bitcoin',
@@ -31,16 +31,6 @@ export default function DepositPage() {
       qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
     },
     {
-      id: 'usdc',
-      name: 'USDC',
-      symbol: 'USDC',
-      network: 'Centre',
-      icon: '$',
-      color: 'bg-blue-600',
-      address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
-    },
-    {
       id: 'usdt',
       name: 'USDT',
       symbol: 'USDT',
@@ -49,18 +39,58 @@ export default function DepositPage() {
       color: 'bg-green-500',
       address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',
       qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
-    },
-    {
-      id: 'pyusd',
-      name: 'PYUSD',
-      symbol: 'PYUSD',
-      network: 'PayPal USD',
-      icon: 'P',
-      color: 'bg-blue-700',
-      address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
     }
-  ];
+  ]);
+
+  // Load configuration from database
+  const loadConfig = async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        if (config.deposit_addresses) {
+          const updatedOptions = cryptoOptions.map(crypto => {
+            const address = config.deposit_addresses[crypto.id] || crypto.address;
+            return {
+              ...crypto,
+              address: address,
+              qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+            };
+          });
+          setCryptoOptions(updatedOptions);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading config:', error);
+    }
+  };
+
+  // Real-time update handler
+  const handleConfigUpdate = (event) => {
+    console.log('Config update received:', event.detail);
+    if (event.detail && event.detail.config) {
+      const config = event.detail.config;
+      const updatedOptions = cryptoOptions.map(crypto => {
+        let address = crypto.address;
+        
+        // Map admin panel field names to crypto IDs
+        if (crypto.id === 'bitcoin' && config.btcAddress) {
+          address = config.btcAddress;
+        } else if (crypto.id === 'ethereum' && config.ethAddress) {
+          address = config.ethAddress;
+        } else if (crypto.id === 'usdt' && config.usdtAddress) {
+          address = config.usdtAddress;
+        }
+        
+        return {
+          ...crypto,
+          address: address,
+          qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+        };
+      });
+      setCryptoOptions(updatedOptions);
+    }
+  };
 
   // Copy address to clipboard
   const copyAddress = async (address) => {
@@ -94,6 +124,25 @@ export default function DepositPage() {
 
   useEffect(() => {
     setMounted(true);
+    loadConfig(); // Load configuration from database
+    
+    // Add real-time event listeners
+    window.addEventListener('webConfigUpdated', handleConfigUpdate);
+    window.addEventListener('storage', (event) => {
+      if (event.key === 'webConfig') {
+        try {
+          const config = JSON.parse(event.newValue);
+          handleConfigUpdate({ detail: { config } });
+        } catch (error) {
+          console.error('Error parsing config update:', error);
+        }
+      }
+    });
+
+    // Cleanup event listeners
+    return () => {
+      window.removeEventListener('webConfigUpdated', handleConfigUpdate);
+    };
   }, []);
 
   if (!mounted) {
