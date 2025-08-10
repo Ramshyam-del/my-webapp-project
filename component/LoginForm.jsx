@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
 function Toast({ message, onClose }) {
   if (!message) return null;
@@ -29,20 +30,19 @@ export const LoginForm = () => {
     setToast('');
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4001/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      // Use Supabase authentication directly
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
       });
-      const data = await res.json();
-      if (res.ok) {
-        setToast('Login successful!');
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', email);
-        router.push('/exchange');
+
+      if (error) {
+        setError(error.message || 'Login failed');
+        setToast(error.message || 'Login failed');
       } else {
-        setError(data.message || 'Login failed');
-        setToast(data.message || 'Login failed');
+        setToast('Login successful!');
+        // Session is handled by Supabase; optional local hint
+        router.push('/exchange');
       }
     } catch (err) {
       setError('An error occurred during login.');
@@ -64,52 +64,23 @@ export const LoginForm = () => {
     setLoading(true);
     try {
       if (forgotStep === 'email') {
-        const res = await fetch('http://localhost:4001/api/forgot-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: forgotForm.email }),
+        // Use Supabase password reset
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotForm.email, {
+          redirectTo: `${window.location.origin}/reset-password`
         });
-        const data = await res.json();
-        if (res.ok) {
-          setToast('OTP sent to your email.');
-          setForgotStep('otp');
+        
+        if (error) {
+          setError(error.message || 'Failed to send reset email');
         } else {
-          setError(data.message || 'Failed to send OTP');
-        }
-      } else if (forgotStep === 'otp') {
-        if (!forgotForm.otp || forgotForm.otp.length !== 6) {
-          setError('Enter the 6-digit OTP sent to your email.');
-          setLoading(false);
-          return;
-        }
-        setForgotStep('reset');
-      } else if (forgotStep === 'reset') {
-        if (forgotForm.newPassword.length < 6) {
-          setError('Password must be at least 6 characters.');
-          setLoading(false);
-          return;
-        }
-        const res = await fetch('http://localhost:4001/api/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: forgotForm.email,
-            otp: forgotForm.otp,
-            newPassword: forgotForm.newPassword,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setToast('Password reset successful! You can now log in.');
+          setToast('Password reset email sent to your email.');
           setForgotStep('done');
-        } else {
-          setError(data.message || 'Failed to reset password');
         }
       }
     } catch (err) {
-      setError('An error occurred.');
+      setError('An error occurred during password reset.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

@@ -3,762 +3,263 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const nodeFetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 const Configuration = require('./models/Configuration');
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 3001;
+const PORT = process.env.BACKEND_PORT || 4001;
 
-// Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+/** ───────── Supabase (server) ───────── **/
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  console.error('❌ NEXT_PUBLIC_SUPABASE_URL is not set');
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error('❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in env');
   process.exit(1);
 }
-
-if (!supabaseServiceKey) {
-  console.error('❌ SUPABASE_SERVICE_ROLE_KEY is not set');
-  process.exit(1);
-}
-
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Security configuration
-const securityConfig = {
-  api: {
-    maxRequestSize: '10mb'
-  },
-  rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    message: 'Too many requests from this IP, please try again later.'
-  }
-};
-
-// Security middleware
-const securityHeaders = (req, res, next) => {
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';");
-  next();
-};
-
-// Request logging middleware
-const requestLogger = (req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
-  next();
-};
-
-// Apply middleware
-app.use(securityHeaders);
-app.use(requestLogger);
+/** ───────── Security / middleware ───────── **/
+app.use((req, _res, next) => { console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`); next(); });
 app.use(helmet({ contentSecurityPolicy: false }));
+app.set('trust proxy', 1);
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  origin: (process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000']).map(o => o.trim()),
+  credentials: true
 }));
-app.use(express.json({ limit: securityConfig.api.maxRequestSize }));
-app.use(rateLimit(securityConfig.rateLimit));
+app.use(express.json({ limit: '10mb' }));
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-// Supabase Auth middleware
-const authenticateUser = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+/** ───────── Helpers ───────── **/
+const _fetch = globalThis.fetch ?? nodeFetch;
+function fetchWithTimeout(url, opts = {}, ms = 8000) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    _fetch(url, opts).then(r => { clearTimeout(t); resolve(r); }, e => { clearTimeout(t); reject(e); });
+  });
+}
+// Only these four symbols are served
+const ALLOWED = ['BTC', 'ETH', 'XRP', 'TRX'];
+const ID_BY_SYMBOL = { BTC: 'bitcoin', ETH: 'ethereum', XRP: 'ripple', TRX: 'tron' };
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+/** Simple in-memory cache */
+const CACHE_TTL_MS = Number(process.env.MARKET_TTL_MS || 60_000);
+let marketCache = { ts: 0, data: null };      // cache for /api/crypto/top-all
+let priceCache = new Map();                   // per-symbol cache
+
+/** Provider: CoinGecko (no API key, reliable) */
+async function fetchMarketFromCoinGecko() {
+  const ids = Object.values(ID_BY_SYMBOL).join(',');
+  const url =
+    `https://api.coingecko.com/api/v3/simple/price?ids=${ids}` +
+    `&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true`;
+
+  const res = await fetchWithTimeout(url, {
+    headers: { 'Accept': 'application/json', 'User-Agent': 'Quantex-Market/1.0' }
+  }, 8000);
+
+  if (!res.ok) throw new Error(`coingecko ${res.status}`);
+  const j = await res.json();
+
+  // Normalize to the shape your frontend expects
+  const rows = [
+    { symbol: 'BTC', name: 'Bitcoin'  , j: j.bitcoin  },
+    { symbol: 'ETH', name: 'Ethereum' , j: j.ethereum },
+    { symbol: 'XRP', name: 'XRP'      , j: j.ripple   },
+    { symbol: 'TRX', name: 'TRON'     , j: j.tron     }
+  ].map(r => ({
+    symbol: r.symbol,
+    name: r.name,
+    price: Number(r.j?.usd ?? 0),
+    change: Number(r.j?.usd_24h_change ?? 0),
+    market_cap: Number(r.j?.usd_market_cap ?? 0),
+    volume_24h: Number(r.j?.usd_24h_vol ?? 0),
+  }));
+
+  // Basic sanity: all 4 present with price>0
+  if (rows.some(x => !x.price || x.price <= 0)) {
+    throw new Error('coingecko returned invalid prices');
   }
+  return rows;
+}
 
+/** Fallback constants used if provider fails */
+const FALLBACK = {
+  BTC: { symbol: 'BTC', name: 'Bitcoin',  price: 43250.5, change: 2.45, market_cap: 8.5e11, volume_24h: 2.8e10 },
+  ETH: { symbol: 'ETH', name: 'Ethereum', price: 2650.7, change: 1.87, market_cap: 3.2e11, volume_24h: 1.6e10 },
+  XRP: { symbol: 'XRP', name: 'XRP',      price: 0.524,  change: 1.23, market_cap: 2.8e10, volume_24h: 1.2e9  },
+  TRX: { symbol: 'TRX', name: 'TRON',     price: 0.089,  change: 0.78, market_cap: 8.0e9,  volume_24h: 4.5e8  },
+};
+function jitter(v, pct = 0.001) { return v * (1 + (Math.random() - 0.5) * 2 * pct); }
+
+/** Build fallback array */
+function fallbackRows() {
+  return ['BTC','ETH','XRP','TRX'].map(s => {
+    const r = FALLBACK[s];
+    return {
+      symbol: s,
+      name: r.name,
+      price: Number(jitter(r.price)).toFixed(2) * 1,
+      change: r.change,
+      market_cap: r.market_cap,
+      volume_24h: r.volume_24h,
+      source: 'fallback'
+    };
+  });
+}
+
+/** ───────── Auth ───────── **/
+const authenticateUser = async (req, res, next) => {
   try {
-    // Verify token with Supabase
+    const hdr = req.headers.authorization || '';
+    if (!hdr.startsWith('Bearer ')) return res.status(401).json({ error: 'No token provided' });
+    const token = hdr.slice(7);
+
     const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error || !user) {
-      return res.status(403).json({ error: 'Invalid token' });
+    if (error || !user) return res.status(401).json({ error: 'Invalid token' });
+
+    // ensure row in public.users
+    const { data: existing } = await supabase.from('users').select('id').eq('id', user.id).single();
+    if (!existing) {
+      const { error: insErr } = await supabase.from('users').insert({
+        id: user.id, email: user.email, role: 'user', status: 'active',
+        created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+      });
+      if (insErr) console.warn('users upsert warn:', insErr.message);
     }
 
     req.user = user;
     next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ error: 'Invalid token' });
+  } catch (e) {
+    console.error('Auth middleware error:', e);
+    res.status(500).json({ error: 'Authentication failed' });
   }
 };
-
-// Admin authentication middleware
 const requireAdmin = async (req, res, next) => {
-  if (!req.user || req.user.user_metadata?.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+  try {
+    const { data, error } = await supabase.from('users').select('role').eq('id', req.user.id).single();
+    if (error || data?.role !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    next();
+  } catch (e) {
+    console.error('Admin check error:', e);
+    res.status(500).json({ error: 'Admin verification failed' });
   }
-  next();
 };
 
-// API Routes
+/** ───────── Health ───────── **/
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+/** ───────── Admin identity used by frontend ───────── **/
+app.get('/api/admin/me', authenticateUser, requireAdmin, (req, res) => {
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, role: 'admin' } });
 });
 
-// Get user profile
+/** ───────── User profile (kept) ───────── **/
 app.get('/api/user/profile', authenticateUser, async (req, res) => {
   try {
-    const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', req.user.id)
-      .single();
-
-    if (error || !user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone,
-        kyc_status: user.kyc_status,
-        balance_btc: user.balance_btc,
-        balance_eth: user.balance_eth,
-        balance_usdt: user.balance_usdt,
-        balance_usdc: user.balance_usdc,
-        balance_pyusd: user.balance_pyusd,
-        created_at: user.created_at
-      }
-    });
-
-  } catch (error) {
-    console.error('Profile error:', error);
+    const { data: user, error } = await supabase.from('users').select('*').eq('id', req.user.id).single();
+    if (error || !user) return res.status(404).json({ error: 'User not found' });
+    res.json({ user });
+  } catch (e) {
+    console.error('Profile error:', e);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-// Update user profile
 app.put('/api/user/profile', authenticateUser, async (req, res) => {
   try {
-    const { username, first_name, last_name, phone } = req.body;
-
-    const { data: user, error } = await supabase
-      .from('users')
-      .update({
-        username,
-        first_name,
-        last_name,
-        phone,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', req.user.id)
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to update profile' });
-    }
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        phone: user.phone
-      }
-    });
-
-  } catch (error) {
-    console.error('Profile update error:', error);
+    const patch = (({ username, first_name, last_name, phone }) => ({ username, first_name, last_name, phone }))(req.body || {});
+    patch.updated_at = new Date().toISOString();
+    const { data: user, error } = await supabase.from('users').update(patch).eq('id', req.user.id).select().single();
+    if (error) return res.status(500).json({ error: 'Failed to update profile' });
+    res.json({ message: 'Profile updated', user });
+  } catch (e) {
+    console.error('Profile update error:', e);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get user transactions
-app.get('/api/user/transactions', authenticateUser, async (req, res) => {
+/** ───────── MARKET ENDPOINTS (robust + cached) ───────── **/
+
+// 1) Summary for the four coins your UI reads (keeps old path):
+app.get('/api/crypto/top-all', async (_req, res) => {
   try {
-    const { data: transactions, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to fetch transactions' });
+    // serve from cache if fresh
+    if (marketCache.data && Date.now() - marketCache.ts < CACHE_TTL_MS) {
+      return res.json({ data: marketCache.data, source: 'cache', timestamp: new Date().toISOString() });
     }
 
-    res.json({ transactions });
+    let rows;
+    try {
+      rows = await fetchMarketFromCoinGecko();
+    } catch (e) {
+      console.warn('Market provider failed, using fallback:', e.message);
+      rows = fallbackRows();
+    }
 
-  } catch (error) {
-    console.error('Transactions error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    // cache it
+    marketCache = { ts: Date.now(), data: rows };
+    res.json({ data: rows, source: rows[0]?.source || 'coingecko', timestamp: new Date().toISOString() });
+  } catch (e) {
+    console.error('top-all error:', e);
+    res.json({ data: fallbackRows(), source: 'fallback', timestamp: new Date().toISOString() });
   }
 });
 
-// Create transaction
-app.post('/api/transactions', authenticateUser, async (req, res) => {
-  try {
-    const { type, currency, amount, status, tx_hash, wallet_address, network, fee } = req.body;
-
-    const { data: transaction, error } = await supabase
-      .from('transactions')
-      .insert([{
-        user_id: req.user.id,
-        type,
-        currency,
-        amount,
-        status,
-        tx_hash,
-        wallet_address,
-        network,
-        fee
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to create transaction' });
-    }
-
-    res.status(201).json({
-      message: 'Transaction created successfully',
-      transaction
-    });
-
-  } catch (error) {
-    console.error('Transaction creation error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get user notifications
-app.get('/api/user/notifications', authenticateUser, async (req, res) => {
-  try {
-    const { data: notifications, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to fetch notifications' });
-    }
-
-    res.json({ notifications });
-
-  } catch (error) {
-    console.error('Notifications error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Mark notification as read
-app.put('/api/notifications/:id/read', authenticateUser, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data: notification, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
-      .eq('user_id', req.user.id)
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to update notification' });
-    }
-
-    res.json({
-      message: 'Notification marked as read',
-      notification
-    });
-
-  } catch (error) {
-    console.error('Notification update error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get web configuration
-app.get('/api/web-config', async (req, res) => {
-  try {
-    const { data: config, error } = await supabase
-      .from('web_config')
-      .select('*');
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to fetch web configuration' });
-    }
-
-    // Convert array to object
-    const configObject = {};
-    config.forEach(item => {
-      configObject[item.key] = item.value;
-    });
-
-    res.json({ config: configObject });
-
-  } catch (error) {
-    console.error('Web config error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Update web configuration (admin only)
-app.put('/api/web-config/:key', authenticateUser, requireAdmin, async (req, res) => {
-  try {
-    const { key } = req.params;
-    const { value } = req.body;
-
-    const { data: config, error } = await supabase
-      .from('web_config')
-      .update({ 
-        value, 
-        updated_at: new Date().toISOString() 
-      })
-      .eq('key', key)
-      .select()
-      .single();
-
-    if (error) {
-      return res.status(500).json({ error: 'Failed to update web configuration' });
-    }
-
-    res.json({
-      message: 'Web configuration updated successfully',
-      config
-    });
-
-  } catch (error) {
-    console.error('Web config update error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Admin login endpoint
-app.post('/api/admin/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    // For development, use a simple admin check
-    // In production, you should use proper admin authentication
-    if (email === 'admin@quantex.com' && password === 'admin123') {
-      // Create a mock admin token
-      const adminToken = 'admin_token_' + Date.now();
-      
-      res.json({
-        success: true,
-        message: 'Admin login successful',
-        token: adminToken,
-        user: {
-          id: 'admin_user_id',
-          email: email,
-          role: 'admin',
-          name: 'Admin User'
-        }
-      });
-    } else {
-      res.status(401).json({ error: 'Invalid admin credentials' });
-    }
-
-  } catch (error) {
-    console.error('Admin login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// CoinMarketCap API configuration
-const COINMARKETCAP_API_KEY = process.env.COINMARKETCAP_API_KEY;
-const COINMARKETCAP_BASE_URL = 'https://pro-api.coinmarketcap.com/v1';
-
-// Real-time crypto price endpoint
+// 2) Single price endpoint (optional but handy)
 app.get('/api/trading/price/:symbol', async (req, res) => {
   try {
-    const { symbol } = req.params;
-    
-    if (!COINMARKETCAP_API_KEY) {
-      // Fallback to mock data if API key not set
-      const mockPrices = {
-        'BTCUSDT': { price: 45000 + Math.random() * 1000, change: 2.5 },
-        'ETHUSDT': { price: 2800 + Math.random() * 100, change: 1.8 },
-        'BNBUSDT': { price: 320 + Math.random() * 10, change: 0.9 }
-      };
-      const priceData = mockPrices[symbol] || { price: 100 + Math.random() * 50, change: 0.5 };
-      return res.json({
-        symbol,
-        price: priceData.price,
-        change: priceData.change,
-        timestamp: new Date().toISOString()
-      });
+    const raw = (req.params.symbol || '').toUpperCase().replace('USDT','');
+    const symbol = ALLOWED.includes(raw) ? raw : null;
+    if (!symbol) return res.status(400).json({ error: 'Unsupported symbol' });
+
+    // use cached summary if available
+    if (marketCache.data && Date.now() - marketCache.ts < CACHE_TTL_MS) {
+      const row = marketCache.data.find(r => r.symbol === symbol);
+      if (row) return res.json({ symbol, price: row.price, change24h: row.change, volume24h: row.volume_24h, source: 'cache', timestamp: new Date().toISOString() });
     }
 
-    // Fetch real data from CoinMarketCap
-    const response = await fetch(
-      `${COINMARKETCAP_BASE_URL}/cryptocurrency/quotes/latest?symbol=${symbol}&CMC_PRO_API_KEY=${COINMARKETCAP_API_KEY}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Quantex-Trading-Platform'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status}`);
+    // or fetch fresh + cache
+    let rows;
+    try {
+      rows = await fetchMarketFromCoinGecko();
+    } catch {
+      rows = fallbackRows();
     }
-
-    const data = await response.json();
-    const cryptoData = data.data[symbol];
-
-    if (!cryptoData) {
-      return res.status(404).json({ error: 'Cryptocurrency not found' });
-    }
-
-    const quote = cryptoData.quote.USD;
-    
-    res.json({
-      symbol,
-      price: quote.price,
-      change: quote.percent_change_24h,
-      market_cap: quote.market_cap,
-      volume_24h: quote.volume_24h,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Price API error:', error);
-    
-    // Provide fallback mock data instead of error
-    const mockPrices = {
-      'BTCUSDT': { price: 45000 + Math.random() * 1000, change: 2.5 },
-      'ETHUSDT': { price: 2800 + Math.random() * 100, change: 1.8 },
-      'BNBUSDT': { price: 320 + Math.random() * 10, change: 0.9 }
-    };
-    
-    const priceData = mockPrices[req.params.symbol] || { price: 100 + Math.random() * 50, change: 0.5 };
-    
-    res.json({
-      symbol: req.params.symbol,
-      price: priceData.price,
-      change: priceData.change,
-      timestamp: new Date().toISOString()
-    });
+    marketCache = { ts: Date.now(), data: rows };
+    const row = rows.find(r => r.symbol === symbol) || FALLBACK[symbol];
+    res.json({ symbol, price: row.price, change24h: row.change, volume24h: row.volume_24h, source: row.source || 'coingecko', timestamp: new Date().toISOString() });
+  } catch (e) {
+    console.error('price error:', e);
+    const s = (req.params.symbol || '').toUpperCase().replace('USDT','');
+    const fb = FALLBACK[s] || FALLBACK.BTC;
+    res.json({ symbol: s, price: fb.price, change24h: fb.change, volume24h: fb.volume_24h, source: 'fallback', timestamp: new Date().toISOString() });
   }
 });
 
-// Get top cryptocurrencies
-app.get('/api/crypto/top', async (req, res) => {
-  try {
-    if (!COINMARKETCAP_API_KEY) {
-      return res.json({
-        data: [
-          { symbol: 'BTC', name: 'Bitcoin', price: 45000, change: 2.5 },
-          { symbol: 'ETH', name: 'Ethereum', price: 2800, change: 1.8 },
-          { symbol: 'BNB', name: 'Binance Coin', price: 320, change: 0.9 }
-        ]
-      });
-    }
-
-    const response = await fetch(
-      `${COINMARKETCAP_BASE_URL}/cryptocurrency/listings/latest?limit=20&CMC_PRO_API_KEY=${COINMARKETCAP_API_KEY}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Quantex-Trading-Platform'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    res.json({
-      data: data.data.map(crypto => ({
-        symbol: crypto.symbol,
-        name: crypto.name,
-        price: crypto.quote.USD.price,
-        change: crypto.quote.USD.percent_change_24h,
-        market_cap: crypto.quote.USD.market_cap,
-        volume_24h: crypto.quote.USD.volume_24h
-      }))
-    });
-
-  } catch (error) {
-    console.error('Top crypto API error:', error);
-    
-    // Provide fallback mock data
-    res.json({
-      data: [
-        { symbol: 'BTC', name: 'Bitcoin', price: 45000 + Math.random() * 1000, change: 2.5 },
-        { symbol: 'ETH', name: 'Ethereum', price: 2800 + Math.random() * 100, change: 1.8 },
-        { symbol: 'BNB', name: 'Binance Coin', price: 320 + Math.random() * 10, change: 0.9 }
-      ]
-    });
-  }
+/** ───────── Config endpoints (kept) ───────── **/
+app.get('/api/config', async (_req, res) => {
+  try { res.json(await Configuration.getConfig()); }
+  catch (e) { console.error('config get', e); res.status(500).json({ error: 'Failed to fetch configuration' }); }
 });
-
-// Get all top cryptocurrencies in one call
-app.get('/api/crypto/top-all', async (req, res) => {
-  try {
-    if (!COINMARKETCAP_API_KEY) {
-      return res.json({
-        data: [
-          { symbol: 'BTC', name: 'Bitcoin', price: 45000, change: 2.5, volume_24h: 25000000000, market_cap: 850000000000 },
-          { symbol: 'ETH', name: 'Ethereum', price: 2800, change: 1.8, volume_24h: 15000000000, market_cap: 350000000000 },
-          { symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.0, volume_24h: 50000000000, market_cap: 95000000000 },
-          { symbol: 'BNB', name: 'BNB', price: 320, change: 0.9, volume_24h: 2000000000, market_cap: 50000000000 },
-          { symbol: 'SOL', name: 'Solana', price: 95, change: 3.2, volume_24h: 3000000000, market_cap: 45000000000 },
-          { symbol: 'ADA', name: 'Cardano', price: 0.45, change: -1.5, volume_24h: 800000000, market_cap: 16000000000 },
-          { symbol: 'DOT', name: 'Polkadot', price: 6.5, change: 2.1, volume_24h: 500000000, market_cap: 8000000000 },
-          { symbol: 'DOGE', name: 'Dogecoin', price: 0.08, change: 5.2, volume_24h: 1200000000, market_cap: 12000000000 },
-          { symbol: 'AVAX', name: 'Avalanche', price: 25, change: 4.8, volume_24h: 1500000000, market_cap: 10000000000 },
-          { symbol: 'LINK', name: 'Chainlink', price: 12, change: 1.3, volume_24h: 600000000, market_cap: 7000000000 },
-          { symbol: 'MATIC', name: 'Polygon', price: 0.75, change: 2.7, volume_24h: 400000000, market_cap: 7000000000 }
-        ]
-      });
-    }
-
-    // Fetch all top cryptocurrencies in one API call
-    const response = await fetch(
-      `${COINMARKETCAP_BASE_URL}/cryptocurrency/listings/latest?limit=11&CMC_PRO_API_KEY=${COINMARKETCAP_API_KEY}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Quantex-Trading-Platform'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    res.json({
-      data: data.data.map(crypto => ({
-        symbol: crypto.symbol,
-        name: crypto.name,
-        price: crypto.quote.USD.price,
-        change: crypto.quote.USD.percent_change_24h,
-        volume_24h: crypto.quote.USD.volume_24h,
-        market_cap: crypto.quote.USD.market_cap
-      }))
-    });
-
-  } catch (error) {
-    console.error('Top crypto API error:', error);
-    
-    // Provide fallback mock data
-    res.json({
-      data: [
-        { symbol: 'BTC', name: 'Bitcoin', price: 45000 + Math.random() * 1000, change: 2.5, volume_24h: 25000000000, market_cap: 850000000000 },
-        { symbol: 'ETH', name: 'Ethereum', price: 2800 + Math.random() * 100, change: 1.8, volume_24h: 15000000000, market_cap: 350000000000 },
-        { symbol: 'USDT', name: 'Tether', price: 1.00, change: 0.0, volume_24h: 50000000000, market_cap: 95000000000 },
-        { symbol: 'BNB', name: 'BNB', price: 320 + Math.random() * 10, change: 0.9, volume_24h: 2000000000, market_cap: 50000000000 },
-        { symbol: 'SOL', name: 'Solana', price: 95 + Math.random() * 5, change: 3.2, volume_24h: 3000000000, market_cap: 45000000000 },
-        { symbol: 'ADA', name: 'Cardano', price: 0.45 + Math.random() * 0.05, change: -1.5, volume_24h: 800000000, market_cap: 16000000000 },
-        { symbol: 'DOT', name: 'Polkadot', price: 6.5 + Math.random() * 0.5, change: 2.1, volume_24h: 500000000, market_cap: 8000000000 },
-        { symbol: 'DOGE', name: 'Dogecoin', price: 0.08 + Math.random() * 0.01, change: 5.2, volume_24h: 1200000000, market_cap: 12000000000 },
-        { symbol: 'AVAX', name: 'Avalanche', price: 25 + Math.random() * 2, change: 4.8, volume_24h: 1500000000, market_cap: 10000000000 },
-        { symbol: 'LINK', name: 'Chainlink', price: 12 + Math.random() * 1, change: 1.3, volume_24h: 600000000, market_cap: 7000000000 },
-        { symbol: 'MATIC', name: 'Polygon', price: 0.75 + Math.random() * 0.1, change: 2.7, volume_24h: 400000000, market_cap: 7000000000 }
-      ]
-    });
-  }
-});
-
-// Get cryptocurrency metadata
-app.get('/api/crypto/metadata/:symbol', async (req, res) => {
-  try {
-    const { symbol } = req.params;
-    
-    if (!COINMARKETCAP_API_KEY) {
-      return res.json({
-        symbol,
-        name: symbol,
-        description: 'Cryptocurrency data not available',
-        logo: null
-      });
-    }
-
-    const response = await fetch(
-      `${COINMARKETCAP_BASE_URL}/cryptocurrency/info?symbol=${symbol}&CMC_PRO_API_KEY=${COINMARKETCAP_API_KEY}`,
-      {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Quantex-Trading-Platform'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinMarketCap API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const cryptoInfo = data.data[symbol];
-
-    if (!cryptoInfo) {
-      return res.status(404).json({ error: 'Cryptocurrency not found' });
-    }
-
-    res.json({
-      symbol: cryptoInfo.symbol,
-      name: cryptoInfo.name,
-      description: cryptoInfo.description,
-      logo: cryptoInfo.logo,
-      website: cryptoInfo.urls?.website?.[0],
-      explorer: cryptoInfo.urls?.explorer?.[0]
-    });
-
-  } catch (error) {
-    console.error('Metadata API error:', error);
-    res.status(500).json({ error: 'Failed to fetch cryptocurrency metadata' });
-  }
-});
-
-// Mock order book data (CoinMarketCap doesn't provide order book)
-app.get('/api/trading/orderbook/:symbol', async (req, res) => {
-  try {
-    const { symbol } = req.params;
-    
-    // Mock order book data
-    const mockOrderBook = {
-      asks: [
-        { price: 45000 + Math.random() * 10, quantity: 0.5 + Math.random() * 2 },
-        { price: 45001 + Math.random() * 10, quantity: 1.2 + Math.random() * 3 },
-        { price: 45002 + Math.random() * 10, quantity: 0.8 + Math.random() * 2 }
-      ],
-      bids: [
-        { price: 44999 - Math.random() * 10, quantity: 0.7 + Math.random() * 2 },
-        { price: 44998 - Math.random() * 10, quantity: 1.5 + Math.random() * 3 },
-        { price: 44997 - Math.random() * 10, quantity: 0.9 + Math.random() * 2 }
-      ]
-    };
-
-    res.json({
-      symbol,
-      orderbook: mockOrderBook,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Order book API error:', error);
-    res.status(500).json({ error: 'Failed to fetch order book data' });
-  }
-});
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
-// Debug endpoint to test Supabase connection
-app.get('/debug-auth', async (req, res) => {
-  try {
-    res.json({
-      status: 'Backend is running',
-      supabaseUrl: supabaseUrl ? 'Set' : 'Not set',
-      supabaseServiceKey: supabaseServiceKey ? 'Set' : 'Not set',
-      port: PORT,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Debug endpoint error', details: error.message });
-  }
-});
-
-// Configuration API endpoints
-app.get('/api/config', async (req, res) => {
-  try {
-    const config = await Configuration.getConfig();
-    res.json(config);
-  } catch (error) {
-    console.error('Error fetching config:', error);
-    res.status(500).json({ error: 'Failed to fetch configuration' });
-  }
-});
-
 app.put('/api/config', authenticateUser, requireAdmin, async (req, res) => {
   try {
-    const updates = req.body;
-    const updatedConfig = await Configuration.updateConfig(updates);
-    
-    if (updatedConfig) {
-      res.json(updatedConfig);
-    } else {
-      res.status(500).json({ error: 'Failed to update configuration' });
-    }
-  } catch (error) {
-    console.error('Error updating config:', error);
+    const updated = await Configuration.updateConfig(req.body || {});
+    if (!updated) return res.status(500).json({ error: 'Failed to update configuration' });
+    res.json(updated);
+  } catch (e) {
+    console.error('config put', e);
     res.status(500).json({ error: 'Failed to update configuration' });
   }
 });
 
-app.put('/api/config/deposit-addresses', authenticateUser, requireAdmin, async (req, res) => {
-  try {
-    const { addresses } = req.body;
-    const updatedConfig = await Configuration.updateDepositAddresses(addresses);
-    
-    if (updatedConfig) {
-      res.json(updatedConfig);
-    } else {
-      res.status(500).json({ error: 'Failed to update deposit addresses' });
-    }
-  } catch (error) {
-    console.error('Error updating deposit addresses:', error);
-    res.status(500).json({ error: 'Failed to update deposit addresses' });
-  }
-});
+/** 404 */
+app.use('*', (_req, res) => res.status(404).json({ error: 'Endpoint not found' }));
 
-// Initialize database on startup
-Configuration.initializeDatabase().then(() => {
-  console.log('✅ Database configuration initialized');
-}).catch(error => {
-  console.error('❌ Failed to initialize database configuration:', error);
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Endpoint not found' });
-});
-
-// Start server
+/** Start */
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
-  console.log(`📊 Supabase connected: ${supabaseUrl ? 'Yes' : 'No'}`);
-  console.log(`🔒 Security headers enabled`);
-  console.log(`⏱️  Rate limiting enabled`);
-  console.log(`🔐 Using Supabase Auth`);
+  console.log(`🚀 Backend on ${PORT}`);
+  console.log(`🔐 Supabase server client ready`);
 });
-
-server.on('error', (error) => {
-  if (error.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
-  } else {
-    console.error('❌ Server error:', error);
-  }
-  process.exit(1);
-});
+server.on('error', (err) => { console.error('Server error:', err); process.exit(1); });
 
 module.exports = app;

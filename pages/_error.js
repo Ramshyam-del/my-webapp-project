@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 
-function Error({ statusCode }) {
+function Error({ statusCode, err }) {
   useEffect(() => {
-    // Log error for debugging
-    console.error('Page error:', statusCode);
-  }, [statusCode]);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('Page error:', statusCode, err);
+    }
+  }, [statusCode, err]);
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -19,9 +20,7 @@ function Error({ statusCode }) {
               : 'Something went wrong'}
           </h1>
           <p className="text-gray-300 mb-6">
-            {statusCode
-              ? `A ${statusCode} error occurred on the server.`
-              : 'An error occurred on the client.'}
+            {statusCode ? `A ${statusCode} error occurred.` : 'An error occurred.'}
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -37,7 +36,7 @@ function Error({ statusCode }) {
 
 Error.getInitialProps = ({ res, err }) => {
   const statusCode = res ? res.statusCode : err ? err.statusCode : 404;
-  return { statusCode };
+  return { statusCode, err };
 };
 
 export default Error; 

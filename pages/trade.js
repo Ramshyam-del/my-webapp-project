@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
 export default function TradePage() {
   const router = useRouter();
@@ -9,67 +10,54 @@ export default function TradePage() {
   const [selectedPair, setSelectedPair] = useState('BTCUSDT');
   const [priceData, setPriceData] = useState(null);
   const [orderBook, setOrderBook] = useState(null);
+  const [userOrders, setUserOrders] = useState([]);
   const [orderType, setOrderType] = useState('market');
   const [orderAmount, setOrderAmount] = useState('');
   const [orderPrice, setOrderPrice] = useState('');
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderSide, setOrderSide] = useState('buy');
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
-  // Enhanced trading pairs list
+  // Enhanced trading pairs list - Reduced for production stability
   const tradingPairs = [
     { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', base: 'BTC', quote: 'USDT', icon: '₿' },
     { symbol: 'ETHUSDT', name: 'Ethereum/USDT', base: 'ETH', quote: 'USDT', icon: 'Ξ' },
     { symbol: 'BNBUSDT', name: 'BNB/USDT', base: 'BNB', quote: 'USDT', icon: 'B' },
     { symbol: 'SOLUSDT', name: 'Solana/USDT', base: 'SOL', quote: 'USDT', icon: 'S' },
-    { symbol: 'ADAUSDT', name: 'Cardano/USDT', base: 'ADA', quote: 'USDT', icon: 'A' },
-    { symbol: 'DOTUSDT', name: 'Polkadot/USDT', base: 'DOT', quote: 'USDT', icon: 'D' },
-    { symbol: 'DOGEUSDT', name: 'Dogecoin/USDT', base: 'DOGE', quote: 'USDT', icon: 'Ð' },
-    { symbol: 'AVAXUSDT', name: 'Avalanche/USDT', base: 'AVAX', quote: 'USDT', icon: 'A' },
-    { symbol: 'LINKUSDT', name: 'Chainlink/USDT', base: 'LINK', quote: 'USDT', icon: 'L' },
-    { symbol: 'MATICUSDT', name: 'Polygon/USDT', base: 'MATIC', quote: 'USDT', icon: 'M' },
-    { symbol: 'LTCUSDT', name: 'Litecoin/USDT', base: 'LTC', quote: 'USDT', icon: 'Ł' },
-    { symbol: 'UNIUSDT', name: 'Uniswap/USDT', base: 'UNI', quote: 'USDT', icon: 'U' },
-    { symbol: 'BCHUSDT', name: 'Bitcoin Cash/USDT', base: 'BCH', quote: 'USDT', icon: 'B' },
-    { symbol: 'XLMUSDT', name: 'Stellar/USDT', base: 'XLM', quote: 'USDT', icon: 'X' },
-    { symbol: 'VETUSDT', name: 'VeChain/USDT', base: 'VET', quote: 'USDT', icon: 'V' },
-    { symbol: 'FILUSDT', name: 'Filecoin/USDT', base: 'FIL', quote: 'USDT', icon: 'F' },
-    { symbol: 'ATOMUSDT', name: 'Cosmos/USDT', base: 'ATOM', quote: 'USDT', icon: 'A' },
-    { symbol: 'XMRUSDT', name: 'Monero/USDT', base: 'XMR', quote: 'USDT', icon: 'M' },
-    { symbol: 'ALGOUSDT', name: 'Algorand/USDT', base: 'ALGO', quote: 'USDT', icon: 'A' },
-    { symbol: 'XTZUSDT', name: 'Tezos/USDT', base: 'XTZ', quote: 'USDT', icon: 'T' },
-    { symbol: 'AAVEUSDT', name: 'Aave/USDT', base: 'AAVE', quote: 'USDT', icon: 'A' },
-    { symbol: 'COMPUSDT', name: 'Compound/USDT', base: 'COMP', quote: 'USDT', icon: 'C' },
-    { symbol: 'SNXUSDT', name: 'Synthetix/USDT', base: 'SNX', quote: 'USDT', icon: 'S' },
-    { symbol: 'YFIUSDT', name: 'Yearn Finance/USDT', base: 'YFI', quote: 'USDT', icon: 'Y' },
-    { symbol: 'MANAUSDT', name: 'Decentraland/USDT', base: 'MANA', quote: 'USDT', icon: 'M' },
-    { symbol: 'SANDUSDT', name: 'The Sandbox/USDT', base: 'SAND', quote: 'USDT', icon: 'S' },
-    { symbol: 'ENJUSDT', name: 'Enjin Coin/USDT', base: 'ENJ', quote: 'USDT', icon: 'E' },
-    { symbol: 'AXSUSDT', name: 'Axie Infinity/USDT', base: 'AXS', quote: 'USDT', icon: 'A' },
-    { symbol: 'GALAUSDT', name: 'Gala/USDT', base: 'GALA', quote: 'USDT', icon: 'G' },
-    { symbol: 'FLOWUSDT', name: 'Flow/USDT', base: 'FLOW', quote: 'USDT', icon: 'F' },
-    { symbol: 'NEARUSDT', name: 'NEAR Protocol/USDT', base: 'NEAR', quote: 'USDT', icon: 'N' },
-    { symbol: 'FTMUSDT', name: 'Fantom/USDT', base: 'FTM', quote: 'USDT', icon: 'F' },
-    { symbol: 'ONEUSDT', name: 'Harmony/USDT', base: 'ONE', quote: 'USDT', icon: 'O' },
-    { symbol: 'KSMUSDT', name: 'Kusama/USDT', base: 'KSM', quote: 'USDT', icon: 'K' },
-    { symbol: 'ZILUSDT', name: 'Zilliqa/USDT', base: 'ZIL', quote: 'USDT', icon: 'Z' },
-    { symbol: 'ICXUSDT', name: 'ICON/USDT', base: 'ICX', quote: 'USDT', icon: 'I' },
-    { symbol: 'ONTUSDT', name: 'Ontology/USDT', base: 'ONT', quote: 'USDT', icon: 'O' },
-    { symbol: 'NEOUSDT', name: 'NEO/USDT', base: 'NEO', quote: 'USDT', icon: 'N' },
-    { symbol: 'QTUMUSDT', name: 'Qtum/USDT', base: 'QTUM', quote: 'USDT', icon: 'Q' },
-    { symbol: 'XVGUSDT', name: 'Verge/USDT', base: 'XVG', quote: 'USDT', icon: 'V' },
-    { symbol: 'SCUSDT', name: 'Siacoin/USDT', base: 'SC', quote: 'USDT', icon: 'S' },
-    { symbol: 'STEEMUSDT', name: 'Steem/USDT', base: 'STEEM', quote: 'USDT', icon: 'S' },
-    { symbol: 'WAVESUSDT', name: 'Waves/USDT', base: 'WAVES', quote: 'USDT', icon: 'W' },
-    { symbol: 'NXTUSDT', name: 'NXT/USDT', base: 'NXT', quote: 'USDT', icon: 'N' },
-    { symbol: 'BCNUSDT', name: 'Bytecoin/USDT', base: 'BCN', quote: 'USDT', icon: 'B' },
-    { symbol: 'DGBUSDT', name: 'DigiByte/USDT', base: 'DGB', quote: 'USDT', icon: 'D' },
-    { symbol: 'VTCUSDT', name: 'Vertcoin/USDT', base: 'VTC', quote: 'USDT', icon: 'V' },
-    { symbol: 'FTCUSDT', name: 'Feathercoin/USDT', base: 'FTC', quote: 'USDT', icon: 'F' },
-    { symbol: 'NVCUSDT', name: 'Novacoin/USDT', base: 'NVC', quote: 'USDT', icon: 'N' },
-    { symbol: 'XPMUSDT', name: 'Primecoin/USDT', base: 'XPM', quote: 'USDT', icon: 'P' },
-    { symbol: 'PPCUSDT', name: 'Peercoin/USDT', base: 'PPC', quote: 'USDT', icon: 'P' },
-    { symbol: 'NMCUSDT', name: 'Namecoin/USDT', base: 'NMC', quote: 'USDT', icon: 'N' }
+    { symbol: 'XRPUSDT', name: 'Ripple/USDT', base: 'XRP', quote: 'USDT', icon: 'X' },
+    { symbol: 'TRXUSDT', name: 'TRON/USDT', base: 'TRX', quote: 'USDT', icon: 'T' },
   ];
+
+  // Fetch user orders
+  const fetchUserOrders = async () => {
+    try {
+      setOrdersLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No session found, skipping order fetch');
+        return;
+      }
+
+      const response = await fetch('/api/trading/orders', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserOrders(data.orders || []);
+      } else {
+        console.error('Failed to fetch user orders');
+      }
+    } catch (error) {
+      console.error('Error fetching user orders:', error);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   // Fetch crypto data from CoinMarketCap API
   const fetchPriceData = async () => {
@@ -78,7 +66,7 @@ export default function TradePage() {
       setError(null);
       
       // Use our backend API endpoint
-      const response = await fetch(`http://localhost:3001/api/trading/price/${selectedPair}`, {
+      const response = await fetch(`/api/trading/price/${selectedPair}`, {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
@@ -103,7 +91,7 @@ export default function TradePage() {
   // Fetch order book data
   const fetchOrderBook = async () => {
     try {
-      const response = await fetch(`http://localhost:4001/api/trading/orderbook/${selectedPair}`, {
+      const response = await fetch(`/api/trading/orderbook/${selectedPair}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -121,44 +109,69 @@ export default function TradePage() {
     }
   };
 
-  // Handle spot trade
-  const handleSpotTrade = async (e) => {
-    e.preventDefault();
-    setIsPlacingOrder(true);
-    setOrderStatus('');
+  // Handle order placement
+  const handlePlaceOrder = async () => {
+    if (!orderAmount || orderAmount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    if (orderType === 'limit' && (!orderPrice || orderPrice <= 0)) {
+      alert('Please enter a valid price for limit orders');
+      return;
+    }
 
     try {
-      const formData = new FormData(e.target);
+      setLoading(true);
+      
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please log in to place orders');
+        return;
+      }
+
       const orderData = {
-        symbol: 'BTCUSDT',
-        side: formData.get('side'),
-        type: 'MARKET',
-        quantity: parseFloat(formData.get('quantity')),
-        price: parseFloat(formData.get('price')),
+        symbol: selectedPair,
+        side: orderSide,
+        type: orderType,
+        amount: orderAmount,
+        price: orderType === 'limit' ? orderPrice : null
       };
 
-      const response = await fetch('http://localhost:4001/api/trading/order', {
+      const response = await fetch('/api/trading/order', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(orderData),
-        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify(orderData)
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        setOrderStatus(`Order placed successfully! Order ID: ${result.orderId}`);
-        // Clear form
-        e.target.reset();
-      } else {
-        setOrderStatus('Failed to place order. Please try again.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to place order');
       }
+
+      const result = await response.json();
+      
+      // Reset form
+      setOrderAmount('');
+      setOrderPrice('');
+      setShowOrderModal(false);
+      
+      // Show success message
+      alert(`Order placed successfully! Order ID: ${result.order.id}`);
+      
+      // Refresh data
+      fetchPriceData();
+      fetchUserOrders();
+      
     } catch (error) {
       console.error('Error placing order:', error);
-      setOrderStatus('Network error. Please check your connection.');
+      alert(`Failed to place order: ${error.message}`);
     } finally {
-      setIsPlacingOrder(false);
+      setLoading(false);
     }
   };
 
@@ -170,13 +183,16 @@ export default function TradePage() {
     if (mounted) {
       fetchPriceData();
       fetchOrderBook();
+      fetchUserOrders();
       
       const cryptoInterval = setInterval(fetchPriceData, 10000);
       const orderBookInterval = setInterval(fetchOrderBook, 5000);
+      const ordersInterval = setInterval(fetchUserOrders, 30000);
       
       return () => {
         clearInterval(cryptoInterval);
         clearInterval(orderBookInterval);
+        clearInterval(ordersInterval);
       };
     }
   }, [mounted, selectedPair]);
@@ -188,41 +204,12 @@ export default function TradePage() {
     setShowOrderModal(true);
   };
 
-  const handlePlaceOrder = async () => {
-    try {
-      const orderData = {
-        symbol: selectedPair,
-        side: orderSide,
-        type: orderType,
-        quantity: parseFloat(orderAmount),
-        price: orderType === 'limit' ? parseFloat(orderPrice) : undefined
-      };
-
-      const response = await fetch('http://localhost:4001/api/trading/order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData)
-      });
-
-      if (response.ok) {
-        alert(`Order placed successfully! ${orderSide.toUpperCase()} ${orderAmount} ${selectedPair.replace('USDT', '')}`);
-        setShowOrderModal(false);
-        setOrderAmount('');
-        setOrderPrice('');
-      } else {
-        alert('Failed to place order. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error placing order:', error);
-      alert('Error placing order. Please try again.');
-    }
-  };
-
   const getCurrentPair = () => {
     return tradingPairs.find(pair => pair.symbol === selectedPair) || tradingPairs[0];
   };
+
+  // Filter user orders for current pair
+  const currentPairOrders = userOrders.filter(order => order.symbol === selectedPair);
 
   if (!mounted) {
     return null;
@@ -248,89 +235,38 @@ export default function TradePage() {
         </div>
         
         {/* Trading Pair Selector */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        <div className="flex items-center gap-3">
           <select
             value={selectedPair}
             onChange={(e) => setSelectedPair(e.target.value)}
-            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-auto"
+            className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500"
           >
             {tradingPairs.map((pair) => (
               <option key={pair.symbol} value={pair.symbol}>
-                {pair.name}
+                {pair.icon} {pair.name}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="p-4 space-y-6">
-        {/* Price Information */}
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-2xl">
-                {getCurrentPair().icon}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">{getCurrentPair().name}</h2>
-                <p className="text-sm text-gray-400">{selectedPair}</p>
-              </div>
-            </div>
-            {error && (
-              <div className="text-red-400 text-sm bg-red-900/20 px-3 py-1 rounded">
-                {error}
-              </div>
-            )}
-          </div>
-
-          {priceData ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-400 mb-1">Current Price</div>
-                <div className="text-2xl font-bold text-white">
-                  ${priceData.price?.toLocaleString() || '0.00'}
-                </div>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-400 mb-1">24h Change</div>
-                <div className={`text-lg font-bold ${(priceData.priceChangePercent || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {(priceData.priceChangePercent || 0) >= 0 ? '+' : ''}{Number(priceData.priceChangePercent || 0).toFixed(2)}%
-                </div>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-400 mb-1">24h High</div>
-                <div className="text-lg font-bold text-white">
-                  ${priceData.highPrice?.toLocaleString() || '0.00'}
-                </div>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4">
-                <div className="text-sm text-gray-400 mb-1">24h Low</div>
-                <div className="text-lg font-bold text-white">
-                  ${priceData.lowPrice?.toLocaleString() || '0.00'}
-                </div>
-              </div>
-            </div>
-          ) : loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-              <span className="ml-3 text-gray-400">Loading price data...</span>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-400">
-              Failed to load price data
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="p-4">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Trading Chart */}
           <div className="lg:col-span-2">
             <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-bold mb-4">Price Chart</h3>
-              <div className="w-full h-96 bg-gray-700 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold">Trading Chart</h2>
+                <div className="text-sm text-gray-400">
+                  {priceData?.price ? `$${Number(priceData.price).toFixed(4)}` : 'Loading...'}
+                </div>
+              </div>
+              
+              <div className="w-full h-96 bg-gray-900 rounded-lg overflow-hidden">
                 <iframe
-                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_${selectedPair}&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_trade&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
+                  style={{ width: '100%', height: '100%' }}
+                  frameBorder="0"
                   allowTransparency={true}
                   allowFullScreen={true}
                   title="TradingView Chart"
@@ -343,7 +279,13 @@ export default function TradePage() {
           <div className="space-y-6">
             {/* Order Book */}
             <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-bold mb-4">Order Book</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">Order Book</h3>
+                {ordersLoading && (
+                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                )}
+              </div>
+              
               {orderBook ? (
                 <div className="space-y-2">
                   {/* Asks (Sell Orders) */}
@@ -384,6 +326,42 @@ export default function TradePage() {
                 </div>
               )}
             </div>
+
+            {/* User Orders */}
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <h3 className="text-lg font-bold mb-4">Your Orders</h3>
+              {currentPairOrders.length === 0 ? (
+                <div className="text-center py-4 text-gray-400">
+                  <div className="text-sm mb-2">No orders for {selectedPair}</div>
+                  <div className="text-xs">Place your first order using the buttons below</div>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {currentPairOrders.slice(0, 5).map((order) => (
+                    <div key={order.id} className="flex justify-between items-center p-2 bg-gray-700 rounded text-sm">
+                      <div>
+                        <div className={`font-medium ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                          {order.side.toUpperCase()} {order.symbol}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {order.type} • ${parseFloat(order.amount).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-400">
+                          {order.status}
+                        </div>
+                        {order.price && (
+                          <div className="text-xs text-gray-300">
+                            ${parseFloat(order.price).toFixed(4)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+          )}
+        </div>
 
             {/* Trading Buttons */}
             <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -443,56 +421,59 @@ export default function TradePage() {
                   <label className="block text-sm font-medium mb-2">Price (USDT)</label>
                   <input 
                     type="number" 
-                    step="0.0001"
                     value={orderPrice}
                     onChange={(e) => setOrderPrice(e.target.value)}
+                    placeholder="Enter price"
                     className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                    placeholder="0.00"
+                    step="0.0001"
                   />
                 </div>
               )}
               
               {/* Amount Input */}
               <div>
-                <label className="block text-sm font-medium mb-2">Amount ({getCurrentPair().base})</label>
+                <label className="block text-sm font-medium mb-2">Amount (USDT)</label>
                 <input 
                   type="number" 
-                  step="0.0001"
                   value={orderAmount}
                   onChange={(e) => setOrderAmount(e.target.value)}
+                  placeholder="Enter amount"
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                  placeholder="0.00"
+                  step="0.01"
                 />
               </div>
               
-              {/* Total Value */}
-              {orderAmount && priceData?.price && (
-                <div className="bg-gray-700 rounded-lg p-3">
-                  <div className="text-sm text-gray-400">Total Value</div>
-                  <div className="text-lg font-bold">
-                    ${(parseFloat(orderAmount || 0) * (priceData.price || 0)).toFixed(2)} USDT
-                  </div>
+              {/* Order Summary */}
+              <div className="bg-gray-700 p-3 rounded">
+                <div className="text-sm text-gray-400">Order Summary</div>
+                <div className="text-sm">
+                  <div>Type: {orderType.toUpperCase()}</div>
+                  <div>Side: {orderSide.toUpperCase()}</div>
+                  <div>Amount: ${orderAmount || '0.00'}</div>
+                  {orderType === 'limit' && orderPrice && (
+                    <div>Price: ${orderPrice}</div>
+                  )}
+                </div>
     </div>
-              )}
               
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button 
+                <button
                   onClick={() => setShowOrderModal(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded font-medium"
                 >
                   Cancel
                 </button>
     <button
                   onClick={handlePlaceOrder}
-                  disabled={!orderAmount || (orderType === 'limit' && !orderPrice)}
-                  className={`flex-1 px-4 py-2 rounded-lg transition-colors ${
+                  disabled={loading}
+                  className={`flex-1 py-2 px-4 rounded font-medium ${
                     orderSide === 'buy' 
                       ? 'bg-green-600 hover:bg-green-700 text-white' 
                       : 'bg-red-600 hover:bg-red-700 text-white'
-                  } ${(!orderAmount || (orderType === 'limit' && !orderPrice)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  Place {orderSide.toUpperCase()} Order
+                  {loading ? 'Placing Order...' : `Place ${orderSide.toUpperCase()} Order`}
     </button>
               </div>
             </div>

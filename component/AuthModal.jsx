@@ -40,8 +40,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
             setPassword('');
             setError('');
             setSuccess('');
-            // Redirect to home page after successful login
-            router.push('/');
+            // Redirect to exchange page after successful login
+            router.push('/exchange');
           }, 1500);
         } else {
           console.log('Login failed:', result.error);

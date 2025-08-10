@@ -1,113 +1,141 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { supabase, adminAuth, userUtils } from '../lib/supabase';
 
 export default function AdminLogin({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
+
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      console.log('🔐 Attempting admin login...');
+      console.log('📧 Email:', email);
+      
+      // Sign in with Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
-      localStorage.setItem('adminToken', data.token);
-      if (rememberMe) {
-        localStorage.setItem('adminRememberMe', 'true');
-      } else {
-        localStorage.removeItem('adminRememberMe');
+
+      if (authError) {
+        console.error('❌ Supabase Auth error:', authError);
+        setError(`Login failed: ${authError.message}`);
+        setLoading(false);
+        return;
       }
-      if (onLogin) onLogin();
-    } catch (err) {
-      setError(err.message);
+
+      console.log('✅ Supabase Auth successful:', data.user.email);
+
+      // Ensure admin user exists in users table
+      const success = await adminAuth.ensureAdminUser(data.user.id, data.user.email);
+      
+      if (!success) {
+        console.error('❌ Failed to ensure admin user');
+        setError('Database error. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('✅ Admin user ensured in database');
+
+      // Call the onLogin callback to notify parent component
+      if (onLogin) {
+        onLogin();
+      }
+      
+    } catch (error) {
+      console.error('❌ Unexpected error:', error);
+      setError(`Login failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-cyan-100 to-blue-200 relative overflow-hidden">
-      {/* Decorative background graphic */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <svg width="100%" height="100%" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <circle cx="700" cy="100" r="120" fill="#38bdf8" fillOpacity="0.15" />
-          <circle cx="100" cy="500" r="180" fill="#2563eb" fillOpacity="0.10" />
-        </svg>
-      </div>
-      <form
-        onSubmit={handleSubmit}
-        className="relative z-10 bg-white/90 p-8 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col items-center animate-fade-in"
-        style={{ backdropFilter: 'blur(8px)' }}
-      >
-        {/* Logo */}
-        <img src="/quantex-logo.png.jpg" alt="Quantex Logo" className="w-20 h-20 mb-4 rounded-full shadow-lg border-4 border-blue-200" />
-        <h2 className="text-3xl font-extrabold mb-2 text-blue-700 tracking-tight">Admin Login</h2>
-        <p className="mb-6 text-gray-500 text-sm text-center">Welcome back! Please sign in to your admin dashboard.</p>
-        <div className="mb-4 w-full">
-          <label className="block mb-1 font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none transition"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            placeholder="admin@example.com"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">Q</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Login</h1>
+          <p className="text-gray-600">Welcome back! Please sign in to your admin dashboard.</p>
         </div>
-        <div className="mb-4 w-full relative">
-          <label className="block mb-1 font-medium text-gray-700">Password</label>
-          <input
-            type={showPassword ? 'text' : 'password'}
-            className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 focus:outline-none transition pr-10"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            placeholder="Enter your password"
-          />
-          <button
-            type="button"
-            className="absolute right-2 top-8 text-gray-400 hover:text-blue-500 focus:outline-none"
-            tabIndex={-1}
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
-            {showPassword ? (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.875-4.575A9.956 9.956 0 0122 9c0 5.523-4.477 10-10 10a9.956 9.956 0 01-4.575-1.125" /></svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0zm2.828-2.828A9.956 9.956 0 0122 12c0 5.523-4.477 10-10 10S2 17.523 2 12c0-2.21.714-4.254 1.928-5.928M4.222 4.222l15.556 15.556" /></svg>
-            )}
-          </button>
-        </div>
-        <div className="mb-4 w-full flex items-center justify-between">
-          <label className="flex items-center text-sm text-gray-600">
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email
+            </label>
             <input
-              type="checkbox"
-              className="mr-2 accent-blue-600"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="your-admin@example.com"
+              required
             />
-            Remember me
-          </label>
-          <a href="#" className="text-xs text-blue-500 hover:underline">Forgot password?</a>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg px-4 py-3 pr-12 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="Enter password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                {showPassword ? (
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          >
+            {loading ? 'Logging in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Use your admin credentials.
+          </p>
         </div>
-        {error && <div className="text-red-500 mb-2 w-full text-center">{error}</div>}
-        <button
-          type="submit"
-          className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-2 rounded-lg font-semibold shadow-md hover:from-blue-600 hover:to-cyan-600 transition disabled:opacity-60"
-          disabled={loading}
-        >
-          {loading ? 'Logging in...' : 'Login'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 } 

@@ -1,30 +1,90 @@
-import { useState } from 'react';
-import { LoginForm } from './LoginForm';
-import { RegisterForm } from './RegisterForm';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
-export const AuthWrapper = ({ setShowAuth }) => {
-  const [mode, setMode] = useState('login');
+export default function AuthWrapper({ children, requireAuth = true, requireAdmin = false }) {
+  const router = useRouter();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center min-h-screen bg-black bg-opacity-60">
-      <div className="bg-black rounded-xl shadow-lg p-6 max-w-md w-full flex flex-col justify-center relative">
-        <button
-          onClick={() => setShowAuth(false)}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold"
-          aria-label="Close login/register modal"
-        >
-          &times;
-        </button>
-        <div className="flex justify-center mb-6">
-          <button
-            onClick={() => setMode('login')}
-            className={`px-4 py-2 font-semibold border-b-2 ${mode === 'login' ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-white'}`}>LOGIN</button>
-          <button
-            onClick={() => setMode('register')}
-            className={`ml-4 px-4 py-2 font-semibold border-b-2 ${mode === 'register' ? 'border-cyan-500 text-cyan-500' : 'border-transparent text-white'}`}>SIGN UP</button>
+  useEffect(() => {
+    checkUser();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          await checkUser();
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsAdmin(false);
+          if (requireAuth) {
+            router.push('/login');
+          }
+        }
+      }
+    );
+
+    return () => subscription?.unsubscribe();
+  }, [requireAuth, requireAdmin]);
+
+  const checkUser = async () => {
+    try {
+      setLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session && requireAuth) {
+        router.push('/login');
+        return;
+      }
+
+      if (session) {
+        setUser(session.user);
+        
+        // Check if user is admin
+        if (requireAdmin) {
+          const { data: { user: userData } } = await supabase.auth.getUser();
+          const isUserAdmin = userData?.user_metadata?.role === 'admin';
+          console.log('Admin check:', { userData, isUserAdmin });
+          setIsAdmin(isUserAdmin);
+          
+          if (!isUserAdmin) {
+            console.log('User is not admin, redirecting to dashboard');
+            router.push('/dashboard');
+            return;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+      if (requireAuth) {
+        router.push('/login');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
-        {mode === 'login' ? <LoginForm /> : <RegisterForm />}
       </div>
-    </div>
-  );
-}; 
+    );
+  }
+
+  if (requireAuth && !user) {
+    return null; // Will redirect to login
+  }
+
+  if (requireAdmin && !isAdmin) {
+    return null; // Will redirect to dashboard
+  }
+
+  return children;
+} 

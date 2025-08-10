@@ -206,7 +206,7 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
             </div>
             <div className="flex-1">
               <div className="text-sm font-medium text-gray-900">Admin User</div>
-              <div className="text-xs text-gray-500">admin@quantex.com</div>
+              <div className="text-xs text-gray-500">admin</div>
             </div>
             <button className="p-1 hover:bg-gray-200 rounded">
               <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

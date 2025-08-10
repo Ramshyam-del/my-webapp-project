@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, api } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
 
@@ -16,63 +16,98 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
+  const [error, setError] = useState(null);
 
   // Initialize auth state
   useEffect(() => {
+    let isMounted = true;
+
     const initializeAuth = async () => {
       try {
-        // Get current session
-        const { session: currentSession, error: sessionError } = await auth.getCurrentSession();
+        setError(null);
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Session error:', sessionError);
+          setError(sessionError.message);
+          return;
         }
 
-        if (currentSession) {
-          setSession(currentSession);
-          setUser(currentSession.user);
-          
-          // Fetch user profile
-          const { data: profile, error: profileError } = await api.getUserProfile();
-          if (!profileError && profile?.user) {
-            setUserProfile(profile.user);
+        if (!isMounted) return;
+        
+        setSession(currentSession || null);
+        setUser(currentSession?.user || null);
+        
+        if (currentSession?.user) {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', currentSession.user.id)
+              .single();
+            
+            if (!isMounted) return;
+            
+            if (profileError) {
+              console.warn('Profile fetch error:', profileError);
+              // Don't set error for profile issues, just continue without profile
+            } else if (profile) {
+              setUserProfile(profile);
+            }
+          } catch (profileError) {
+            console.warn('Profile error:', profileError);
+            // Continue without profile
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        setError(error.message);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
-    // Listen to auth state changes
-    const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      console.log('Previous user state:', user?.id);
-      console.log('New session:', session);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      if (!isMounted) return;
       
-      setSession(session);
-      setUser(session?.user || null);
-
-      if (session?.user) {
-        console.log('User authenticated, fetching profile...');
-        // Fetch user profile when user logs in
-        const { data: profile, error: profileError } = await api.getUserProfile();
-        if (!profileError && profile?.user) {
-          console.log('Profile fetched successfully:', profile.user);
-          setUserProfile(profile.user);
+      try {
+        setError(null);
+        setSession(nextSession || null);
+        setUser(nextSession?.user || null);
+        
+        if (nextSession?.user) {
+          try {
+            const { data: profile, error: profileError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', nextSession.user.id)
+              .single();
+            
+            if (!isMounted) return;
+            
+            if (profileError) {
+              console.warn('Profile fetch error:', profileError);
+            } else if (profile) {
+              setUserProfile(profile);
+            }
+          } catch (profileError) {
+            console.warn('Profile error:', profileError);
+          }
         } else {
-          console.log('Profile fetch error:', profileError);
+          setUserProfile(null);
         }
-      } else {
-        console.log('User logged out, clearing profile');
-        setUserProfile(null);
+      } catch (error) {
+        console.error('Auth state change error:', error);
+        setError(error.message);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription?.unsubscribe();
     };
   }, []);
@@ -81,14 +116,23 @@ export const AuthProvider = ({ children }) => {
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true);
-      const { data, error } = await auth.signUp(email, password, userData);
+      setError(null);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData
+        }
+      });
       
       if (error) {
+        setError(error.message);
         return { success: false, error };
       }
 
       return { success: true, data };
     } catch (error) {
+      setError(error.message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -100,12 +144,17 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('AuthContext: Starting sign in process...');
       setLoading(true);
-      const { data, error } = await auth.signIn(email, password);
+      setError(null);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
       console.log('AuthContext: Sign in response:', { data, error });
       
       if (error) {
         console.log('AuthContext: Sign in failed:', error);
+        setError(error.message);
         return { success: false, error };
       }
 
@@ -113,6 +162,7 @@ export const AuthProvider = ({ children }) => {
       return { success: true, data };
     } catch (error) {
       console.error('AuthContext: Sign in error:', error);
+      setError(error.message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -123,9 +173,11 @@ export const AuthProvider = ({ children }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      const { error } = await auth.signOut();
+      setError(null);
+      const { error } = await supabase.auth.signOut();
       
       if (error) {
+        setError(error.message);
         return { success: false, error };
       }
 
@@ -135,6 +187,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
+      setError(error.message);
       return { success: false, error };
     } finally {
       setLoading(false);
@@ -144,18 +197,26 @@ export const AuthProvider = ({ children }) => {
   // Update user profile
   const updateProfile = async (profileData) => {
     try {
-      const { data, error } = await api.updateUserProfile(profileData);
+      setError(null);
+      const { data, error } = await supabase
+        .from('users')
+        .update(profileData)
+        .eq('id', user?.id)
+        .select()
+        .single();
       
       if (error) {
+        setError(error.message);
         return { success: false, error };
       }
 
-      if (data?.user) {
-        setUserProfile(data.user);
+      if (data) {
+        setUserProfile(data);
       }
 
       return { success: true, data };
     } catch (error) {
+      setError(error.message);
       return { success: false, error };
     }
   };
@@ -163,15 +224,19 @@ export const AuthProvider = ({ children }) => {
   // Refresh user profile
   const refreshProfile = async () => {
     try {
-      const { data, error } = await api.getUserProfile();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
       
       if (error) {
         console.error('Profile refresh error:', error);
         return;
       }
 
-      if (data?.user) {
-        setUserProfile(data.user);
+      if (data) {
+        setUserProfile(data);
       }
     } catch (error) {
       console.error('Profile refresh error:', error);
@@ -183,13 +248,14 @@ export const AuthProvider = ({ children }) => {
     session,
     userProfile,
     loading,
+    error,
     signUp,
     signIn,
     signOut,
     updateProfile,
     refreshProfile,
     isAuthenticated: !!user,
-    isAdmin: user?.user_metadata?.role === 'admin'
+    isAdmin: userProfile?.role === 'admin'
   };
 
   return (

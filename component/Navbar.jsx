@@ -6,11 +6,13 @@ import WalletConnectButton from './WalletConnectButton';
 export const Navbar = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   const { user, isAuthenticated, signOut, loading } = useAuth();
 
-  // Smooth scroll for anchor links
+  // Ensure component is mounted on client side
   useEffect(() => {
+    setIsClient(true);
     if (typeof window !== 'undefined') {
       document.documentElement.style.scrollBehavior = 'smooth';
     }
@@ -23,11 +25,16 @@ export const Navbar = () => {
     }
   };
 
-  if (loading) {
+  // Show loading state only on client side and when auth is loading
+  if (!isClient || loading) {
     return (
       <nav className="bg-gray-900 text-white p-4 fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-xl font-bold">Loading...</div>
+          <div className="text-xl font-bold">Quantex</div>
+          <div className="flex items-center space-x-4">
+            <div className="animate-pulse bg-gray-700 h-8 w-20 rounded"></div>
+            <div className="animate-pulse bg-gray-700 h-8 w-16 rounded"></div>
+          </div>
         </div>
       </nav>
     );

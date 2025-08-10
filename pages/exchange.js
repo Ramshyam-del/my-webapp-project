@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 
 const navTabs = [
@@ -12,10 +12,126 @@ const navTabs = [
 export default function ExchangePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationRef = useRef(null);
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      type: 'trade',
+      title: 'Trade Completed',
+      message: 'Your BTC/USDT trade has been completed successfully!',
+      time: '2 minutes ago',
+      isRead: false,
+      icon: '💰'
+    },
+    {
+      id: 2,
+      type: 'system',
+      title: 'System Update',
+      message: 'New trading features have been added to the platform.',
+      time: '1 hour ago',
+      isRead: false,
+      icon: '⚙️'
+    },
+    {
+      id: 3,
+      type: 'alert',
+      title: 'Price Alert',
+      message: 'BTC has reached your target price of $45,000!',
+      time: '3 hours ago',
+      isRead: true,
+      icon: '📈'
+    },
+    {
+      id: 4,
+      type: 'bonus',
+      title: 'Welcome Bonus',
+      message: 'You have received a $50 welcome bonus!',
+      time: '1 day ago',
+      isRead: true,
+      icon: '🎁'
+    }
+  ]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
+  // Simulate real-time notifications
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Random chance to add a new notification
+      if (Math.random() < 0.1) { // 10% chance every 30 seconds
+        const newNotification = {
+          id: Date.now(),
+          type: ['trade', 'system', 'alert', 'bonus'][Math.floor(Math.random() * 4)],
+          title: 'New Update',
+          message: 'You have a new notification from the system.',
+          time: 'Just now',
+          isRead: false,
+          icon: '🔔'
+        };
+        setNotifications(prev => [newNotification, ...prev.slice(0, 9)]); // Keep max 10 notifications
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const markAsRead = (id) => {
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, isRead: true }
+          : notification
+      )
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, isRead: true }))
+    );
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'trade': return '💰';
+      case 'system': return '⚙️';
+      case 'alert': return '📈';
+      case 'bonus': return '🎁';
+      default: return '🔔';
+    }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type) {
+      case 'trade': return 'text-green-500';
+      case 'system': return 'text-blue-500';
+      case 'alert': return 'text-yellow-500';
+      case 'bonus': return 'text-purple-500';
+      default: return 'text-gray-500';
+    }
+  };
 
   if (!mounted) {
     return (
@@ -35,10 +151,92 @@ export default function ExchangePage() {
         <div className="flex items-center gap-2">
           <span className="text-lg sm:text-2xl font-extrabold tracking-widest text-white bg-blue-900 px-2 py-1 rounded">Quantex</span>
         </div>
-        <button className="relative">
-          <svg className="w-6 h-6 sm:w-7 sm:h-7 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" /></svg>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-green-400 rounded-full border-2 border-[#181c23]" />
-        </button>
+        
+        {/* Notification Button */}
+        <div className="relative" ref={notificationRef}>
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            <svg className="w-6 h-6 sm:w-7 sm:h-7 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.5 19.5a2 2 0 01-2-2V7a2 2 0 012-2h11a2 2 0 012 2v10.5a2 2 0 01-2 2h-11z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#1a1d24] border border-gray-700 rounded-lg shadow-xl z-50">
+              <div className="p-4 border-b border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-white">Notifications</h3>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-sm text-blue-400 hover:text-blue-300"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-400">
+                    <div className="text-4xl mb-2">🔕</div>
+                    <p>No notifications yet</p>
+                  </div>
+                ) : (
+                  notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-gray-700 hover:bg-gray-800 transition-colors cursor-pointer ${
+                        !notification.isRead ? 'bg-gray-800/50' : ''
+                      }`}
+                      onClick={() => markAsRead(notification.id)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`text-xl ${getNotificationColor(notification.type)}`}>
+                          {notification.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium text-white">
+                              {notification.title}
+                            </h4>
+                            {!notification.isRead && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-300 mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {notification.time}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-gray-700">
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="w-full text-center text-sm text-blue-400 hover:text-blue-300"
+                >
+                  View all notifications
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
       
       {/* Banner */}

@@ -11,18 +11,22 @@ export default function AdminTransactions() {
 
   useEffect(() => {
     fetch('/api/transactions')
-      .then(res => res.json())
-      .then(data => {
-        setTransactions(data);
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.transactions) ? data.transactions : []);
+        setTransactions(list);
         setLoading(false);
       })
       .catch(err => {
         setError('Failed to fetch transactions');
+        setTransactions([]);
         setLoading(false);
       });
   }, []);
 
-  const filteredTransactions = transactions.filter(tx => {
+  const txs = Array.isArray(transactions) ? transactions : [];
+  const filteredTransactions = txs.filter(tx => {
     const matchesType = filterType === 'all' || tx.type === filterType;
     const matchesStatus = filterStatus === 'all' || tx.status === filterStatus;
     const matchesSearch = searchTerm === '' || 

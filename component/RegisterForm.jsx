@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
 function Toast({ message, onClose }) {
   if (!message) return null;
@@ -46,18 +47,27 @@ export const RegisterForm = () => {
     
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4001/api/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.email, password: form.password }),
+      // Use Supabase authentication directly
+      const { data, error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            role: 'user' // Set default role
+          }
+        }
       });
-      const data = await res.json();
-      if (res.ok) {
-        setToast('Registration successful! You can now log in.');
+
+      if (error) {
+        setToast(error.message || 'Registration failed');
+      } else {
+        setToast('Registration successful! Please check your email to verify your account.');
         // Clear form
         setForm({ email: '', password: '', confirmPassword: '' });
-      } else {
-        setToast(data.message || 'Registration failed');
+        // Optionally redirect to login
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
       }
     } catch (err) {
       setToast('An error occurred during registration.');
