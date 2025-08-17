@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
+import { safeWindow, getSafeLocation } from '../utils/safeStorage';
 
 function Toast({ message, onClose }) {
   if (!message) return null;
@@ -66,7 +67,7 @@ export const LoginForm = () => {
       if (forgotStep === 'email') {
         // Use Supabase password reset
         const { error } = await supabase.auth.resetPasswordForEmail(forgotForm.email, {
-          redirectTo: `${window.location.origin}/reset-password`
+          redirectTo: `${getSafeLocation()?.origin || 'http://localhost:3000'}/reset-password`
         });
         
         if (error) {

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { safeLocalStorage, safeWindow, getSafeDocument } from '../../utils/safeStorage';
 
 export default function AdminOperate() {
   const [activeTab, setActiveTab] = useState('home');
@@ -40,7 +42,7 @@ export default function AdminOperate() {
 
   useEffect(() => {
     // Load configuration from localStorage or API
-    const savedConfig = localStorage.getItem('webConfig');
+    const savedConfig = safeLocalStorage.getItem('webConfig');
     if (savedConfig) {
       setConfig(JSON.parse(savedConfig));
     }
@@ -64,7 +66,7 @@ export default function AdminOperate() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+          'Authorization': `Bearer ${safeLocalStorage.getItem('supabase.auth.token')}`
         },
         body: JSON.stringify({
           deposit_addresses: {
@@ -96,15 +98,18 @@ export default function AdminOperate() {
       
       if (response.ok) {
         // Also save to localStorage as backup
-        localStorage.setItem('webConfig', JSON.stringify(config));
+        safeLocalStorage.setItem('webConfig', JSON.stringify(config));
         // Trigger events for frontend updates
-        window.dispatchEvent(new StorageEvent('storage', {
-          key: 'webConfig',
-          newValue: JSON.stringify(config)
-        }));
-        window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-          detail: { config }
-        }));
+            const document = getSafeDocument();
+    if (document) {
+      document.dispatchEvent(new StorageEvent('storage', {
+        key: 'webConfig',
+        newValue: JSON.stringify(config)
+      }));
+      document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+        detail: { config }
+      }));
+    }
         alert('Configuration saved to database successfully! Wallet addresses have been updated in the frontend.');
       } else {
         alert('Failed to save configuration to database. Please try again.');
@@ -475,16 +480,21 @@ export default function AdminOperate() {
                   setConfig(prev => ({ ...prev, usdtAddress: newValue }));
                   // Immediately save and trigger update
                   const updatedConfig = { ...config, usdtAddress: newValue };
-                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
                   console.log('Dispatching webConfigUpdated event');
-                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
+                  const document = getSafeDocument();
+                  if (document) {
+                    document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                      detail: { config: updatedConfig }
+                    }));
+                  }
                   // Also dispatch storage event for cross-tab updates
-                  window.dispatchEvent(new StorageEvent('storage', {
-                    key: 'webConfig',
-                    newValue: JSON.stringify(updatedConfig)
-                  }));
+                  if (document) {
+                    document.dispatchEvent(new StorageEvent('storage', {
+                      key: 'webConfig',
+                      newValue: JSON.stringify(updatedConfig)
+                    }));
+                  }
                 }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter USDT wallet address"
@@ -496,10 +506,13 @@ export default function AdminOperate() {
                    setConfig(prev => ({ ...prev, usdtAddress: newAddress }));
                    // Immediately save and trigger update
                    const updatedConfig = { ...config, usdtAddress: newAddress };
-                   localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                     detail: { config: updatedConfig }
-                   }));
+                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                   const document = getSafeDocument();
+                   if (document) {
+                     document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                       detail: { config: updatedConfig }
+                     }));
+                   }
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -539,15 +552,19 @@ export default function AdminOperate() {
                   setConfig(prev => ({ ...prev, btcAddress: newValue }));
                   // Immediately save and trigger update
                   const updatedConfig = { ...config, btcAddress: newValue };
-                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
+                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  if (getSafeDocument()) {
+                    getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
+                      detail: { config: updatedConfig }
+                    }));
+                  }
                   // Also dispatch storage event for cross-tab updates
-                  window.dispatchEvent(new StorageEvent('storage', {
-                    key: 'webConfig',
-                    newValue: JSON.stringify(updatedConfig)
-                  }));
+                  if (getSafeDocument()) {
+                    getSafeDocument().dispatchEvent(new StorageEvent('storage', {
+                      key: 'webConfig',
+                      newValue: JSON.stringify(updatedConfig)
+                    }));
+                  }
                 }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter BTC wallet address"
@@ -559,10 +576,12 @@ export default function AdminOperate() {
                    setConfig(prev => ({ ...prev, btcAddress: newAddress }));
                    // Immediately save and trigger update
                    const updatedConfig = { ...config, btcAddress: newAddress };
-                   localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                     detail: { config: updatedConfig }
-                   }));
+                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                   if (getSafeDocument()) {
+                     getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
+                       detail: { config: updatedConfig }
+                     }));
+                   }
                  }}
                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
                >
@@ -602,15 +621,19 @@ export default function AdminOperate() {
                   setConfig(prev => ({ ...prev, ethAddress: newValue }));
                   // Immediately save and trigger update
                   const updatedConfig = { ...config, ethAddress: newValue };
-                  localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                  window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
+                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                  if (getSafeDocument()) {
+                    getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
+                      detail: { config: updatedConfig }
+                    }));
+                  }
                   // Also dispatch storage event for cross-tab updates
-                  window.dispatchEvent(new StorageEvent('storage', {
-                    key: 'webConfig',
-                    newValue: JSON.stringify(updatedConfig)
-                  }));
+                  if (getSafeDocument()) {
+                    getSafeDocument().dispatchEvent(new StorageEvent('storage', {
+                      key: 'webConfig',
+                      newValue: JSON.stringify(updatedConfig)
+                    }));
+                  }
                 }}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter ETH wallet address"
@@ -622,10 +645,12 @@ export default function AdminOperate() {
                    setConfig(prev => ({ ...prev, ethAddress: newAddress }));
                    // Immediately save and trigger update
                    const updatedConfig = { ...config, ethAddress: newAddress };
-                   localStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   window.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                     detail: { config: updatedConfig }
-                   }));
+                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                   if (getSafeDocument()) {
+                     getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
+                       detail: { config: updatedConfig }
+                     }));
+                   }
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -714,7 +739,7 @@ export default function AdminOperate() {
                 btcAddress: 'bc1TEST' + Math.random().toString(16).substr(2, 10),
                 ethAddress: '0xTEST' + Math.random().toString(16).substr(2, 10)
               };
-              localStorage.setItem('webConfig', JSON.stringify(testConfig));
+              safeLocalStorage.setItem('webConfig', JSON.stringify(testConfig));
               setConfig(testConfig);
               alert('Test addresses applied! Check the portfolio deposit modal.');
             }}
@@ -730,7 +755,7 @@ export default function AdminOperate() {
                 btcAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
                 ethAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
               };
-              localStorage.setItem('webConfig', JSON.stringify(defaultConfig));
+              safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
               setConfig(defaultConfig);
               alert('Default addresses restored!');
             }}

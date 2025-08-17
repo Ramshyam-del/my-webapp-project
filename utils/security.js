@@ -1,5 +1,7 @@
 // Frontend Security Utilities
 
+import { safeLocalStorage, safeWindow, getSafeDocument, getSafeLocation } from './safeStorage';
+
 // Input validation functions
 export const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,18 +38,15 @@ export const validateAmount = (amount) => {
 
 // Token management
 export const getAuthToken = () => {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  return safeLocalStorage.getItem('token');
 };
 
 export const setAuthToken = (token) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('token', token);
+  safeLocalStorage.setItem('token', token);
 };
 
 export const removeAuthToken = () => {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('token');
+  safeLocalStorage.removeItem('token');
 };
 
 export const isTokenValid = (token) => {
@@ -93,7 +92,10 @@ export const secureApiCall = async (url, options = {}) => {
       // Handle specific error codes
       if (response.status === 401) {
         removeAuthToken();
-        window.location.href = '/login';
+        const location = getSafeLocation();
+        if (location) {
+          location.href = '/login';
+        }
         throw new Error('Authentication required');
       }
       
@@ -128,7 +130,8 @@ export const sanitizeInput = (input) => {
 
 // CSRF token management
 export const getCSRFToken = () => {
-  if (typeof window === 'undefined') return null;
+  const document = getSafeDocument();
+  if (!document) return null;
   return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 };
 
@@ -189,19 +192,17 @@ export const checkPasswordStrength = (password) => {
 // Secure storage utilities
 export const secureStorage = {
   set: (key, value) => {
-    if (typeof window === 'undefined') return;
     try {
       const encrypted = btoa(JSON.stringify(value));
-      localStorage.setItem(key, encrypted);
+      safeLocalStorage.setItem(key, encrypted);
     } catch (error) {
       console.error('Storage error:', error);
     }
   },
   
   get: (key) => {
-    if (typeof window === 'undefined') return null;
     try {
-      const encrypted = localStorage.getItem(key);
+      const encrypted = safeLocalStorage.getItem(key);
       if (!encrypted) return null;
       return JSON.parse(atob(encrypted));
     } catch (error) {
@@ -211,8 +212,7 @@ export const secureStorage = {
   },
   
   remove: (key) => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(key);
+    safeLocalStorage.removeItem(key);
   }
 };
 
@@ -222,7 +222,8 @@ export const sessionManager = {
   warningTime: 5 * 60 * 1000, // 5 minutes
   
   start: () => {
-    if (typeof window === 'undefined') return;
+    const document = getSafeDocument();
+    if (!document) return;
     
     const token = getAuthToken();
     if (!token) return;
@@ -237,7 +238,8 @@ export const sessionManager = {
   },
   
   reset: () => {
-    if (typeof window === 'undefined') return;
+    const document = getSafeDocument();
+    if (!document) return;
     
     clearTimeout(sessionManager.timeoutId);
     clearTimeout(sessionManager.warningId);
@@ -252,7 +254,9 @@ export const sessionManager = {
   },
   
   warn: () => {
-    if (typeof window === 'undefined') return;
+    const document = getSafeDocument();
+    const confirm = document?.confirm;
+    if (!confirm) return;
     
     const warning = confirm('Your session will expire in 5 minutes. Do you want to stay logged in?');
     if (warning) {
@@ -264,7 +268,10 @@ export const sessionManager = {
   
   logout: () => {
     removeAuthToken();
-    window.location.href = '/login';
+      const location = getSafeLocation();
+  if (location) {
+    location.href = '/login';
+  }
   }
 };
 

@@ -124,4 +124,4 @@ Write-Host "   - Check the browser console for any errors" -ForegroundColor Whit
 Write-Host "   - The navbar should now load properly" -ForegroundColor White
 Write-Host "   - If you see 'Loading...', wait a few more seconds" -ForegroundColor White
 Write-Host ""
-Write-Host "🛑 To stop servers: Close the PowerShell windows or run 'Get-Process node | Stop-Process'" -ForegroundColor Yellow
+Write-Host "🛑 To stop servers: Close the PowerShell windows" -ForegroundColor Yellow

@@ -2,156 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Mobile Responsive Improvements */
 @layer base {
-  html {
-    scroll-behavior: smooth;
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
   }
-  
-body {
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 }
 
 @layer components {
-  /* Mobile-friendly button styles */
-  .btn-mobile {
-    @apply px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base font-medium rounded-lg transition-all duration-200;
+  /* Focus styles */
+  .focus-visible {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
   }
-  
-  /* Mobile-friendly card styles */
-  .card-mobile {
-    @apply bg-gray-900 rounded-lg p-4 sm:p-6 hover:bg-gray-800 transition-all duration-300;
+
+  /* Typography */
+  .h1 {
+    @apply text-3xl font-semibold tracking-tight;
   }
-  
-  /* Mobile-friendly input styles */
-  .input-mobile {
-    @apply w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500;
+
+  .h2 {
+    @apply text-2xl font-semibold;
   }
-  
-  /* Mobile-friendly table styles */
-  .table-mobile {
-    @apply w-full text-sm sm:text-base;
+
+  .body-text {
+    @apply text-sm md:text-base;
   }
-  
-  .table-mobile th {
-    @apply px-3 sm:px-6 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-300 uppercase tracking-wider;
+
+  /* Card styles */
+  .card-base {
+    @apply rounded-2xl border shadow-sm p-6;
   }
-  
-  .table-mobile td {
-    @apply px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-sm sm:text-base;
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-background to-muted/50;
   }
-  
-  /* Mobile-friendly grid layouts */
-  .grid-mobile {
-    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
-  }
-  
-  /* Mobile-friendly spacing */
-  .section-mobile {
-    @apply py-8 sm:py-12 lg:py-16 px-4 sm:px-6 lg:px-8;
-  }
-  
-  /* Mobile-friendly text sizes */
-  .text-mobile {
-    @apply text-sm sm:text-base lg:text-lg;
-  }
-  
-  .text-mobile-lg {
-    @apply text-lg sm:text-xl lg:text-2xl;
-  }
-  
-  .text-mobile-xl {
-    @apply text-xl sm:text-2xl lg:text-3xl;
-  }
-  
-  .text-mobile-2xl {
-    @apply text-2xl sm:text-3xl lg:text-4xl;
-  }
-  
-  /* Mobile-friendly navigation */
-  .nav-mobile {
-    @apply fixed w-full top-0 z-50 bg-gray-900 text-white p-4;
-  }
-  
-  /* Mobile-friendly modal */
-  .modal-mobile {
-    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
-  }
-  
-  .modal-content-mobile {
-    @apply bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md sm:max-w-lg;
-  }
-  
-  /* Mobile-friendly charts */
-  .chart-mobile {
-    @apply w-full h-64 sm:h-80 lg:h-96 bg-gray-800 rounded-lg overflow-hidden;
-  }
-  
-  /* Mobile-friendly status indicators */
-  .status-mobile {
-    @apply flex items-center gap-2 text-xs sm:text-sm;
-  }
-  
-  /* Mobile-friendly loading states */
-  .loading-mobile {
-    @apply flex items-center justify-center py-8;
-  }
-  
-  /* Mobile-friendly error states */
-  .error-mobile {
-    @apply text-center py-8 text-gray-400 text-sm sm:text-base;
-  }
-  
-  /* Mobile-friendly success states */
-  .success-mobile {
-    @apply text-center py-8 text-green-400 text-sm sm:text-base;
-  }
-  
-  /* Mobile-friendly hover effects */
-  .hover-mobile {
-    @apply hover:bg-gray-800 transition-colors duration-200;
-  }
-  
-  /* Mobile-friendly focus states */
-  .focus-mobile {
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50;
-  }
-  
-  /* Mobile-friendly animations */
-  .animate-mobile {
-    @apply transition-all duration-300 ease-in-out;
-  }
-  
-  /* Mobile-friendly shadows */
-  .shadow-mobile {
-    @apply shadow-lg hover:shadow-xl transition-shadow duration-200;
+
+  /* Animation utilities */
+  .transition-smooth {
+    @apply motion-safe:transition-all duration-200 ease-in-out;
   }
 }
 
-/* Custom scrollbar for mobile */
 @layer utilities {
-  .scrollbar-mobile {
+  /* Custom scrollbar */
+  .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #4B5563 #1F2937;
+    scrollbar-color: hsl(var(--muted-foreground)) transparent;
   }
   
-  .scrollbar-mobile::-webkit-scrollbar {
+  .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
   }
   
-  .scrollbar-mobile::-webkit-scrollbar-track {
-    background: #1F2937;
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
   }
   
-  .scrollbar-mobile::-webkit-scrollbar-thumb {
-    background: #4B5563;
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground));
     border-radius: 3px;
   }
   
-  .scrollbar-mobile::-webkit-scrollbar-thumb:hover {
-    background: #6B7280;
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.8);
   }
 }
 

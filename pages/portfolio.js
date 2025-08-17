@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -236,53 +237,41 @@ export default function PortfolioPage() {
 
   // Load portfolio from localStorage
   const loadPortfolio = () => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('portfolio');
-      if (saved) {
-        setPortfolio(JSON.parse(saved));
-      }
+    const saved = safeLocalStorage.getItem('portfolio');
+    if (saved) {
+      setPortfolio(JSON.parse(saved));
     }
   };
 
   // Save portfolio to localStorage
   const savePortfolio = (newPortfolio) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('portfolio', JSON.stringify(newPortfolio));
-    }
+    safeLocalStorage.setItem('portfolio', JSON.stringify(newPortfolio));
   };
 
   // Load alerts from localStorage
   const loadAlerts = () => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('priceAlerts');
-      if (saved) {
-        setAlerts(JSON.parse(saved));
-      }
+    const saved = safeLocalStorage.getItem('priceAlerts');
+    if (saved) {
+      setAlerts(JSON.parse(saved));
     }
   };
 
   // Save alerts to localStorage
   const saveAlerts = (newAlerts) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
-    }
+    safeLocalStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
   };
 
   // Load transactions from localStorage
   const loadTransactions = () => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('transactions');
-      if (saved) {
-        setTransactions(JSON.parse(saved));
-      }
+    const saved = safeLocalStorage.getItem('transactions');
+    if (saved) {
+      setTransactions(JSON.parse(saved));
     }
   };
 
   // Save transactions to localStorage
   const saveTransactions = (newTransactions) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('transactions', JSON.stringify(newTransactions));
-    }
+    safeLocalStorage.setItem('transactions', JSON.stringify(newTransactions));
   };
 
   // Add transaction
@@ -388,16 +377,14 @@ export default function PortfolioPage() {
 
   // Load portfolio history
   const loadPortfolioHistory = () => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('portfolioHistory');
-      if (saved) {
-        setPortfolioHistory(JSON.parse(saved));
-      } else {
-        // Generate mock data if no history exists
-        const mockHistory = generatePortfolioHistory();
-        setPortfolioHistory(mockHistory);
-        localStorage.setItem('portfolioHistory', JSON.stringify(mockHistory));
-      }
+    const saved = safeLocalStorage.getItem('portfolioHistory');
+    if (saved) {
+      setPortfolioHistory(JSON.parse(saved));
+    } else {
+      // Generate mock data if no history exists
+      const mockHistory = generatePortfolioHistory();
+      setPortfolioHistory(mockHistory);
+      safeLocalStorage.setItem('portfolioHistory', JSON.stringify(mockHistory));
     }
   };
 
@@ -672,14 +659,13 @@ export default function PortfolioPage() {
   // Handle logout
   const handleLogout = () => {
     // Show confirmation dialog
-    const confirmLogout = window.confirm('Are you sure you want to log out?');
+    const document = getSafeDocument();
+    const confirmLogout = document?.confirm?.('Are you sure you want to log out?') || true;
     
     if (confirmLogout) {
       // Only clear authentication token, keep user data
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        // Keep portfolio, alerts, transactions, etc. - don't clear user data
-      }
+      safeLocalStorage.removeItem('token');
+      // Keep portfolio, alerts, transactions, etc. - don't clear user data
       
       // Show logout message
       alert('You have been successfully logged out.');

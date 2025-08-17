@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 
 export default function DepositPage() {
   const router = useRouter();
@@ -101,12 +102,14 @@ export default function DepositPage() {
         setTimeout(() => setCopySuccess(false), 2000);
       } else {
         // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = address;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
+        if (typeof window !== 'undefined') {
+          const textArea = document.createElement('textarea');
+          textArea.value = address;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
       }
@@ -124,24 +127,76 @@ export default function DepositPage() {
 
   useEffect(() => {
     setMounted(true);
-    loadConfig(); // Load configuration from database
-    
-    // Add real-time event listeners
-    window.addEventListener('webConfigUpdated', handleConfigUpdate);
-    window.addEventListener('storage', (event) => {
-      if (event.key === 'webConfig') {
+    // Load initial config
+    loadConfig();
+
+    // Listen for config updates from other tabs/windows
+    const handleConfigUpdate = (event) => {
+      if (event.detail?.config) {
+        const config = event.detail.config;
+        const updatedOptions = cryptoOptions.map(crypto => {
+          let address = crypto.address;
+          
+          // Map admin panel field names to crypto IDs
+          if (crypto.id === 'bitcoin' && config.btcAddress) {
+            address = config.btcAddress;
+          } else if (crypto.id === 'ethereum' && config.ethAddress) {
+            address = config.ethAddress;
+          } else if (crypto.id === 'usdt' && config.usdtAddress) {
+            address = config.usdtAddress;
+          }
+          
+          return {
+            ...crypto,
+            address: address,
+            qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+          };
+        });
+        setCryptoOptions(updatedOptions);
+      }
+    };
+
+    const handleStorageChange = (event) => {
+      if (event.key === 'webConfig' && event.newValue) {
         try {
-          const config = JSON.parse(event.newValue);
-          handleConfigUpdate({ detail: { config } });
+          const newConfig = JSON.parse(event.newValue);
+          const updatedOptions = cryptoOptions.map(crypto => {
+            let address = crypto.address;
+            
+            // Map admin panel field names to crypto IDs
+            if (crypto.id === 'bitcoin' && newConfig.btcAddress) {
+              address = newConfig.btcAddress;
+            } else if (crypto.id === 'ethereum' && newConfig.ethAddress) {
+              address = newConfig.ethAddress;
+            } else if (crypto.id === 'usdt' && newConfig.usdtAddress) {
+              address = newConfig.usdtAddress;
+            }
+            
+            return {
+              ...crypto,
+              address: address,
+              qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+            };
+          });
+          setCryptoOptions(updatedOptions);
         } catch (error) {
-          console.error('Error parsing config update:', error);
+          console.error('Error parsing config from storage:', error);
         }
       }
-    });
+    };
 
-    // Cleanup event listeners
+    const document = getSafeDocument();
+    if (document) {
+      document.addEventListener('webConfigUpdated', handleConfigUpdate);
+      document.addEventListener('storage', handleStorageChange);
+    }
+
     return () => {
-      window.removeEventListener('webConfigUpdated', handleConfigUpdate);
+      const document = getSafeDocument();
+      if (document) {
+        document.removeEventListener('webConfigUpdated', handleConfigUpdate);
+        document.removeEventListener('storage', handleStorageChange);
+      }
     };
   }, []);
 

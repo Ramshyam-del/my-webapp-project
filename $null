@@ -1,0 +1,8 @@
+error: pathspec ';' did not match any file(s) known to git
+error: pathspec 'if' did not match any file(s) known to git
+error: pathspec '($LASTEXITCODE' did not match any file(s) known to git
+error: pathspec '0)' did not match any file(s) known to git
+error: pathspec '{' did not match any file(s) known to git
+error: pathspec 'Write-Host' did not match any file(s) known to git
+error: pathspec 'Nothing to commit' did not match any file(s) known to git
+error: pathspec '}' did not match any file(s) known to git

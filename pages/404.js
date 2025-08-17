@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { safeWindow, getSafeLocation } from '../utils/safeStorage';
 
 export default function Custom404() {
   useEffect(() => {
@@ -16,9 +17,14 @@ export default function Custom404() {
           <p className="text-gray-300 mb-6">
             The page you're looking for doesn't exist.
           </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+          <button 
+            onClick={() => {
+  const location = getSafeLocation();
+  if (location) {
+    location.href = '/';
+  }
+}}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
             Go Home
           </button>

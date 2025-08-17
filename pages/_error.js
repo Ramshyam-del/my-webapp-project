@@ -1,32 +1,30 @@
-import { useEffect } from 'react';
+import React from 'react';
 
 function Error({ statusCode, err }) {
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('Page error:', statusCode, err);
-    }
-  }, [statusCode, err]);
-
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-6">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">
-            {statusCode ? statusCode : '⚠️'}
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-4">
-            {statusCode
-              ? `Error ${statusCode}`
-              : 'Something went wrong'}
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {statusCode ? `Error ${statusCode}` : 'Application Error'}
           </h1>
-          <p className="text-gray-300 mb-6">
-            {statusCode ? `A ${statusCode} error occurred.` : 'An error occurred.'}
+          <p className="text-gray-600 mb-4">
+            {statusCode
+              ? `A ${statusCode} error occurred on the server.`
+              : 'An error occurred on the client.'}
           </p>
+          {err && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+              <p className="text-sm text-red-800 font-mono break-all">
+                {err.message || 'Unknown error'}
+              </p>
+            </div>
+          )}
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            Refresh Page
+            Reload Page
           </button>
         </div>
       </div>

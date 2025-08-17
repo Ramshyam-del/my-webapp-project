@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { getSafeDocument } from '../utils/safeStorage';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
@@ -65,12 +66,16 @@ export default function ExchangePage() {
       }
     };
 
-    if (showNotifications) {
+    const document = getSafeDocument();
+    if (showNotifications && document) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      const document = getSafeDocument();
+      if (document) {
+        document.removeEventListener('mousedown', handleClickOutside);
+      }
     };
   }, [showNotifications]);
 

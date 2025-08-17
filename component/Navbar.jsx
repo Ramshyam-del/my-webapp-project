@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
+import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 import AuthModal from './AuthModal';
 import WalletConnectButton from './WalletConnectButton';
 
@@ -7,21 +9,45 @@ export const Navbar = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const { user, isAuthenticated, signOut, loading } = useAuth();
+  // Safely get auth context with fallback
+  let authContext;
+  try {
+    authContext = useAuth();
+  } catch (error) {
+    console.warn('AuthContext not available, using fallback state');
+    authContext = { user: null, isAuthenticated: false, loading: false, signOut: () => {} };
+  }
+
+  const { user, signOut, loading } = authContext;
 
   // Ensure component is mounted on client side
   useEffect(() => {
+    console.log('🔄 Navbar: Initializing client side...');
     setIsClient(true);
-    if (typeof window !== 'undefined') {
+    const document = getSafeDocument();
+    if (document) {
       document.documentElement.style.scrollBehavior = 'smooth';
     }
+    console.log('✅ Navbar: Client side initialized');
   }, []);
 
+  // Update authentication state
+  useEffect(() => {
+    if (isClient && !loading) {
+      console.log('🔄 Navbar: Updating auth state:', { user: !!user, loading });
+      setIsAuthenticated(!!user);
+    }
+  }, [user, loading, isClient]);
+
   const handleLogout = async () => {
-    const confirmLogout = window.confirm('Are you sure you want to log out?');
+    const document = getSafeDocument();
+    const confirmLogout = document?.confirm?.('Are you sure you want to log out?') || true;
+    
     if (confirmLogout) {
-      await signOut();
+      await supabase.auth.signOut();
+      router.push('/');
     }
   };
 

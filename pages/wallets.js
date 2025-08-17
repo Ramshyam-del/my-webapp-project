@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
+import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
@@ -97,9 +98,10 @@ export default function Wallets() {
     btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
     eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
   });
+  const [mounted, setMounted] = useState(false);
 
   // Load wallet addresses from database
-  const loadWalletAddresses = async () => {
+  const loadConfig = async () => {
     try {
       const response = await fetch('/api/config');
       if (response.ok) {
@@ -148,16 +150,35 @@ export default function Wallets() {
   };
 
   useEffect(() => {
-    loadWalletAddresses();
+    setMounted(true);
+    loadConfig();
     
     // Add real-time event listeners
-    window.addEventListener('webConfigUpdated', handleCustomStorageEvent);
-    window.addEventListener('storage', handleStorageChange);
+    const handleCustomStorageEvent = (event) => {
+      if (event.detail?.config) {
+        handleConfigUpdate(event);
+      }
+    };
     
+    const handleStorageChange = (event) => {
+      if (event.key === 'webConfig') {
+        handleConfigUpdate(event);
+      }
+    };
+
+    const document = getSafeDocument();
+    if (document) {
+      document.addEventListener('webConfigUpdated', handleCustomStorageEvent);
+      document.addEventListener('storage', handleStorageChange);
+    }
+
     // Cleanup event listeners
     return () => {
-      window.removeEventListener('webConfigUpdated', handleCustomStorageEvent);
-      window.removeEventListener('storage', handleStorageChange);
+      const document = getSafeDocument();
+      if (document) {
+        document.removeEventListener('webConfigUpdated', handleCustomStorageEvent);
+        document.removeEventListener('storage', handleStorageChange);
+      }
     };
   }, []);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
 
 // Cryptocurrency list for alerts
 const cryptoList = [
@@ -152,19 +153,15 @@ export default function AlertsPage() {
 
   // Load alerts from localStorage
   const loadAlerts = () => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('priceAlerts');
-      if (saved) {
-        setAlerts(JSON.parse(saved));
-      }
+    const saved = safeLocalStorage.getItem('priceAlerts');
+    if (saved) {
+      setAlerts(JSON.parse(saved));
     }
   };
 
   // Save alerts to localStorage
   const saveAlerts = (newAlerts) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
-    }
+    safeLocalStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
   };
 
   // Check price alerts
@@ -191,7 +188,8 @@ export default function AlertsPage() {
 
   // Trigger alert notification
   const triggerAlert = (alert, crypto) => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
+    const document = getSafeDocument();
+    if (document && 'Notification' in window) {
       if (Notification.permission === 'granted') {
         new Notification('Price Alert', {
           body: `${crypto.name} is now ${alert.type === 'above' ? 'above' : 'below'} $${alert.targetPrice}`,

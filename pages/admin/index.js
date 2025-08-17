@@ -1,84 +1,93 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { supabase } from '../../lib/supabase'
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { supabase } from '../../lib/supabase';
+import { authedFetchJson } from '../../lib/authedFetch';
+import AdminLayout from '../../component/AdminLayout';
+import AdminDashboard from '../../component/AdminDashboard';
 
 export default function AdminHome() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    let active = true
-    ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!active) return
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Check if user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.replace('/admin/login')
-        return
+        router.replace('/admin/login');
+        return;
       }
-      const resp = await fetch('/api/admin/me', { headers: { Authorization: `Bearer ${session.access_token}` } })
-      if (!active) return
-      if (resp.ok) {
-        setIsAdmin(true)
+
+      // Verify admin access
+      await authedFetchJson('/api/admin/me');
+      
+      // If we get here, user is authenticated and is admin
+      setLoading(false);
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      
+      if (err.code === 'unauthorized' || err.code === 'forbidden') {
+        // User is not admin or not authenticated
+        await supabase.auth.signOut();
+        router.replace('/admin/login');
       } else {
-        await supabase.auth.signOut()
-        router.replace('/admin/login')
+        setError('Failed to verify admin access. Please try again.');
+        setLoading(false);
       }
-      setLoading(false)
-    })()
-    return () => { active = false }
-  }, [router])
+    }
+  };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading…</div>
+    return (
+      <AdminLayout title="Admin Dashboard">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading admin dashboard...</p>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
   }
-  if (!isAdmin) return null
+
+  if (error) {
+    return (
+      <AdminLayout title="Admin Dashboard">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Authentication Error</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-        <button className="text-sm text-red-600" onClick={async () => { await supabase.auth.signOut(); router.replace('/admin/login') }}>Sign out</button>
-      </header>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Stat title="Users" value="—" />
-        <Stat title="Orders" value="—" />
-        <Stat title="Transactions" value="—" />
-      </div>
-    </div>
-  )
-}
-
-function Stat({ title, value }) {
-  return (
-    <div className="bg-white border rounded p-4">
-      <div className="text-sm text-gray-500">{title}</div>
-      <div className="text-xl font-semibold">{value}</div>
-    </div>
-  )
-}
-
-export async function getServerSideProps({ req, res }) {
-  try {
-    const cookie = req.headers['cookie'] || ''
-    const match = cookie.match(/sb-access-token=([^;]+)/)
-    const token = match ? decodeURIComponent(match[1]) : null
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
-    if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      return { redirect: { destination: '/admin/login', permanent: false } }
-    }
-    const { createClient } = require('@supabase/supabase-js')
-    const server = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    const { data: authData } = await server.auth.getUser(token)
-    const userId = authData?.user?.id
-    if (!userId) return { redirect: { destination: '/admin/login', permanent: false } }
-    const { data: me } = await server.from('users').select('role').eq('id', userId).single()
-    if (me?.role !== 'admin') return { redirect: { destination: '/admin/login', permanent: false } }
-    return { props: {} }
-  } catch {
-    return { redirect: { destination: '/admin/login', permanent: false } }
-  }
+    <AdminLayout title="Admin Dashboard">
+      <AdminDashboard />
+    </AdminLayout>
+  );
 }
 
 

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { safeWindow, getSafeLocation } from '../utils/safeStorage';
 
 export default function Custom500() {
   useEffect(() => {
@@ -16,11 +17,16 @@ export default function Custom500() {
           <p className="text-gray-300 mb-6">
             Something went wrong on our end. Please try again later.
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+          <button 
+            onClick={() => {
+  const location = getSafeLocation();
+  if (location) {
+    location.reload();
+  }
+}}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
-            Refresh Page
+            Try Again
           </button>
         </div>
       </div>

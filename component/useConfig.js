@@ -1,29 +1,88 @@
 import { useState, useEffect } from 'react';
+import { safeWindow, safeLocalStorage, getSafeDocument } from '../utils/safeStorage';
 
 export function useConfig() {
   const [config, setConfig] = useState({
-    deposit_addresses: {
-      usdt: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-      btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+    usdtAddress: '',
+    btcAddress: '',
+    ethAddress: '',
+    title: '',
+    officialWebsiteName: '',
+    officialWebsiteLink: '',
+    email: '',
+    address: '',
+    mobile: '',
+    workingHours: {
+      home: true,
+      about: true,
+      tokenSale: true,
+      roadi: true
     },
-    system_settings: {
-      maintenance_mode: false,
-      trading_enabled: true,
-      deposit_enabled: true,
-      withdrawal_enabled: true
-    }
+    menuManagement: {
+      english: true
+    },
+    logo: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+    favicon: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+    telegram: '',
+    whatsapp: '',
+    whatsappAddress: '',
+    emailAddress: '',
+    slogan: '',
+    subbanner: '',
+    whitePaperLink: ''
   });
-
   const [loading, setLoading] = useState(true);
 
-  // Load configuration from database
   const loadConfig = async () => {
     try {
+      setLoading(true);
+      
+      // Try to load from localStorage first
+      const savedConfig = safeLocalStorage.getItem('webConfig');
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        setConfig(parsedConfig);
+        setLoading(false);
+        return;
+      }
+
+      // Fallback to API
       const response = await fetch('/api/config');
       if (response.ok) {
         const data = await response.json();
-        setConfig(data);
+        const formattedConfig = {
+          usdtAddress: data.deposit_addresses?.usdt || '',
+          btcAddress: data.deposit_addresses?.btc || '',
+          ethAddress: data.deposit_addresses?.eth || '',
+          title: data.system_settings?.title || '',
+          officialWebsiteName: data.system_settings?.official_website_name || '',
+          officialWebsiteLink: data.system_settings?.official_website_link || '',
+          email: data.system_settings?.email || '',
+          address: data.system_settings?.address || '',
+          mobile: data.system_settings?.mobile || '',
+          workingHours: data.system_settings?.working_hours || {
+            home: true,
+            about: true,
+            tokenSale: true,
+            roadi: true
+          },
+          menuManagement: data.system_settings?.menu_management || {
+            english: true
+          },
+          logo: data.system_settings?.logo || '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+          favicon: data.system_settings?.favicon || '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+          telegram: data.system_settings?.telegram || '',
+          whatsapp: data.system_settings?.whatsapp || '',
+          whatsappAddress: data.system_settings?.whatsapp_address || '',
+          emailAddress: data.system_settings?.email_address || '',
+          slogan: data.system_settings?.slogan || '',
+          subbanner: data.system_settings?.subbanner || '',
+          whitePaperLink: data.system_settings?.white_paper_link || ''
+        };
+        setConfig(formattedConfig);
+        
+        // Save to localStorage for future use
+        safeLocalStorage.setItem('webConfig', JSON.stringify(formattedConfig));
       }
     } catch (error) {
       console.error('Error loading config:', error);
@@ -32,41 +91,40 @@ export function useConfig() {
     }
   };
 
-  // Real-time update handler
-  const handleConfigUpdate = (event) => {
-    console.log('Config update received:', event.detail);
-    if (event.detail && event.detail.config) {
-      const newConfig = event.detail.config;
-      setConfig(prev => ({
-        ...prev,
-        deposit_addresses: {
-          usdt: newConfig.usdtAddress || prev.deposit_addresses.usdt,
-          btc: newConfig.btcAddress || prev.deposit_addresses.btc,
-          eth: newConfig.ethAddress || prev.deposit_addresses.eth
-        }
-      }));
-    }
-  };
-
   useEffect(() => {
+    // Load initial config
     loadConfig();
-    
-    // Add real-time event listeners
-    window.addEventListener('webConfigUpdated', handleConfigUpdate);
-    window.addEventListener('storage', (event) => {
-      if (event.key === 'webConfig') {
+
+    // Listen for config updates from other tabs/windows
+    const handleConfigUpdate = (event) => {
+      if (event.detail?.config) {
+        setConfig(event.detail.config);
+      }
+    };
+
+    const handleStorageChange = (event) => {
+      if (event.key === 'webConfig' && event.newValue) {
         try {
-          const config = JSON.parse(event.newValue);
-          handleConfigUpdate({ detail: { config } });
+          const newConfig = JSON.parse(event.newValue);
+          setConfig(newConfig);
         } catch (error) {
-          console.error('Error parsing config update:', error);
+          console.error('Error parsing config from storage:', error);
         }
       }
-    });
+    };
 
-    // Cleanup event listeners
+    const document = getSafeDocument();
+    if (document) {
+      document.addEventListener('webConfigUpdated', handleConfigUpdate);
+      document.addEventListener('storage', handleStorageChange);
+    }
+
     return () => {
-      window.removeEventListener('webConfigUpdated', handleConfigUpdate);
+      const document = getSafeDocument();
+      if (document) {
+        document.removeEventListener('webConfigUpdated', handleConfigUpdate);
+        document.removeEventListener('storage', handleStorageChange);
+      }
     };
   }, []);
 
