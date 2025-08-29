@@ -1,6 +1,9 @@
 .env
 .env.*
+!.env.*.template
 backend/.env
+backend/.env.*
+!backend/.env.*.template
 node_modules
 .next
 dist
