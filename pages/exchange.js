@@ -4,9 +4,9 @@ import { getSafeDocument } from '../utils/safeStorage';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
+  { label: 'PORTFOLIO', icon: '📈', route: '/portfolio' },
   { label: 'MARKET', icon: '📊', route: '/market' },
   { label: 'FEATURES', icon: '✨', route: '/features' },
-  { label: 'PORTFOLIO', icon: '📈', route: '/portfolio' },
   { label: 'TRADE', icon: '💱', route: '/trade' },
 ];
 
@@ -15,6 +15,9 @@ export default function ExchangePage() {
   const [mounted, setMounted] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef(null);
+  const [config, setConfig] = useState({
+    exchangeBanner: ''
+  });
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -56,6 +59,54 @@ export default function ExchangePage() {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Load config from localStorage
+    const loadConfig = () => {
+      try {
+        const safeLocalStorage = typeof window !== 'undefined' ? window.localStorage : null;
+        if (safeLocalStorage) {
+          const savedConfig = safeLocalStorage.getItem('webConfig');
+          if (savedConfig) {
+            setConfig(JSON.parse(savedConfig));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading config:', error);
+      }
+    };
+    
+    loadConfig();
+    
+    // Listen for config updates
+    const handleConfigUpdate = (event) => {
+      if (event.detail && event.detail.config) {
+        setConfig(event.detail.config);
+      }
+    };
+    
+    const handleStorageChange = (event) => {
+      if (event.key === 'webConfig' && event.newValue) {
+        try {
+          setConfig(JSON.parse(event.newValue));
+        } catch (error) {
+          console.error('Error parsing config from storage event:', error);
+        }
+      }
+    };
+    
+    const document = getSafeDocument();
+    if (document) {
+      document.addEventListener('webConfigUpdated', handleConfigUpdate);
+      document.addEventListener('storage', handleStorageChange);
+    }
+    
+    return () => {
+      const document = getSafeDocument();
+      if (document) {
+        document.removeEventListener('webConfigUpdated', handleConfigUpdate);
+        document.removeEventListener('storage', handleStorageChange);
+      }
+    };
   }, []);
 
   // Click outside handler
@@ -245,33 +296,38 @@ export default function ExchangePage() {
       </header>
       
       {/* Banner */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-3 sm:p-4 flex flex-col items-center rounded-b-2xl">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="text-2xl sm:text-4xl">🚀</div>
-          <div>
-            <div className="text-base sm:text-lg font-bold">Welcome to Quantex</div>
-            <div className="text-xs text-blue-100">Your gateway to cryptocurrency trading</div>
+      <div className="relative overflow-hidden rounded-b-2xl">
+        <div 
+          className="relative h-28 sm:h-32 md:h-40 bg-gradient-to-r from-blue-800 via-indigo-700 to-purple-700"
+          style={{
+            backgroundImage: config?.exchangeBanner ? `url(${config.exchangeBanner})` : 'linear-gradient(to right, #1e40af, #4338ca, #7e22ce)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        >
+          {/* Decorative blobs - only shown when no banner image */}
+          {!config?.exchangeBanner && (
+            <>
+              <div className="absolute -top-12 -left-10 w-40 h-40 bg-blue-500/30 blur-3xl rounded-full"></div>
+              <div className="absolute -bottom-12 -right-10 w-48 h-48 bg-purple-500/30 blur-3xl rounded-full"></div>
+            </>
+          )}
+
+          <div className="relative h-full px-3 sm:px-6 md:px-8 flex items-center">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="text-3xl sm:text-4xl md:text-5xl drop-shadow">🚀</div>
+              <div className="leading-tight">
+                <div className="text-white font-extrabold text-lg sm:text-2xl md:text-3xl tracking-tight">
+                  Welcome to Quantex
+                </div>
+                <div className="text-blue-100 text-xs sm:text-sm">
+                  Your gateway to cryptocurrency trading
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Navigation - Mobile Responsive */}
-      <nav className="flex bg-[#181c23] px-2 sm:px-4 py-2 border-b border-gray-800 overflow-x-auto">
-        {navTabs.map((tab) => (
-          <button
-            key={tab.label}
-            onClick={() => router.push(tab.route)}
-            className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              router.pathname === tab.route
-                ? 'bg-purple-600 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-          >
-            <span className="text-sm sm:text-base">{tab.icon}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
       
       {/* Main Content */}
       <div className="flex-1 bg-black p-2 sm:p-4">
@@ -397,6 +453,27 @@ export default function ExchangePage() {
           </div>
         </div>
       </div>
+      
+      {/* Navigation - Mobile Responsive (Bottom) */}
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-10">
+        {navTabs.map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => router.push(tab.route)}
+            className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+              router.pathname === tab.route
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <span className="text-sm sm:text-base">{tab.icon}</span>
+            <span className="text-xs">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+      
+      {/* Add padding at the bottom to prevent content from being hidden behind the navbar */}
+      <div className="pb-16"></div>
     </div>
   );
-} 
+}

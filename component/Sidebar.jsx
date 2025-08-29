@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfig } from '../hooks/useConfig';
 
 const menuItems = [
   {
@@ -58,6 +59,7 @@ const menuItems = [
 ];
 
 export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentView }) => {
+  const { config, loading: configLoading } = useConfig();
   const [expandedItems, setExpandedItems] = useState(['users']);
 
   const toggleExpanded = (itemId) => {
@@ -112,11 +114,19 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">Q</span>
-            </div>
+            {config.logo ? (
+              <img 
+                src={config.logo} 
+                alt="Logo" 
+                className="w-10 h-10 rounded-lg object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">Q</span>
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Quantex</h1>
+              <h1 className="text-xl font-bold text-gray-900">{config.title || config.officialWebsiteName || 'Quantex'}</h1>
               <p className="text-xs text-gray-500">Admin Panel</p>
             </div>
           </div>
@@ -218,4 +228,4 @@ export const Sidebar = ({ sidebarOpen, setSidebarOpen, currentView, setCurrentVi
       </aside>
     </>
   );
-}; 
+};

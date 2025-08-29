@@ -5,22 +5,18 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "npx nodemon --watch . --ext js,json --exec node server.js",
+    "win-kill-4001": "powershell -ExecutionPolicy Bypass -File ./scripts/kill-4001.ps1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.53.0",
-    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.6.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^6.7.0",
-    "helmet": "^6.0.1",
-    "jsonwebtoken": "^9.0.0",
-    "node-fetch": "^2.6.7",
-    "nodemailer": "^6.9.1"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^4.2.1"
   },
   "devDependencies": {
-    "nodemon": "^2.0.22"
+    "nodemon": "^3.0.2"
   },
   "engines": {
     "node": ">=16.0.0"

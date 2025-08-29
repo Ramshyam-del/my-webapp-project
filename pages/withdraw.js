@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useConfig } from '../hooks/useConfig';
 
 export default function WithdrawPage() {
   const router = useRouter();
+  const { config, loading: configLoading } = useConfig();
   const [mounted, setMounted] = useState(false);
   const [address, setAddress] = useState('');
   const [selectedNetwork, setSelectedNetwork] = useState('');
@@ -82,7 +84,7 @@ export default function WithdrawPage() {
         >
           ←
         </button>
-        <h1 className="text-xl font-bold">Quantex</h1>
+        <h1 className="text-xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h1>
         <button 
           onClick={() => router.push('/portfolio')}
           className="text-gray-400 hover:text-white transition-colors"
@@ -227,4 +229,4 @@ export default function WithdrawPage() {
       )}
     </div>
   );
-} 
+}

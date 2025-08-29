@@ -1,4 +1,4 @@
-import { Navbar } from '../component/Navbar';
+import Navbar from '../component/Navbar';
 import { Herosection } from '../component/Herosection';
 import { Features } from '../component/Features';
 import { Roadmap } from '../component/Roadmap';
@@ -96,7 +96,7 @@ const CryptoPrices = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="bg-gray-800 rounded-lg p-4 animate-pulse">
             <div className="h-4 bg-gray-700 rounded mb-2"></div>
@@ -109,7 +109,7 @@ const CryptoPrices = () => {
 
   if (error) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="bg-gray-800 rounded-lg p-4">
             <div className="text-gray-400 text-sm">Loading...</div>
@@ -121,9 +121,9 @@ const CryptoPrices = () => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
       {(Array.isArray(cryptoData) ? cryptoData : []).slice(0, 4).map((crypto) => (
-        <div key={crypto.symbol} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
+        <div key={crypto.symbol} className="bg-gray-800 rounded-lg p-3 sm:p-4 hover:bg-gray-700 transition-colors">
           <div className="text-gray-400 text-sm">{crypto.name}</div>
           <div className="text-lg sm:text-xl font-bold text-white">
             ${parseFloat(crypto.price || 0).toFixed(2)}
@@ -141,7 +141,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-700 via-cyan-600 to-purple-700">
       <Navbar />
-      <main className="flex-1 flex flex-col gap-16 md:gap-24">
+      <main className="flex-1 flex flex-col gap-8 sm:gap-12 md:gap-16 lg:gap-24">
         <motion.section
           id="herosection"
           custom={0}
@@ -149,14 +149,14 @@ export default function Home() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={sectionVariants}
-          className={`pt-8 md:pt-16 pb-8 md:pb-16 mx-auto w-full max-w-5xl px-4 ${glass} scroll-mt-24`}
+          className={`pt-6 sm:pt-8 md:pt-12 lg:pt-16 pb-6 sm:pb-8 md:pb-12 lg:pb-16 mx-auto w-full max-w-5xl px-3 sm:px-4 ${glass} scroll-mt-20 sm:scroll-mt-24`}
         >
           <Herosection />
         </motion.section>
         
         {/* Crypto Prices Section - Always Visible */}
-        <section className="py-8 md:py-16 mx-auto w-full max-w-6xl px-4">
-          <div className={`${glass} p-8`}>
+        <section className="py-6 sm:py-8 md:py-12 lg:py-16 mx-auto w-full max-w-6xl px-3 sm:px-4">
+          <div className={`${glass} p-4 sm:p-6 md:p-8`}>
             <CryptoPrices />
           </div>
         </section>
@@ -168,7 +168,7 @@ export default function Home() {
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
           variants={sectionVariants}
-          className={`py-8 md:py-16 mx-auto w-full max-w-5xl px-4 ${glass} scroll-mt-24`}
+          className={`py-6 sm:py-8 md:py-12 lg:py-16 mx-auto w-full max-w-5xl px-3 sm:px-4 ${glass} scroll-mt-20 sm:scroll-mt-24`}
         >
           <Features />
         </motion.section>
@@ -198,4 +198,4 @@ export default function Home() {
       <Footer />
     </div>
   );
-} 
+}

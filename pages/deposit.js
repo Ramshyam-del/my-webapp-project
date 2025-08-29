@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { safeWindow, getSafeDocument } from '../utils/safeStorage';
+import { useConfig } from '../hooks/useConfig';
 
 export default function DepositPage() {
   const router = useRouter();
+  const { config, loading: configLoading } = useConfig();
   const [mounted, setMounted] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -43,9 +45,37 @@ export default function DepositPage() {
     }
   ]);
 
-  // Load configuration from database
+  // Load configuration from database and localStorage
   const loadConfig = async () => {
     try {
+      // First try to load from localStorage (most up-to-date)
+      const saved = localStorage.getItem('webConfig');
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        const updatedOptions = cryptoOptions.map(crypto => {
+          let address = crypto.address;
+          
+          // Map admin panel field names to crypto IDs
+          if (crypto.id === 'bitcoin' && cfg.btcAddress) {
+            address = cfg.btcAddress;
+          } else if (crypto.id === 'ethereum' && cfg.ethAddress) {
+            address = cfg.ethAddress;
+          } else if (crypto.id === 'usdt' && cfg.usdtAddress) {
+            address = cfg.usdtAddress;
+          }
+          
+          return {
+            ...crypto,
+            address: address,
+            qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+          };
+        });
+        setCryptoOptions(updatedOptions);
+        console.log('Loaded deposit addresses from localStorage:', cfg);
+        return;
+      }
+
+      // Fallback to API
       const response = await fetch('/api/config');
       if (response.ok) {
         const config = await response.json();
@@ -185,10 +215,18 @@ export default function DepositPage() {
       }
     };
 
+    // Refresh addresses when page becomes visible (user switches back to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadConfig();
+      }
+    };
+
     const document = getSafeDocument();
     if (document) {
       document.addEventListener('webConfigUpdated', handleConfigUpdate);
       document.addEventListener('storage', handleStorageChange);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     return () => {
@@ -196,6 +234,7 @@ export default function DepositPage() {
       if (document) {
         document.removeEventListener('webConfigUpdated', handleConfigUpdate);
         document.removeEventListener('storage', handleStorageChange);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
   }, []);
@@ -221,7 +260,7 @@ export default function DepositPage() {
         >
           ←
         </button>
-        <h1 className="text-xl font-bold">Quantex</h1>
+        <h1 className="text-xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h1>
         <button 
           onClick={() => router.push('/portfolio')}
           className="text-gray-400 hover:text-white transition-colors"
@@ -334,4 +373,4 @@ export default function DepositPage() {
       )}
     </div>
   );
-} 
+}

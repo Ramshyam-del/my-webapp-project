@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
+import { supabase } from '../lib/supabase';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -80,6 +81,7 @@ export default function PortfolioPage() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositAddresses, setDepositAddresses] = useState({ usdt: '', btc: '', eth: '' });
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [showKycModal, setShowKycModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -89,11 +91,11 @@ export default function PortfolioPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [userProfile, setUserProfile] = useState({
-    username: "User123",
-    officialId: "ID123456",
-    vipLevel: "Gold",
-    email: "user@example.com",
-    phone: "+1 234 567 8900"
+    username: "",
+    officialId: "",
+    vipLevel: "Bronze", // Default VIP level
+    email: "",
+    phone: ""
   });
   const [alerts, setAlerts] = useState([]);
   const [showAlertsModal, setShowAlertsModal] = useState(false);
@@ -116,6 +118,172 @@ export default function PortfolioPage() {
     description: '',
     department: 'support' // 'support' or 'finance'
   });
+  const [contactConfig, setContactConfig] = useState({
+    telegram: '',
+    whatsapp: '',
+    email: ''
+  });
+  const [portfolioBalance, setPortfolioBalance] = useState({
+    totalBalance: 0,
+    currencies: [],
+    summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
+  });
+  const [balanceLoading, setBalanceLoading] = useState(true);
+
+  // Fetch contact configuration (API first, then localStorage fallback)
+  const fetchContactConfig = async () => {
+    try {
+      let telegram = '';
+      let whatsapp = '';
+      let email = '';
+
+      try {
+        const response = await fetch('/api/admin/config');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            telegram = data.data.telegram || telegram;
+            whatsapp = data.data.whatsapp || whatsapp;
+            email = data.data.email || email;
+          }
+        }
+      } catch (_ignore) {}
+
+      // Fallback to localStorage saved by /admin/operate if API not yet updated
+      try {
+        const saved = safeLocalStorage.getItem('webConfig');
+        if (saved) {
+          const cfg = JSON.parse(saved);
+          telegram = telegram || cfg.telegram || '';
+          whatsapp = whatsapp || cfg.whatsapp || '';
+          email = email || cfg.email || cfg.emailAddress || '';
+        }
+      } catch (_e) {}
+
+      setContactConfig({ telegram, whatsapp, email });
+    } catch (error) {
+      console.error('Error fetching contact config:', error);
+    }
+  };
+
+  // Load deposit addresses from webConfig stored by admin /admin/operate
+  const loadDepositAddressesFromLocal = () => {
+    try {
+      const saved = safeLocalStorage.getItem('webConfig');
+      if (!saved) return;
+      const cfg = JSON.parse(saved);
+      const next = {
+        usdt: cfg.usdtAddress || (cfg.deposit_addresses?.usdt ?? ''),
+        btc: cfg.btcAddress || (cfg.deposit_addresses?.btc ?? ''),
+        eth: cfg.ethAddress || (cfg.deposit_addresses?.eth ?? ''),
+      };
+      console.log('Loading deposit addresses:', next);
+      setDepositAddresses(next);
+    } catch (_e) {
+      console.error('Error loading deposit addresses:', _e);
+    }
+  };
+
+  // Fetch user data from authentication
+  const fetchUserData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Don't redirect to non-existent login page, just use default data
+        setUserProfile({
+          username: 'Guest User',
+          officialId: 'GUEST' + Math.random().toString(36).substr(2, 6),
+          vipLevel: "Bronze",
+          email: '',
+          phone: ''
+        });
+        return;
+      }
+
+      // Fetch user profile from database
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        // Use basic user data from session
+        setUserProfile({
+          username: session.user.email?.split('@')[0] || 'User',
+          officialId: session.user.id?.slice(-8) || 'ID' + Math.random().toString(36).substr(2, 6),
+          vipLevel: "Bronze",
+          email: session.user.email || '',
+          phone: session.user.phone || ''
+        });
+      } else if (profile) {
+        setUserProfile({
+          username: profile.username || profile.full_name || session.user.email?.split('@')[0] || 'User',
+          officialId: profile.id?.slice(-8) || 'ID' + Math.random().toString(36).substr(2, 6),
+          vipLevel: profile.vip_level || "Bronze",
+          email: profile.email || session.user.email || '',
+          phone: profile.phone || session.user.phone || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      // Don't redirect to non-existent login page, just use default data
+      setUserProfile({
+        username: 'Guest User',
+        officialId: 'GUEST' + Math.random().toString(36).substr(2, 6),
+        vipLevel: "Bronze",
+        email: '',
+        phone: ''
+      });
+    }
+  };
+
+  // Fetch user's portfolio balance from database
+  const fetchPortfolioBalance = async () => {
+    try {
+      setBalanceLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        // Don't redirect to non-existent login page, just return empty data
+        setPortfolioBalance({
+          totalBalance: 0,
+          currencies: [],
+          summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
+        });
+        setBalanceLoading(false);
+        return;
+      }
+      
+      const userId = session.user.id; // Use actual user ID from auth
+      
+      const response = await fetch(`/api/portfolio/balance?userId=${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setPortfolioBalance(data);
+      setBalanceLoading(false);
+      
+    } catch (error) {
+      console.error('Error fetching portfolio balance:', error);
+      setBalanceLoading(false);
+      // Fallback to default values if API fails
+      setPortfolioBalance({
+        totalBalance: 0,
+        currencies: [],
+        summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
+      });
+    }
+  };
 
   // Fetch real-time price data - LIVE DATA ONLY
   const fetchMarketData = async () => {
@@ -539,13 +707,27 @@ export default function PortfolioPage() {
 
   useEffect(() => {
     setMounted(true);
+    fetchUserData(); // Fetch actual user data first
+    fetchContactConfig(); // Fetch contact configuration
+    loadDepositAddressesFromLocal();
     loadPortfolio();
     loadAlerts();
     loadTransactions(); // Load transactions on mount
     loadPortfolioHistory(); // Load portfolio history
+    fetchPortfolioBalance(); // Fetch portfolio balance from database
     fetchMarketData();
     const interval = setInterval(fetchMarketData, 30000);
-    return () => clearInterval(interval);
+    // Listen for admin config updates from /admin/operate
+    const document = getSafeDocument();
+    const onCfg = () => {
+      loadDepositAddressesFromLocal();
+      fetchContactConfig();
+    };
+    if (document) document.addEventListener('webConfigUpdated', onCfg);
+    return () => {
+      clearInterval(interval);
+      if (document) document.removeEventListener('webConfigUpdated', onCfg);
+    };
   }, []);
 
   // Check alerts when market data updates
@@ -621,14 +803,40 @@ export default function PortfolioPage() {
   const holdingsData = getHoldingsData();
   const totalPortfolioValue = calculateTotalPortfolioValue();
 
-  // Mock user data (in real app, this would come from authentication)
+  // User data from authentication
   const userData = {
-    username: "User123",
-    officialId: "ID123456",
-    vipLevel: "Gold",
-    totalBalance: portfolioTotals.totalValue || 12480.35,
-    totalWithdrawn: 4275.00,
+    username: userProfile.username,
+    officialId: userProfile.officialId,
+    vipLevel: userProfile.vipLevel,
+    totalBalance: portfolioTotals.totalValue || 0,
+    totalWithdrawn: 0,
     creditScore: 100
+  };
+
+  // Handle Telegram click
+  const handleTelegramClick = () => {
+    if (contactConfig.telegram) {
+      // Open Telegram link in new tab
+      const telegramUrl = contactConfig.telegram.startsWith('http') 
+        ? contactConfig.telegram 
+        : `https://t.me/${contactConfig.telegram.replace('@', '')}`;
+      window.open(telegramUrl, '_blank');
+    } else {
+      alert('Telegram link not configured yet. Please contact support.');
+    }
+  };
+
+  // Handle WhatsApp click
+  const handleWhatsAppClick = () => {
+    if (contactConfig.whatsapp) {
+      // Open WhatsApp link in new tab
+      const whatsappUrl = contactConfig.whatsapp.startsWith('http') 
+        ? contactConfig.whatsapp 
+        : `https://wa.me/${contactConfig.whatsapp.replace(/[^\d]/g, '')}`;
+      window.open(whatsappUrl, '_blank');
+    } else {
+      alert('WhatsApp link not configured yet. Please contact support.');
+    }
   };
 
   // Handle customer service form submission
@@ -764,7 +972,13 @@ export default function PortfolioPage() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-400 font-medium">Total Available Balance</span>
-            <span className="text-sm font-bold text-white">${portfolioTotals.totalValue.toLocaleString()} USD</span>
+            <span className="text-sm font-bold text-white">
+              {balanceLoading ? (
+                <span className="text-blue-400">Loading...</span>
+              ) : (
+                `$${portfolioBalance.totalBalance.toLocaleString()} USD`
+              )}
+            </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-400 font-medium">Total Invested</span>
@@ -782,6 +996,31 @@ export default function PortfolioPage() {
           </div>
         </div>
       </div>
+
+      {/* Currency Balances */}
+      {!balanceLoading && portfolioBalance.currencies.length > 0 && (
+        <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
+          <h3 className="text-sm font-medium text-gray-400 mb-3">Currency Balances</h3>
+          <div className="space-y-2">
+            {portfolioBalance.currencies.map((currency, index) => (
+              <div key={index} className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {currency.currency === 'USDT' ? 'T' : 
+                     currency.currency === 'BTC' ? '₿' : 
+                     currency.currency === 'ETH' ? 'Ξ' : 
+                     currency.currency.charAt(0)}
+                  </div>
+                  <span className="text-sm text-gray-300">{currency.currency}</span>
+                </div>
+                <span className="text-sm font-bold text-white">
+                  {currency.balance.toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Portfolio Analytics Section */}
       <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
@@ -1235,6 +1474,26 @@ export default function PortfolioPage() {
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 />
               </div>
+              {(depositAddresses.usdt || depositAddresses.btc || depositAddresses.eth) && (
+                <div className="space-y-2">
+                  <div className="text-sm font-medium mb-1">Deposit Addresses</div>
+                  {depositAddresses.usdt && (
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">USDT:</span>{depositAddresses.usdt}
+                    </div>
+                  )}
+                  {depositAddresses.btc && (
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">BTC:</span>{depositAddresses.btc}
+                    </div>
+                  )}
+                  {depositAddresses.eth && (
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">ETH:</span>{depositAddresses.eth}
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium mb-2">Payment Method</label>
                 <select className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
@@ -1616,18 +1875,13 @@ export default function PortfolioPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">VIP Level</label>
-                <select 
+                <label className="block text-sm font-medium mb-2">VIP Level (Read Only)</label>
+                <input 
+                  type="text"
                   value={userProfile.vipLevel}
-                  onChange={(e) => setUserProfile({...userProfile, vipLevel: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                >
-                  <option value="Bronze">Bronze</option>
-                  <option value="Silver">Silver</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Platinum">Platinum</option>
-                  <option value="Diamond">Diamond</option>
-                </select>
+                  readOnly
+                  className="w-full bg-gray-600 border border-gray-600 rounded px-3 py-2 text-gray-300 cursor-not-allowed"
+                />
               </div>
               
               <div className="flex gap-2">
@@ -2074,13 +2328,33 @@ export default function PortfolioPage() {
 
             {/* Contact Options */}
             <div className="space-y-3 mb-6">
-              <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+              <div 
+                onClick={handleTelegramClick}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  contactConfig.telegram 
+                    ? 'bg-blue-50 hover:bg-blue-100' 
+                    : 'bg-gray-50 cursor-not-allowed'
+                }`}
+              >
                 <span className="text-blue-500 text-xl">📨</span>
                 <span className="text-gray-800 font-medium">Telegram</span>
+                {contactConfig.telegram && (
+                  <span className="text-xs text-blue-600 ml-auto">Click to open</span>
+                )}
               </div>
-              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg cursor-pointer hover:bg-green-100 transition-colors">
+              <div 
+                onClick={handleWhatsAppClick}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                  contactConfig.whatsapp 
+                    ? 'bg-green-50 hover:bg-green-100' 
+                    : 'bg-gray-50 cursor-not-allowed'
+                }`}
+              >
                 <span className="text-green-500 text-xl">📞</span>
                 <span className="text-gray-800 font-medium">WhatsApp</span>
+                {contactConfig.whatsapp && (
+                  <span className="text-xs text-green-600 ml-auto">Click to open</span>
+                )}
               </div>
             </div>
 

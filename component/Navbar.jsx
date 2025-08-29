@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import { safeWindow, getSafeDocument } from '../utils/safeStorage';
+import { useAuth } from '../contexts/AuthContext';
+import { useConfig } from './useConfig';
 import AuthModal from './AuthModal';
 import WalletConnectButton from './WalletConnectButton';
 
-export const Navbar = () => {
+export default function Navbar() {
+  const router = useRouter();
   const [showAuth, setShowAuth] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { config, loading: configLoading } = useConfig();
 
-  // Safely get auth context with fallback
   let authContext;
   try {
     authContext = useAuth();
@@ -22,7 +25,6 @@ export const Navbar = () => {
 
   const { user, signOut, loading } = authContext;
 
-  // Ensure component is mounted on client side
   useEffect(() => {
     console.log('🔄 Navbar: Initializing client side...');
     setIsClient(true);
@@ -33,7 +35,6 @@ export const Navbar = () => {
     console.log('✅ Navbar: Client side initialized');
   }, []);
 
-  // Update authentication state
   useEffect(() => {
     if (isClient && !loading) {
       console.log('🔄 Navbar: Updating auth state:', { user: !!user, loading });
@@ -51,12 +52,23 @@ export const Navbar = () => {
     }
   };
 
-  // Show loading state only on client side and when auth is loading
   if (!isClient || loading) {
     return (
       <nav className="bg-gray-900 text-white p-4 fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="text-xl font-bold">Quantex</div>
+          <div className="flex items-center space-x-2">
+            {config.logo && (
+              <img 
+                src={config.logo} 
+                alt="Logo" 
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
+            <div className="text-xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</div>
+          </div>
           <div className="flex items-center space-x-4">
             <div className="animate-pulse bg-gray-700 h-8 w-20 rounded"></div>
             <div className="animate-pulse bg-gray-700 h-8 w-16 rounded"></div>
@@ -70,10 +82,20 @@ export const Navbar = () => {
     <>
       <nav className="bg-gray-900 text-white p-4 fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          {/* Logo */}
-          <div className="text-xl font-bold">Quantex</div>
+          <div className="flex items-center space-x-2">
+            {config.logo && (
+              <img 
+                src={config.logo} 
+                alt="Logo" 
+                className="h-8 w-8 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            )}
+            <div className="text-xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</div>
+          </div>
 
-          {/* Desktop Navigation Links */}
           <div className="hidden md:flex space-x-8">
             <a href="/" className="hover:text-cyan-400 transition-colors">HOME</a>
             <a href="#features" className="hover:text-cyan-400 transition-colors">Features</a>
@@ -81,9 +103,7 @@ export const Navbar = () => {
             <a href="#tokenomics" className="hover:text-cyan-400 transition-colors">Tokenomics</a>
           </div>
 
-          {/* Desktop Right side buttons */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Auth Buttons */}
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <WalletConnectButton />
@@ -107,7 +127,6 @@ export const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-2">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -120,11 +139,9 @@ export const Navbar = () => {
           </div>
         </div>
 
-        {/* Mobile menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 bg-gray-800 rounded-lg p-4">
             <div className="flex flex-col space-y-4">
-              {/* Mobile Navigation Links */}
               <div className="flex flex-col space-y-2">
                 <a href="/" className="text-white hover:text-cyan-400 transition-colors py-2">HOME</a>
                 <a href="#features" className="text-white hover:text-cyan-400 transition-colors py-2">Features</a>
@@ -132,7 +149,6 @@ export const Navbar = () => {
                 <a href="#tokenomics" className="text-white hover:text-cyan-400 transition-colors py-2">Tokenomics</a>
               </div>
 
-              {/* Mobile Auth Buttons */}
               <div className="flex flex-col space-y-2 pt-4 border-t border-gray-700">
                 {isAuthenticated ? (
                   <>
@@ -161,7 +177,6 @@ export const Navbar = () => {
         )}
       </nav>
 
-      {/* Auth Modal */}
       <AuthModal 
         isOpen={showAuth} 
         onClose={() => setShowAuth(false)} 
@@ -169,4 +184,5 @@ export const Navbar = () => {
       />
     </>
   );
-}; 
+}
+

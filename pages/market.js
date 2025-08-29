@@ -122,7 +122,7 @@ export default function MarketPage() {
             onClick={() => router.push(tab.route)}
             className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               router.pathname === tab.route
-                ? 'bg-purple-600 text-white'
+                ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
             }`}
           >
@@ -249,6 +249,27 @@ export default function MarketPage() {
           </div>
         </div>
       </div>
+      
+      {/* Navigation - Mobile Responsive (Bottom) */}
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-10">
+        {navTabs.map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => router.push(tab.route)}
+            className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+              router.pathname === tab.route
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <span className="text-sm sm:text-base">{tab.icon}</span>
+            <span className="text-xs">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
+      
+      {/* Add padding at the bottom to prevent content from being hidden behind the navbar */}
+      <div className="pb-16"></div>
     </div>
   );
-} 
+}

@@ -3,6 +3,14 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 
 export default function TradePage() {
+  const navTabs = [
+    { label: 'HOME', icon: '🏠', route: '/exchange' },
+    { label: 'PORTFOLIO', icon: '📈', route: '/portfolio' },
+    { label: 'MARKET', icon: '📊', route: '/market' },
+    { label: 'FEATURES', icon: '✨', route: '/features' },
+    { label: 'TRADE', icon: '💱', route: '/trade' },
+  ];
+  
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -250,19 +258,19 @@ export default function TradePage() {
         </div>
       </div>
 
-      <div className="p-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Trading Chart */}
-          <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
+      <div className="p-3 sm:p-4">
+        <div className="max-w-7xl mx-auto flex flex-col lg:grid lg:grid-cols-3 gap-4 sm:gap-6">
+          {/* Trading Chart - Full width on mobile */}
+          <div className="order-1 lg:order-1 lg:col-span-2">
+            <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
                 <h2 className="text-lg font-bold">Trading Chart</h2>
                 <div className="text-sm text-gray-400">
                   {priceData?.price ? `$${Number(priceData.price).toFixed(4)}` : 'Loading...'}
                 </div>
               </div>
               
-              <div className="w-full h-96 bg-gray-900 rounded-lg overflow-hidden">
+              <div className="w-full h-64 sm:h-80 lg:h-96 bg-gray-900 rounded-lg overflow-hidden">
                 <iframe
                   src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_trade&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
                   style={{ width: '100%', height: '100%' }}
@@ -275,34 +283,36 @@ export default function TradePage() {
             </div>
           </div>
 
-          {/* Trading Panel */}
-          <div className="space-y-6">
+          {/* Trading Panel - Stacked on mobile */}
+          <div className="order-2 lg:order-2 space-y-4 sm:space-y-6">
             {/* Order Book */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold">Order Book</h3>
+            <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-bold">Order Book</h3>
                 {ordersLoading && (
-                  <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 )}
               </div>
               
               {orderBook ? (
-                <div className="space-y-2">
+                <div className="space-y-2 sm:space-y-3">
                   {/* Asks (Sell Orders) */}
                   <div className="space-y-1">
                     <div className="text-xs text-gray-400 font-medium">Asks</div>
-                    {orderBook?.asks?.slice(0, 5).map((ask, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-red-400">{Number(ask?.price || 0).toFixed(4)}</span>
-                        <span className="text-gray-400">{Number(ask?.quantity || 0).toFixed(4)}</span>
-                      </div>
-                    ))}
+                    <div className="max-h-20 sm:max-h-24 overflow-y-auto">
+                      {orderBook?.asks?.slice(0, 5).map((ask, index) => (
+                        <div key={index} className="flex justify-between text-xs sm:text-sm py-0.5">
+                          <span className="text-red-400">{Number(ask?.price || 0).toFixed(4)}</span>
+                          <span className="text-gray-400">{Number(ask?.quantity || 0).toFixed(4)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   
                   {/* Current Price */}
                   <div className="border-t border-gray-600 pt-2 mt-2">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-white">
+                      <div className="text-base sm:text-lg font-bold text-white">
                         ${Number(priceData?.price || 0).toFixed(4)}
                       </div>
                       <div className="text-xs text-gray-400">Current Price</div>
@@ -312,12 +322,14 @@ export default function TradePage() {
                   {/* Bids (Buy Orders) */}
                   <div className="space-y-1">
                     <div className="text-xs text-gray-400 font-medium">Bids</div>
-                    {orderBook?.bids?.slice(0, 5).map((bid, index) => (
-                      <div key={index} className="flex justify-between text-sm">
-                        <span className="text-green-400">{Number(bid?.price || 0).toFixed(4)}</span>
-                        <span className="text-gray-400">{Number(bid?.quantity || 0).toFixed(4)}</span>
-                      </div>
-                    ))}
+                    <div className="max-h-20 sm:max-h-24 overflow-y-auto">
+                      {orderBook?.bids?.slice(0, 5).map((bid, index) => (
+                        <div key={index} className="flex justify-between text-xs sm:text-sm py-0.5">
+                          <span className="text-green-400">{Number(bid?.price || 0).toFixed(4)}</span>
+                          <span className="text-gray-400">{Number(bid?.quantity || 0).toFixed(4)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -328,26 +340,26 @@ export default function TradePage() {
             </div>
 
             {/* User Orders */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-bold mb-4">Your Orders</h3>
+            <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+              <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Your Orders</h3>
               {currentPairOrders.length === 0 ? (
-                <div className="text-center py-4 text-gray-400">
-                  <div className="text-sm mb-2">No orders for {selectedPair}</div>
+                <div className="text-center py-3 sm:py-4 text-gray-400">
+                  <div className="text-xs sm:text-sm mb-2">No orders for {selectedPair}</div>
                   <div className="text-xs">Place your first order using the buttons below</div>
                 </div>
               ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div className="space-y-2 max-h-32 sm:max-h-40 overflow-y-auto">
                   {currentPairOrders.slice(0, 5).map((order) => (
-                    <div key={order.id} className="flex justify-between items-center p-2 bg-gray-700 rounded text-sm">
-                      <div>
-                        <div className={`font-medium ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                    <div key={order.id} className="flex justify-between items-center p-2 bg-gray-700 rounded text-xs sm:text-sm">
+                      <div className="min-w-0 flex-1">
+                        <div className={`font-medium truncate ${order.side === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
                           {order.side.toUpperCase()} {order.symbol}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-400 truncate">
                           {order.type} • ${parseFloat(order.amount).toFixed(2)}
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right ml-2 flex-shrink-0">
                         <div className="text-xs text-gray-400">
                           {order.status}
                         </div>
@@ -364,18 +376,18 @@ export default function TradePage() {
         </div>
 
             {/* Trading Buttons */}
-            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-              <h3 className="text-lg font-bold mb-4">Quick Trade</h3>
-              <div className="space-y-3">
+            <div className="bg-gray-800 rounded-lg p-3 sm:p-4 border border-gray-700">
+              <h3 className="text-base sm:text-lg font-bold mb-3 sm:mb-4">Quick Trade</h3>
+              <div className="space-y-2 sm:space-y-3">
                 <button
                   onClick={() => handleOrderClick('buy')}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 px-4 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold text-sm sm:text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   BUY {getCurrentPair().base}
                 </button>
                 <button
                   onClick={() => handleOrderClick('sell')}
-                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-lg font-semibold text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                  className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold text-sm sm:text-lg transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   SELL {getCurrentPair().base}
                 </button>
@@ -387,28 +399,28 @@ export default function TradePage() {
 
       {/* Order Placement Modal */}
       {showOrderModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">
                 {orderSide.toUpperCase()} {getCurrentPair().base}
               </h3>
               <button 
                 onClick={() => setShowOrderModal(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-gray-400 hover:text-white p-1 touch-manipulation"
               >
                 ✕
               </button>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Order Type */}
               <div>
-                <label className="block text-sm font-medium mb-2">Order Type</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Order Type</label>
                 <select 
                   value={orderType}
                   onChange={(e) => setOrderType(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-sm focus:border-cyan-500 focus:outline-none"
                 >
                   <option value="market">Market Order</option>
                   <option value="limit">Limit Order</option>
@@ -418,13 +430,13 @@ export default function TradePage() {
               {/* Price Input (for limit orders) */}
               {orderType === 'limit' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Price (USDT)</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Price (USDT)</label>
                   <input 
                     type="number" 
                     value={orderPrice}
                     onChange={(e) => setOrderPrice(e.target.value)}
                     placeholder="Enter price"
-                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-sm focus:border-cyan-500 focus:outline-none"
                     step="0.0001"
                   />
                 </div>
@@ -432,21 +444,21 @@ export default function TradePage() {
               
               {/* Amount Input */}
               <div>
-                <label className="block text-sm font-medium mb-2">Amount (USDT)</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Amount (USDT)</label>
                 <input 
                   type="number" 
                   value={orderAmount}
                   onChange={(e) => setOrderAmount(e.target.value)}
                   placeholder="Enter amount"
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-sm focus:border-cyan-500 focus:outline-none"
                   step="0.01"
                 />
               </div>
               
               {/* Order Summary */}
               <div className="bg-gray-700 p-3 rounded">
-                <div className="text-sm text-gray-400">Order Summary</div>
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm text-gray-400 mb-1">Order Summary</div>
+                <div className="text-xs sm:text-sm space-y-0.5">
                   <div>Type: {orderType.toUpperCase()}</div>
                   <div>Side: {orderSide.toUpperCase()}</div>
                   <div>Amount: ${orderAmount || '0.00'}</div>
@@ -454,32 +466,51 @@ export default function TradePage() {
                     <div>Price: ${orderPrice}</div>
                   )}
                 </div>
-    </div>
+              </div>
               
               {/* Action Buttons */}
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   onClick={() => setShowOrderModal(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded font-medium"
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2.5 sm:py-2 px-4 rounded font-medium text-sm transition-colors touch-manipulation"
                 >
                   Cancel
                 </button>
-    <button
+                <button
                   onClick={handlePlaceOrder}
                   disabled={loading}
-                  className={`flex-1 py-2 px-4 rounded font-medium ${
+                  className={`flex-1 py-2.5 sm:py-2 px-4 rounded font-medium text-sm transition-colors touch-manipulation ${
                     orderSide === 'buy' 
                       ? 'bg-green-600 hover:bg-green-700 text-white' 
                       : 'bg-red-600 hover:bg-red-700 text-white'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   {loading ? 'Placing Order...' : `Place ${orderSide.toUpperCase()} Order`}
-    </button>
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+    
+      {/* Navigation - Mobile Responsive (Bottom) */}
+      <div className="pb-16"></div>
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-10">
+        {navTabs.map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => router.push(tab.route)}
+            className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+              router.pathname === tab.route
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <span className="text-sm sm:text-base">{tab.icon}</span>
+            <span className="text-xs">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
-} 
+}

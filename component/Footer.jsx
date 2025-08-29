@@ -1,14 +1,23 @@
 import Link from 'next/link';
+import { useConfig } from '../hooks/useConfig';
 
 export default function Footer() {
+  const { config, loading: configLoading } = useConfig();
   return (
     <footer className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center">
-              <h3 className="text-xl sm:text-2xl font-bold">Quantex</h3>
+            <div className="flex items-center space-x-3">
+              {config.logo && (
+                <img 
+                  src={config.logo} 
+                  alt="Logo" 
+                  className="w-8 h-8 rounded object-cover"
+                />
+              )}
+              <h3 className="text-xl sm:text-2xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h3>
             </div>
             <p className="text-gray-400 text-sm sm:text-base">
               The ultimate cryptocurrency trading platform with real-time market data and advanced trading tools.
@@ -99,7 +108,7 @@ export default function Footer() {
         <div className="mt-8 sm:mt-12 pt-8 border-t border-gray-800">
           <div className="flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
             <div className="text-sm text-gray-400">
-              © 2024 Quantex. All rights reserved.
+              © 2024 {config.title || config.officialWebsiteName || 'Quantex'}. All rights reserved.
             </div>
             <div className="flex items-center space-x-4 text-sm text-gray-400">
               <span>Connected to CoinMarketCap API</span>
@@ -110,4 +119,4 @@ export default function Footer() {
     </div>
   </footer>
 ); 
-} 
+}

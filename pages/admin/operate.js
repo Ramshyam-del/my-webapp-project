@@ -32,6 +32,8 @@ export default function AdminOperate() {
     slogan: '',
     subbanner: '',
     whitePaperLink: '',
+    // Banner configuration
+    exchangeBanner: '/uploads/default-banner.jpg',
     // Wallet addresses
     usdtAddress: '',
     btcAddress: '',
@@ -96,21 +98,41 @@ export default function AdminOperate() {
         })
       });
       
+      // Also save to admin config API for customer service
+      const adminConfigResponse = await fetch('/api/admin/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          system_settings: {
+            telegram: config.telegram,
+            whatsapp: config.whatsapp,
+            email: config.email,
+            address: config.address,
+            mobile: config.mobile,
+            title: config.title,
+            logo: config.logo,
+            favicon: config.favicon
+          }
+        })
+      });
+      
       if (response.ok) {
         // Also save to localStorage as backup
         safeLocalStorage.setItem('webConfig', JSON.stringify(config));
         // Trigger events for frontend updates
-            const document = getSafeDocument();
-    if (document) {
-      document.dispatchEvent(new StorageEvent('storage', {
-        key: 'webConfig',
-        newValue: JSON.stringify(config)
-      }));
-      document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-        detail: { config }
-      }));
-    }
-        alert('Configuration saved to database successfully! Wallet addresses have been updated in the frontend.');
+        const document = getSafeDocument();
+        if (document) {
+          document.dispatchEvent(new StorageEvent('storage', {
+            key: 'webConfig',
+            newValue: JSON.stringify(config)
+          }));
+          document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+            detail: { config }
+          }));
+        }
+        alert('Configuration saved successfully! Settings have been updated.');
       } else {
         alert('Failed to save configuration to database. Please try again.');
       }
@@ -147,6 +169,8 @@ export default function AdminOperate() {
       slogan: '',
       subbanner: '',
       whitePaperLink: '',
+      // Banner configuration
+      exchangeBanner: '/uploads/default-banner.jpg',
       // Wallet addresses
       usdtAddress: '',
       btcAddress: '',
@@ -185,7 +209,18 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.title}
-              onChange={(e) => setConfig(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => {
+                const updatedConfig = { ...config, title: e.target.value };
+                setConfig(updatedConfig);
+                // Immediately save and trigger update
+                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                const document = getSafeDocument();
+                if (document) {
+                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter website title"
             />
@@ -196,7 +231,18 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.officialWebsiteName}
-              onChange={(e) => setConfig(prev => ({ ...prev, officialWebsiteName: e.target.value }))}
+              onChange={(e) => {
+                const updatedConfig = { ...config, officialWebsiteName: e.target.value };
+                setConfig(updatedConfig);
+                // Immediately save and trigger update
+                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                const document = getSafeDocument();
+                if (document) {
+                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter official website name"
             />
@@ -207,7 +253,18 @@ export default function AdminOperate() {
             <input
               type="url"
               value={config.officialWebsiteLink}
-              onChange={(e) => setConfig(prev => ({ ...prev, officialWebsiteLink: e.target.value }))}
+              onChange={(e) => {
+                const updatedConfig = { ...config, officialWebsiteLink: e.target.value };
+                setConfig(updatedConfig);
+                // Immediately save and trigger update
+                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                const document = getSafeDocument();
+                if (document) {
+                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: updatedConfig }
+                  }));
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="https://example.com"
             />
@@ -299,11 +356,70 @@ export default function AdminOperate() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Logo file path"
               />
-              <div className="w-32 h-32 bg-black rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">PX SYSTEMS</span>
+              <div className="flex items-center space-x-2 mt-2">
+                {config.logo && (
+                  <img 
+                    src={config.logo} 
+                    alt="Current Logo" 
+                    className="w-16 h-16 object-contain bg-gray-100 rounded border"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                )}
+                <div className="w-16 h-16 bg-black rounded-lg flex items-center justify-center" style={{display: config.logo ? 'none' : 'flex'}}>
+                  <span className="text-white font-bold text-xs">LOGO</span>
+                </div>
               </div>
-              <div className="w-full bg-red-500 h-2 rounded">
-                <div className="bg-red-600 h-full w-0 rounded"></div>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => {
+                    const fileInput = document.createElement('input');
+                    fileInput.type = 'file';
+                    fileInput.accept = 'image/*';
+                    fileInput.onchange = (e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        // In a real implementation, you would upload this file to your server
+                        // For this example, we'll simulate by creating a fake URL
+                        const fakeUrl = `/uploads/logo-${Date.now()}.${file.name.split('.').pop()}`;
+                        const updatedConfig = { ...config, logo: fakeUrl };
+                        setConfig(updatedConfig);
+                        // Immediately save and trigger update
+                        safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                        const document = getSafeDocument();
+                        if (document) {
+                          document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                            detail: { config: updatedConfig }
+                          }));
+                        }
+                        alert('Logo updated! In a real implementation, this would upload the file to your server.');
+                      }
+                    };
+                    fileInput.click();
+                  }}
+                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                >
+                  Upload Logo
+                </button>
+                <button
+                  onClick={() => {
+                    const updatedConfig = { ...config, logo: '' };
+                    setConfig(updatedConfig);
+                    // Immediately save and trigger update
+                    safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                    const document = getSafeDocument();
+                    if (document) {
+                      document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                        detail: { config: updatedConfig }
+                      }));
+                    }
+                  }}
+                  className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                >
+                  Remove Logo
+                </button>
               </div>
             </div>
           </div>
@@ -377,6 +493,105 @@ export default function AdminOperate() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter slogan"
             />
+          </div>
+          
+          {/* Exchange Banner Management */}
+          <div className="mt-8">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Exchange Page Banner</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Banner Image URL</label>
+                <input
+                  type="text"
+                  value={config.exchangeBanner || ''}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setConfig(prev => ({ ...prev, exchangeBanner: newValue }));
+                    // Immediately save and trigger update
+                    const updatedConfig = { ...config, exchangeBanner: newValue };
+                    safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                    const document = getSafeDocument();
+                    if (document) {
+                      document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                        detail: { config: updatedConfig }
+                      }));
+                      // Also dispatch storage event for cross-tab updates
+                      document.dispatchEvent(new StorageEvent('storage', {
+                        key: 'webConfig',
+                        newValue: JSON.stringify(updatedConfig)
+                      }));
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter banner image URL"
+                />
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Banner Preview</h4>
+                <div className="relative h-28 overflow-hidden rounded-lg">
+                  {config.exchangeBanner ? (
+                    <div 
+                      className="h-full w-full bg-cover bg-center" 
+                      style={{ backgroundImage: `url(${config.exchangeBanner})` }}
+                    ></div>
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-r from-blue-800 via-indigo-700 to-purple-700 flex items-center justify-center">
+                      <span className="text-white text-sm">No banner image set</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => {
+                      const fileInput = document.createElement('input');
+                      fileInput.type = 'file';
+                      fileInput.accept = 'image/*';
+                      fileInput.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // In a real implementation, you would upload this file to your server
+                          // For this example, we'll simulate by creating a fake URL
+                          const fakeUrl = `/uploads/banner-${Date.now()}.jpg`;
+                          setConfig(prev => ({ ...prev, exchangeBanner: fakeUrl }));
+                          // Immediately save and trigger update
+                          const updatedConfig = { ...config, exchangeBanner: fakeUrl };
+                          safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                          const document = getSafeDocument();
+                          if (document) {
+                            document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                              detail: { config: updatedConfig }
+                            }));
+                          }
+                          alert('Banner updated! In a real implementation, this would upload the file to your server.');
+                        }
+                      };
+                      fileInput.click();
+                    }}
+                    className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+                  >
+                    Upload New Banner
+                  </button>
+                  <button
+                    onClick={() => {
+                      setConfig(prev => ({ ...prev, exchangeBanner: '' }));
+                      // Immediately save and trigger update
+                      const updatedConfig = { ...config, exchangeBanner: '' };
+                      safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+                      const document = getSafeDocument();
+                      if (document) {
+                        document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                          detail: { config: updatedConfig }
+                        }));
+                      }
+                    }}
+                    className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
+                  >
+                    Reset Banner
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -837,4 +1052,4 @@ export default function AdminOperate() {
       
     </div>
   );
-} 
+}

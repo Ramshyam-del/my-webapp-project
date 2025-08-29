@@ -14,6 +14,12 @@ const WithdrawalsList = dynamic(() => import('../../component/WithdrawalsList'),
   loading: () => <div className="p-4 text-sm text-gray-500">Loading withdrawals...</div>,
 });
 
+// Dynamic import for TradesList to prevent SSR issues
+const TradesList = dynamic(() => import('../../component/TradesList'), {
+  ssr: false,
+  loading: () => <div className="p-4 text-sm text-gray-500">Loading trades...</div>,
+});
+
 export default function AdminUsers() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('users');
@@ -151,49 +157,7 @@ export default function AdminUsers() {
 
   const renderWinLossTab = () => (
     <ErrorBoundary>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Trade Management</h3>
-        </div>
-        <div className="p-6">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              ))}
-            </div>
-          ) : (trades?.length ?? 0) === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No trades found</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {(trades ?? []).map((trade) => (
-                <div key={trade.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900">{trade.email}</p>
-                    <p className="text-sm text-gray-500">
-                      {trade.symbol} - {trade.side} - ${trade.amount}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      trade.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      trade.status === 'closed' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {trade.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <TradesList />
     </ErrorBoundary>
   );
 
@@ -205,24 +169,24 @@ export default function AdminUsers() {
       >
         {/* Error banner */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-4 w-4 sm:h-5 sm:w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error</h3>
-                <p className="text-sm text-red-700 mt-1">{error}</p>
+              <div className="ml-2 sm:ml-3 min-w-0">
+                <h3 className="text-xs sm:text-sm font-medium text-red-800">Error</h3>
+                <p className="text-xs sm:text-sm text-red-700 mt-1 break-words">{error}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Tab navigation */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
+        <div className="border-b border-gray-200 mb-4 sm:mb-6">
+          <nav className="-mb-px flex space-x-2 sm:space-x-4 lg:space-x-8 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
             {[
               { id: 'users', name: 'Users' },
               { id: 'withdrawals', name: 'Withdrawals' },
@@ -232,7 +196,7 @@ export default function AdminUsers() {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={`
-                  py-2 px-1 border-b-2 font-medium text-sm
+                  py-2.5 sm:py-2 px-3 sm:px-4 lg:px-1 border-b-2 font-medium text-sm whitespace-nowrap touch-manipulation transition-colors min-w-0 flex-shrink-0
                   ${activeTab === tab.id
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

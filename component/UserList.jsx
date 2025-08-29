@@ -521,79 +521,79 @@ const UserList = () => {
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
                     checked={selectedUsers.length === paginatedUsers.length && paginatedUsers.length > 0}
                     onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 touch-manipulation"
                   />
                 </th>
                 <th 
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 touch-manipulation"
                   onClick={() => handleSort('id')}
                 >
                   ID {sortConfig.key === 'id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th 
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 touch-manipulation min-w-[120px]"
                   onClick={() => handleSort('userAccount')}
                 >
                   User Account {sortConfig.key === 'userAccount' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Invitation Code
                 </th>
                 <th 
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 touch-manipulation"
                   onClick={() => handleSort('vipLevel')}
                 >
                   VIP Level {sortConfig.key === 'vipLevel' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Balance Status
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Credit Score
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                   Real Name Authentication
                 </th>
                 <th 
-                  className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-2 sm:px-3 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 touch-manipulation min-w-[100px]"
                   onClick={() => handleSort('totalAssets')}
                 >
                   Total Assets {sortConfig.key === 'totalAssets' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Total Recharge
                 </th>
                 <th 
-                  className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  className="px-2 sm:px-3 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 touch-manipulation min-w-[100px]"
                   onClick={() => handleSort('totalWithdraw')}
                 >
                   Total Withdraw {sortConfig.key === 'totalWithdraw' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                   Superior Account
                 </th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
                   Latest IP Address / Time
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Withdrawal Status
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Transaction Status
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Account Status
                 </th>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 sm:px-3 py-2 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                   Actions
                 </th>
               </tr>
@@ -608,56 +608,56 @@ const UserList = () => {
               ) : (
                 paginatedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
                         checked={selectedUsers.includes(user.id)}
                         onChange={(e) => handleSelectUser(user.id, e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 touch-manipulation"
                       />
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.id}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{user.userAccount}</div>
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900 truncate max-w-[120px]">{user.userAccount}</div>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.invitationCode}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {user.vipLevel}
                       </span>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(user.balanceStatus)}`}>
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(user.balanceStatus)}`}>
                         {user.balanceStatus}
                       </span>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.creditScore}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getAuthBadge(user.realNameAuth)}`}>
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getAuthBadge(user.realNameAuth)}`}>
                         {user.realNameAuth === 'certified' ? 'Certified' : 'Uncertified'}
                       </span>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {formatCurrency(user.totalAssets)}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {formatCurrency(user.totalRecharge)}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                       {formatCurrency(user.totalWithdraw)}
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.superiorAccount}
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="truncate max-w-[120px]">{user.superiorAccount}</div>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap">
                       <div className="text-sm">
-                        <div className="text-blue-600 hover:text-blue-800 cursor-pointer">
+                        <div className="text-blue-600 hover:text-blue-800 cursor-pointer touch-manipulation">
                           {user.latestIp}
                         </div>
                         <div className="text-gray-500 text-xs">
@@ -665,10 +665,10 @@ const UserList = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleToggleStatus(user.id, 'withdrawalStatus', !user.withdrawalStatus)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
                           user.withdrawalStatus ? 'bg-blue-600' : 'bg-gray-200'
                         }`}
                       >
@@ -679,10 +679,10 @@ const UserList = () => {
                         />
                       </button>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleToggleStatus(user.id, 'transactionStatus', !user.transactionStatus)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
                           user.transactionStatus ? 'bg-blue-600' : 'bg-gray-200'
                         }`}
                       >
@@ -693,10 +693,10 @@ const UserList = () => {
                         />
                       </button>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-center">
                       <button
                         onClick={() => handleToggleStatus(user.id, 'accountStatus', user.accountStatus === 'Normal' ? 'Frozen' : 'Normal')}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 touch-manipulation ${
                           user.accountStatus === 'Normal' ? 'bg-blue-600' : 'bg-gray-200'
                         }`}
                       >
@@ -707,29 +707,29 @@ const UserList = () => {
                         />
                       </button>
                     </td>
-                    <td className="px-3 py-4 whitespace-nowrap text-center">
+                    <td className="px-2 sm:px-3 py-3 sm:py-4 whitespace-nowrap text-center">
                       <div className="flex flex-col space-y-1">
                         <button
                           onClick={() => handleOneClickLogin(user.id)}
-                          className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                          className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors touch-manipulation"
                         >
                           One-Click Login
                         </button>
                         <button
                           onClick={() => handleBankCard(user.id)}
-                          className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+                          className="px-2 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors touch-manipulation"
                         >
                           Bank Card
                         </button>
                         <button
                           onClick={() => handleFreeze(user.id)}
-                          className="px-2 py-1 text-xs border border-red-600 text-red-600 rounded hover:bg-red-50 transition-colors"
+                          className="px-2 py-1 text-xs border border-red-600 text-red-600 rounded hover:bg-red-50 transition-colors touch-manipulation"
                         >
                           Freeze
                         </button>
                         <button
                           onClick={() => handleEdit(user)}
-                          className="px-2 py-1 text-xs border border-gray-600 text-gray-600 rounded hover:bg-gray-50 transition-colors"
+                          className="px-2 py-1 text-xs border border-gray-600 text-gray-600 rounded hover:bg-gray-50 transition-colors touch-manipulation"
                         >
                           Edit
                         </button>
@@ -743,19 +743,19 @@ const UserList = () => {
         </div>
 
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div className="bg-white px-3 sm:px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
             <button
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className="relative inline-flex items-center px-3 py-2.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
             >
               Previous
             </button>
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="ml-3 relative inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className="ml-3 relative inline-flex items-center px-3 py-2.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
             >
               Next
             </button>
@@ -775,7 +775,7 @@ const UserList = () => {
                 <button
                   onClick={() => setCurrentPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
                 >
                   Previous
                 </button>
@@ -783,7 +783,7 @@ const UserList = () => {
                   <button
                     key={i + 1}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`relative inline-flex items-center px-3 sm:px-4 py-2 border text-sm font-medium ${
+                    className={`relative inline-flex items-center px-3 sm:px-4 py-2 border text-sm font-medium touch-manipulation ${
                       currentPage === i + 1
                         ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                         : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
@@ -795,7 +795,7 @@ const UserList = () => {
                 <button
                   onClick={() => setCurrentPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
                 >
                   Next
                 </button>
@@ -819,4 +819,4 @@ const UserList = () => {
   );
 };
 
-export default UserList; 
+export default UserList;

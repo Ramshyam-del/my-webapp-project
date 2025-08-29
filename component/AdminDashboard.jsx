@@ -28,15 +28,15 @@ const dashboardCards = [
 
 export default function AdminDashboard() {
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
       {/* Welcome section */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome to Admin Dashboard</h2>
-        <p className="text-gray-600">Manage your platform's users, transactions, and operations</p>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome to Admin Dashboard</h2>
+        <p className="text-sm sm:text-base text-gray-600">Manage your platform's users, transactions, and operations</p>
       </div>
 
       {/* Dashboard cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {dashboardCards.map((card) => (
           <Link
             key={card.title}
@@ -46,13 +46,14 @@ export default function AdminDashboard() {
             <div className={`
               relative overflow-hidden rounded-2xl border shadow-sm transition-all duration-200 
               hover:shadow-lg hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+              touch-manipulation
               ${card.color}
             `}>
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-3xl">{card.icon}</span>
+              <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <span className="text-2xl sm:text-3xl">{card.icon}</span>
                   <svg 
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+                    className="h-4 w-4 sm:h-5 sm:w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
@@ -60,8 +61,8 @@ export default function AdminDashboard() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">{card.title}</h3>
-                <p className="text-sm opacity-90">{card.description}</p>
+                <h3 className="text-lg sm:text-xl font-semibold mb-2">{card.title}</h3>
+                <p className="text-xs sm:text-sm opacity-90 leading-relaxed">{card.description}</p>
               </div>
             </div>
           </Link>
@@ -69,55 +70,55 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick stats */}
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="mt-8 sm:mt-12 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <span className="text-2xl">👥</span>
+              <span className="text-xl sm:text-2xl">👥</span>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-2xl font-bold text-gray-900">--</p>
+            <div className="ml-2 sm:ml-4 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Users</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">--</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <span className="text-2xl">⏳</span>
+              <span className="text-xl sm:text-2xl">⏳</span>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending Requests</p>
-              <p className="text-2xl font-bold text-gray-900">--</p>
+            <div className="ml-2 sm:ml-4 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Pending Requests</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">--</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <span className="text-2xl">📊</span>
+              <span className="text-xl sm:text-2xl">📊</span>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Active Trades</p>
-              <p className="text-2xl font-bold text-gray-900">--</p>
+            <div className="ml-2 sm:ml-4 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Trades</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">--</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sm:p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <span className="text-2xl">💰</span>
+              <span className="text-xl sm:text-2xl">💰</span>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Volume</p>
-              <p className="text-2xl font-bold text-gray-900">--</p>
+            <div className="ml-2 sm:ml-4 min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Volume</p>
+              <p className="text-lg sm:text-2xl font-bold text-gray-900">--</p>
             </div>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

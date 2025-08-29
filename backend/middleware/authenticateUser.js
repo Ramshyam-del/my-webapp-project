@@ -21,7 +21,17 @@ function extractToken(req) {
 
 // Authenticate user middleware
 async function authenticateUser(req, res, next) {
+  // Bypass admin API calls
+  if (req.originalUrl && req.originalUrl.startsWith('/api/admin')) return next();
+  if (req.isAdminApi === true) return next();
+  
+  // Optional debug logging
+  if (process.env.DEBUG_ADMIN_AUTH === '1' && !res.headersSent) {
+    console.warn('[globalAuthBlocked]', req.originalUrl);
+  }
+  
   try {
+
     const token = extractToken(req);
     
     if (!token) {
