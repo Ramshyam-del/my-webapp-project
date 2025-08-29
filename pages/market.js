@@ -114,23 +114,7 @@ export default function MarketPage() {
         </div>
       </div>
       
-      {/* Navigation - Mobile Responsive */}
-      <nav className="flex bg-[#181c23] px-2 sm:px-4 py-2 border-b border-gray-800 overflow-x-auto">
-        {navTabs.map((tab) => (
-          <button
-            key={tab.label}
-            onClick={() => router.push(tab.route)}
-            className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              router.pathname === tab.route
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
-            }`}
-          >
-            <span className="text-sm sm:text-base">{tab.icon}</span>
-            <span className="hidden sm:inline">{tab.label}</span>
-          </button>
-        ))}
-      </nav>
+
       
       {/* Main Content */}
       <div className="flex-1 bg-black p-2 sm:p-4">
