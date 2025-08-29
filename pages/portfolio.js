@@ -61,12 +61,12 @@ const cryptoList = [
 ];
 
 const navTabs = [
-  { label: 'HOME', icon: '🏠', route: '/exchange' },
-  { label: 'MARKET', icon: '📊', route: '/market' },
-  { label: 'FEATURES', icon: '✨', route: '/features' },
-  { label: 'PORTFOLIO', icon: '📈', route: '/portfolio' },
-  { label: 'TRADE', icon: '💱', route: '/trade' },
-];
+    { label: 'HOME', icon: '🏠', route: '/exchange' },
+    { label: 'PORTFOLIO', icon: '📈', route: '/portfolio' },
+    { label: 'MARKET', icon: '📊', route: '/market' },
+    { label: 'FEATURES', icon: '✨', route: '/features' },
+    { label: 'TRADE', icon: '💱', route: '/trade' },
+  ];
 
 export default function PortfolioPage() {
   const router = useRouter();
