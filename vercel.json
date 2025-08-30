@@ -1,7 +1,14 @@
 {
   "build": {
     "env": {
-      "NEXT_PUBLIC_BACKEND_URL": "https://your-backend.example.com"
+      "NEXT_PUBLIC_BACKEND_URL": "https://my-webapp-project-production.up.railway.app"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "https://www.quantex.online/(.*)",
+      "destination": "https://quantex.online/$1",
+      "permanent": true
+    }
+  ]
 }
