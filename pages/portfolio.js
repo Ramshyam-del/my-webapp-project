@@ -71,7 +71,7 @@ const navTabs = [
 export default function PortfolioPage() {
   const router = useRouter();
   const [marketData, setMarketData] = useState([]);
-  const [portfolio, setPortfolio] = useState([]);
+  // Portfolio data is now fetched via portfolioBalance from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -403,18 +403,8 @@ export default function PortfolioPage() {
     }
   };
 
-  // Load portfolio from localStorage
-  const loadPortfolio = () => {
-    const saved = safeLocalStorage.getItem('portfolio');
-    if (saved) {
-      setPortfolio(JSON.parse(saved));
-    }
-  };
-
-  // Save portfolio to localStorage
-  const savePortfolio = (newPortfolio) => {
-    safeLocalStorage.setItem('portfolio', JSON.stringify(newPortfolio));
-  };
+  // Note: Portfolio data is now fetched from API via fetchPortfolioBalance()
+  // No longer using localStorage for portfolio data
 
   // Load alerts from localStorage
   const loadAlerts = () => {
@@ -622,85 +612,67 @@ export default function PortfolioPage() {
   };
 
   // Add to portfolio
-  const addToPortfolio = (cryptoId, amount, price) => {
-    const existing = portfolio.find(item => item.cryptoId === cryptoId);
-    
-    if (existing) {
-      // Update existing position
-      const totalAmount = existing.amount + amount;
-      const totalSpent = existing.totalSpent + (amount * price);
-      const avgPrice = totalSpent / totalAmount;
-      
-      const updated = portfolio.map(item => 
-        item.cryptoId === cryptoId 
-          ? { ...item, amount: totalAmount, totalSpent, avgPrice }
-          : item
-      );
-      setPortfolio(updated);
-      savePortfolio(updated);
-    } else {
-      // Add new position
-      const newItem = {
-        cryptoId,
-        amount,
-        avgPrice: price,
-        totalSpent: amount * price,
-        date: new Date().toISOString(),
-      };
-      const updated = [...portfolio, newItem];
-      setPortfolio(updated);
-      savePortfolio(updated);
-    }
-
-    // Record transaction
-    const crypto = cryptoList.find(c => c.id === cryptoId);
-    addTransaction({
-      type: 'buy',
-      cryptoId,
-      cryptoName: crypto ? crypto.name : cryptoId,
-      amount: amount,
-      price: price,
-      totalValue: amount * price,
-      description: `Bought ${amount} ${crypto ? crypto.symbol : cryptoId} at $${price}`
-    });
-  };
-
-  // Remove from portfolio
-  const removeFromPortfolio = (cryptoId) => {
-    const item = portfolio.find(item => item.cryptoId === cryptoId);
-    if (item) {
-      // Record sell transaction before removing
+  const addToPortfolio = async (cryptoId, amount, price) => {
+    try {
+      // Record transaction first
       const crypto = cryptoList.find(c => c.id === cryptoId);
-      const currentPrice = marketData.find(c => c.id === cryptoId)?.price || item.avgPrice;
-      
       addTransaction({
-        type: 'sell',
+        type: 'buy',
         cryptoId,
         cryptoName: crypto ? crypto.name : cryptoId,
-        amount: item.amount,
-        price: currentPrice,
-        totalValue: item.amount * currentPrice,
-        description: `Sold ${item.amount} ${crypto ? crypto.symbol : cryptoId} at $${currentPrice}`
+        amount: amount,
+        price: price,
+        totalValue: amount * price,
+        description: `Bought ${amount} ${crypto ? crypto.symbol : cryptoId} at $${price}`
       });
+      
+      // Refresh portfolio data from API
+      await fetchPortfolioBalance();
+      
+    } catch (error) {
+      console.error('Error adding to portfolio:', error);
     }
-    
-    const updated = portfolio.filter(item => item.cryptoId !== cryptoId);
-    setPortfolio(updated);
-    savePortfolio(updated);
+  };
+
+  // Remove from portfolio - now updates via API
+  const removeFromPortfolio = async (cryptoId) => {
+    try {
+      const holdings = getRealHoldings();
+      const item = holdings.find(holding => holding.cryptoId === cryptoId);
+      
+      if (item) {
+        // Record sell transaction before removing
+        const crypto = cryptoList.find(c => c.id === cryptoId);
+        const currentPrice = marketData.find(c => c.id === cryptoId)?.price || item.avgPrice;
+        
+        addTransaction({
+          type: 'sell',
+          cryptoId,
+          cryptoName: crypto ? crypto.name : cryptoId,
+          amount: item.amount,
+          price: currentPrice,
+          totalValue: item.amount * currentPrice,
+          description: `Sold ${item.amount} ${crypto ? crypto.symbol : cryptoId} at $${currentPrice}`
+        });
+      }
+      
+      // Refresh portfolio data from API
+      await fetchPortfolioBalance();
+      
+    } catch (error) {
+      console.error('Error removing from portfolio:', error);
+    }
   };
 
   // Calculate portfolio value
   const calculatePortfolioValue = () => {
-    if (!marketData.length) return { totalValue: 0, totalSpent: 0, profit: 0 };
+    const holdings = getRealHoldings();
+    if (!marketData.length || !holdings.length) return { totalValue: 0, totalSpent: 0, profit: 0 };
 
-    const totalValue = portfolio.reduce((sum, item) => {
-      const crypto = marketData.find(c => c.id === item.cryptoId);
-      if (!crypto) return sum;
-      return sum + (item.amount * parseFloat(crypto.price));
-    }, 0);
-
-    const totalSpent = portfolio.reduce((sum, item) => sum + item.totalSpent, 0);
-    const profit = totalValue - totalSpent;
+    const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+    // For real data without historical cost basis, we'll use current value as spent
+    const totalSpent = totalValue; // Placeholder - would need historical data
+    const profit = 0; // Would need historical data to calculate
 
     return { totalValue, totalSpent, profit };
   };
@@ -710,7 +682,6 @@ export default function PortfolioPage() {
     fetchUserData(); // Fetch actual user data first
     fetchContactConfig(); // Fetch contact configuration
     loadDepositAddressesFromLocal();
-    loadPortfolio();
     loadAlerts();
     loadTransactions(); // Load transactions on mount
     loadPortfolioHistory(); // Load portfolio history
@@ -739,26 +710,31 @@ export default function PortfolioPage() {
 
   // Get real holdings from portfolio data
   const getRealHoldings = () => {
-    if (!marketData.length || !portfolio.length) return [];
+    if (!marketData.length || !portfolioBalance.currencies || portfolioBalance.currencies.length === 0) return [];
     
-    return portfolio.map(item => {
-      const crypto = marketData.find(c => c.id === item.cryptoId);
-      if (!crypto) return null;
+    return portfolioBalance.currencies.map(currency => {
+      const crypto = marketData.find(c => c.name.split('/')[0] === currency.currency || c.id === currency.currency.toLowerCase());
+      if (!crypto || currency.balance <= 0) return null;
       
-      const currentValue = item.amount * parseFloat(crypto.price);
-      const profit = currentValue - item.totalSpent;
-      const profitPercent = (profit / item.totalSpent) * 100;
+      const currentPrice = parseFloat(crypto.price);
+      const amount = currency.balance;
+      const currentValue = amount * currentPrice;
+      
+      // For real data, we don't have historical cost basis, so we'll show current value
+      // In a real implementation, you'd need to track purchase history
+      const profit = 0; // Would need historical data to calculate
+      const profitPercent = 0; // Would need historical data to calculate
       
       return {
-        cryptoId: item.cryptoId,
-        symbol: crypto.name.split('/')[0],
+        cryptoId: crypto.id,
+        symbol: currency.currency,
         name: crypto.name,
-        amount: item.amount,
+        amount: amount,
         currentValue: currentValue,
         profit: profit,
         profitPercent: profitPercent,
-        icon: crypto.icon,
-        avgPrice: item.avgPrice
+        icon: crypto.icon || currency.currency.charAt(0).toUpperCase(),
+        avgPrice: currentPrice // Current price as placeholder
       };
     }).filter(Boolean); // Remove null items
   };
@@ -769,28 +745,19 @@ export default function PortfolioPage() {
     return holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
   };
 
-  // Get holdings data - use real data if available, otherwise fallback to mock
+  // Get holdings data - use real data from API
   const getHoldingsData = () => {
-    const realHoldings = getRealHoldings();
-    
-    if (realHoldings.length > 0) {
-      return realHoldings;
-    }
-    
-    // Fallback to mock data if no real holdings
-    return [
-      { symbol: 'BTC', name: 'Bitcoin', amount: 0.35, currentValue: 11025.50, icon: '₿', profit: 0, profitPercent: 0 },
-      { symbol: 'ETH', name: 'Ethereum', amount: 2.2, currentValue: 930.40, icon: 'Ξ', profit: 0, profitPercent: 0 },
-      { symbol: 'USDT', name: 'Tether USDT', amount: 980, currentValue: 980.00, icon: 'T', profit: 0, profitPercent: 0 }
-    ];
+    return getRealHoldings();
   };
 
   // Calculate portfolio totals
   const calculatePortfolioTotals = () => {
     const holdings = getRealHoldings();
     const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-    const totalSpent = holdings.reduce((sum, holding) => sum + (holding.amount * holding.avgPrice), 0);
-    const totalProfit = totalValue - totalSpent;
+    // For real data without historical cost basis, we'll use current value as spent
+    // In a real implementation, you'd track actual purchase costs
+    const totalSpent = totalValue; // Placeholder - would need historical data
+    const totalProfit = 0; // Would need historical data to calculate
     
     return {
       totalValue,
@@ -888,111 +855,242 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 bg-gray-800 border-b border-gray-700">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
-            <span className="text-white text-lg font-semibold">👤</span>
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-wide">Portfolio</h1>
-            {loading && (
-              <div className="flex items-center gap-2 text-xs text-blue-400 mt-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <span className="font-medium">Live</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+      {/* Enhanced Header */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
+        <div className="relative flex items-center justify-between px-4 py-6 bg-gray-800/90 backdrop-blur-sm border-b border-gray-700/50">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-xl animate-pulse">
+                <span className="text-white text-xl font-bold">💼</span>
               </div>
-            )}
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-bounce"></div>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-wide bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Portfolio</h1>
+              <div className="flex items-center gap-3 mt-1">
+                {loading ? (
+                  <div className="flex items-center gap-2 text-xs text-blue-400">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+                    <span className="font-medium animate-pulse">Syncing Live Data...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-green-400">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="font-medium">Live • Updated</span>
+                  </div>
+                )}
+                <div className="text-xs text-gray-400">
+                  {new Date().toLocaleTimeString()}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-gray-300">
-            <span className="text-sm font-medium">Customer care</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-gray-300">
+              <span className="text-sm font-medium">Support</span>
+            </div>
             <button 
               onClick={() => setShowCustomerServiceModal(true)}
-              className="w-5 h-5 bg-gray-600 rounded-full flex items-center justify-center hover:bg-gray-500 transition-colors"
+              className="relative w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
-              <span className="text-xs">🎧</span>
+              <span className="text-lg">🎧</span>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
             </button>
           </div>
         </div>
       </div>
 
-      {/* User Information */}
+      {/* Enhanced User Information */}
       <div 
-        className="px-4 py-4 bg-gray-800 border-b border-gray-700 cursor-pointer hover:bg-gray-750 transition-colors"
+        className="relative px-4 py-6 bg-gradient-to-r from-gray-800/80 to-gray-700/80 border-b border-gray-600/50 cursor-pointer hover:from-gray-700/80 hover:to-gray-600/80 transition-all duration-300 group"
         onClick={() => setShowProfileModal(true)}
       >
-        <div className="flex justify-between items-start">
-          <div className="space-y-3">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div className="relative flex justify-between items-start">
+          <div className="space-y-4">
             <div className="flex items-center gap-8">
-              <div>
-                <div className="text-sm text-gray-400 font-medium mb-1">Username :</div>
-                <div className="text-sm font-semibold text-white">{userProfile.username}</div>
+              <div className="group/item">
+                <div className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                  Username
+                </div>
+                <div className="text-base font-bold text-white group-hover/item:text-blue-400 transition-colors">{userProfile.username}</div>
               </div>
-              <div>
-                <div className="text-sm text-gray-400 font-medium mb-1">Official Id :</div>
-                <div className="text-sm font-semibold text-white">{userProfile.officialId}</div>
+              <div className="group/item">
+                <div className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+                  Official ID
+                </div>
+                <div className="text-base font-bold text-white group-hover/item:text-purple-400 transition-colors font-mono">{userProfile.officialId}</div>
               </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400 font-medium mb-1">Vip Level :</div>
-            <div className="text-sm font-bold text-yellow-400">{userProfile.vipLevel}</div>
+          <div className="text-right group/vip">
+            <div className="text-xs text-gray-400 font-medium mb-2 flex items-center justify-end gap-2">
+              <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+              VIP Level
+            </div>
+            <div className="relative">
+              <div className="text-lg font-bold text-yellow-400 group-hover/vip:text-yellow-300 transition-colors flex items-center gap-2">
+                <span className="text-xl">👑</span>
+                {userProfile.vipLevel}
+              </div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400/20 to-orange-400/20 rounded-lg opacity-0 group-hover/vip:opacity-100 transition-opacity duration-300 -z-10"></div>
+            </div>
           </div>
+        </div>
+        <div className="absolute top-2 right-2 text-gray-400 group-hover:text-white transition-colors">
+          <span className="text-sm">✏️</span>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-        <div className="grid grid-cols-2 gap-3">
+      {/* Enhanced Action Buttons */}
+      <div className="px-4 py-6 bg-gradient-to-r from-gray-800/60 to-gray-700/60 border-b border-gray-600/50">
+        <div className="grid grid-cols-2 gap-4">
           <button 
             onClick={() => router.push('/deposit')}
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="relative group bg-gradient-to-r from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 text-white py-4 px-6 rounded-xl font-bold text-sm transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 overflow-hidden"
           >
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-lg">💰</span>
-              <span>Deposit</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            <div className="relative flex items-center justify-center gap-3">
+              <span className="text-2xl animate-bounce">💰</span>
+              <div className="text-left">
+                <div className="font-bold">Deposit</div>
+                <div className="text-xs text-green-100 opacity-80">Add Funds</div>
+              </div>
             </div>
           </button>
           <button 
             onClick={() => router.push('/withdraw')}
-            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="relative group bg-gradient-to-r from-red-500 via-red-600 to-rose-600 hover:from-red-600 hover:via-red-700 hover:to-rose-700 text-white py-4 px-6 rounded-xl font-bold text-sm transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 overflow-hidden"
           >
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-lg">💸</span>
-              <span>Withdraw</span>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+            <div className="relative flex items-center justify-center gap-3">
+              <span className="text-2xl animate-bounce">💸</span>
+              <div className="text-left">
+                <div className="font-bold">Withdraw</div>
+                <div className="text-xs text-red-100 opacity-80">Cash Out</div>
+              </div>
             </div>
+          </button>
+        </div>
+        
+        {/* Quick Actions */}
+        <div className="mt-4 flex justify-center gap-4">
+          <button 
+            onClick={() => setShowAnalyticsModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
+          >
+            <span>📊</span>
+            <span>Analytics</span>
+          </button>
+          <button 
+            onClick={() => setShowTransactionsModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
+          >
+            <span>📋</span>
+            <span>History</span>
+          </button>
+          <button 
+            onClick={() => setShowAlertsModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
+          >
+            <span>🔔</span>
+            <span>Alerts</span>
           </button>
         </div>
       </div>
 
-      {/* Financial Summary */}
-      <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400 font-medium">Total Available Balance</span>
-            <span className="text-sm font-bold text-white">
-              {balanceLoading ? (
-                <span className="text-blue-400">Loading...</span>
-              ) : (
-                `$${portfolioBalance.totalBalance.toLocaleString()} USD`
-              )}
-            </span>
+      {/* Enhanced Financial Summary */}
+      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/80 to-gray-700/80 border-b border-gray-600/50">
+        <div className="space-y-4">
+          {/* Main Balance Card */}
+          <div className="relative p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl border border-blue-500/30 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 animate-pulse"></div>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></span>
+                  <span className="text-sm text-blue-300 font-medium">Total Portfolio Value</span>
+                </div>
+                <span className="text-xs text-blue-400">💎</span>
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">
+                {balanceLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-blue-400 animate-pulse">Loading...</span>
+                  </div>
+                ) : (
+                  <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    ${portfolioBalance.totalBalance.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-blue-300/80">USD • Live Balance</div>
+            </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400 font-medium">Total Invested</span>
-            <span className="text-sm font-bold text-white">${portfolioTotals.totalSpent.toLocaleString()} USD</span>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-gray-700/50 rounded-lg border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200 group">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                <span className="text-xs text-gray-400 font-medium">Invested</span>
+              </div>
+              <div className="text-lg font-bold text-white group-hover:text-green-400 transition-colors">
+                ${portfolioTotals.totalSpent.toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-500">Total Capital</div>
+            </div>
+
+            <div className="p-3 bg-gray-700/50 rounded-lg border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200 group">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`w-2 h-2 rounded-full ${portfolioTotals.totalProfit >= 0 ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></span>
+                <span className="text-xs text-gray-400 font-medium">P&L</span>
+              </div>
+              <div className={`text-lg font-bold transition-colors group-hover:scale-105 transform duration-200 ${
+                portfolioTotals.totalProfit >= 0 ? 'text-green-400 group-hover:text-green-300' : 'text-red-400 group-hover:text-red-300'
+              }`}>
+                {portfolioTotals.totalProfit >= 0 ? '+' : ''}${portfolioTotals.totalProfit.toFixed(2)}
+              </div>
+              <div className="text-xs text-gray-500">
+                {portfolioTotals.totalSpent > 0 ? 
+                  `${((portfolioTotals.totalProfit / portfolioTotals.totalSpent) * 100).toFixed(1)}%` : 
+                  '0.0%'
+                } Return
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400 font-medium">Total Profit/Loss</span>
-            <span className={`text-sm font-bold ${portfolioTotals.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {portfolioTotals.totalProfit >= 0 ? '+' : ''}${portfolioTotals.totalProfit.toFixed(2)} USD
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-400 font-medium">Credit Score</span>
-            <span className="text-sm font-bold text-blue-400">{userData.creditScore}</span>
+
+          {/* Credit Score */}
+          <div className="p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
+                <span className="text-sm text-purple-300 font-medium">Credit Score</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="text-xl font-bold text-purple-400">{userData.creditScore}</div>
+                <div className="flex items-center">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className={`text-xs ${i < Math.floor(userData.creditScore / 20) ? 'text-yellow-400' : 'text-gray-600'}`}>
+                      ⭐
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${userData.creditScore}%` }}
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1105,55 +1203,137 @@ export default function PortfolioPage() {
         })()}
       </div>
 
-      {/* Holdings Section */}
-      <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-white">Holdings</h2>
+      {/* Enhanced Holdings Section */}
+      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/90 to-gray-700/90 border-b border-gray-600/50">
+        <div className="flex justify-between items-center mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg">💎</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Holdings</h2>
+              <div className="text-xs text-gray-400">{holdingsData.length} Assets • Live Tracking</div>
+            </div>
+          </div>
           <button 
             onClick={() => setShowAddModal(true)}
-            className="text-sm bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
           >
-            Add Asset
+            <span className="flex items-center gap-2">
+              <span className="text-lg">+</span>
+              Add Asset
+            </span>
           </button>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-4">
           {holdingsData.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-gray-400 text-4xl mb-3">📊</div>
-              <div className="text-gray-400 text-sm mb-2">No holdings yet</div>
-              <div className="text-gray-500 text-xs">Add your first cryptocurrency to start tracking</div>
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="text-4xl">💎</div>
+              </div>
+              <div className="text-gray-300 text-lg font-medium mb-2">No holdings yet</div>
+              <div className="text-gray-500 text-sm mb-6">Start building your crypto portfolio today</div>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105"
+              >
+                Add Your First Asset
+              </button>
             </div>
           ) : (
             holdingsData.map((holding, index) => (
-              <div key={index} className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {holding.icon}
+              <div key={index} className="group relative bg-gradient-to-r from-gray-700/80 to-gray-600/80 rounded-xl p-5 border border-gray-600/50 hover:border-gray-500/70 transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20">
+                {/* Background Animation */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                
+                <div className="relative">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="w-14 h-14 bg-gradient-to-r from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                          {holding.icon}
+                        </div>
+                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
+                          holding.profitPercent >= 0 ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
+                          {holding.profitPercent >= 0 ? '↗' : '↘'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-bold text-white text-lg">{holding.name}</div>
+                        <div className="text-sm text-gray-400 flex items-center gap-2">
+                          {holding.symbol}
+                          <span className="w-1 h-1 bg-gray-500 rounded-full"></span>
+                          <span className="text-xs text-gray-500">{holding.amount} {holding.symbol}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold text-white text-sm">{holding.name}</div>
-                      <div className="text-xs text-gray-400">{holding.symbol}</div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-white">${holding.currentValue?.toLocaleString() || '0.00'}</div>
+                      <div className={`text-sm font-bold flex items-center gap-1 justify-end ${
+                        holding.profitPercent >= 0 ? 'text-green-400' : 'text-red-400'
+                      }`}>
+                        <span>{holding.profitPercent >= 0 ? '📈' : '📉'}</span>
+                        {holding.profitPercent >= 0 ? '+' : ''}{holding.profitPercent?.toFixed(2) || '0.00'}%
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-white text-sm">${holding.currentValue?.toLocaleString() || '0.00'}</div>
-                    <div className={`text-xs font-medium ${holding.profitPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {holding.profitPercent >= 0 ? '+' : ''}{holding.profitPercent?.toFixed(2) || '0.00'}%
+                  
+                  {/* Performance Bar */}
+                  <div className="mb-4">
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          holding.profitPercent >= 0 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
+                            : 'bg-gradient-to-r from-red-500 to-red-400'
+                        }`}
+                        style={{ 
+                          width: `${Math.min(Math.abs(holding.profitPercent || 0), 100)}%` 
+                        }}
+                      ></div>
                     </div>
                   </div>
-                </div>
-                <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-600">
-                  <div className="text-xs text-gray-400">
-                    {holding.amount} {holding.symbol}
+                  
+                  {/* Action Buttons */}
+                  <div className="flex justify-between items-center">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          // Add buy more functionality
+                          setShowAddModal(true);
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white text-sm rounded-lg hover:from-green-700 hover:to-green-600 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-green-500/25"
+                      >
+                        <span className="flex items-center gap-1">
+                          <span>📈</span>
+                          Buy More
+                        </span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          // Add sell functionality
+                          setShowAddModal(true);
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 text-white text-sm rounded-lg hover:from-orange-700 hover:to-orange-600 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-orange-500/25"
+                      >
+                        <span className="flex items-center gap-1">
+                          <span>💰</span>
+                          Sell
+                        </span>
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => removeFromPortfolio(holding.cryptoId || holding.symbol)}
+                      className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 text-sm rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+                    >
+                      <span className="flex items-center gap-1">
+                        <span>🗑️</span>
+                        Remove
+                      </span>
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => removeFromPortfolio(holding.cryptoId || holding.symbol)}
-                    className="text-xs text-red-400 hover:text-red-300 font-medium transition-colors"
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
             ))
@@ -1161,26 +1341,40 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Price Alerts Section */}
-      <div className="px-4 py-4">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-bold">Price Alerts</h2>
+      {/* Enhanced Price Alerts Section */}
+      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/90 to-gray-700/90">
+        <div className="flex justify-between items-center mb-5">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-lg">🔔</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Price Alerts</h2>
+              <div className="text-xs text-gray-400">{alerts.length} Active Alerts • Smart Notifications</div>
+            </div>
+          </div>
           <button 
             onClick={() => setShowAlertsModal(true)}
-            className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg transition-colors"
+            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
           >
-            + Add Alert
+            <span className="flex items-center gap-2">
+              <span className="text-lg">+</span>
+              Add Alert
+            </span>
           </button>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-4">
           {alerts.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="text-gray-400 text-3xl mb-2">🔔</div>
-              <div className="text-gray-400 text-sm mb-3">No price alerts set</div>
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="text-4xl animate-pulse">🔔</div>
+              </div>
+              <div className="text-gray-300 text-lg font-medium mb-2">No price alerts set</div>
+              <div className="text-gray-500 text-sm mb-6">Stay informed about price movements</div>
               <button 
                 onClick={() => setShowAlertsModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105"
               >
                 Create Your First Alert
               </button>
@@ -1191,43 +1385,82 @@ export default function PortfolioPage() {
               if (!crypto) return null;
               
               return (
-                <div key={alert.id} className={`p-3 bg-gray-800 rounded-lg ${alert.triggered ? 'opacity-60' : ''}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                        crypto.symbol === 'BTC' ? 'bg-orange-500' :
-                        crypto.symbol === 'ETH' ? 'bg-blue-500' :
-                        'bg-purple-500'
-                      }`}>
-                        {crypto.icon}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{crypto.name}</div>
-                        <div className="text-xs text-gray-400">
-                          {alert.condition === 'above' ? 'Above' : 'Below'} ${parseFloat(alert.targetPrice).toFixed(2)}
+                <div key={alert.id} className={`group relative bg-gradient-to-r from-gray-700/80 to-gray-600/80 rounded-xl p-5 border border-gray-600/50 hover:border-gray-500/70 transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20 ${
+                  alert.triggered ? 'opacity-60 border-green-500/50' : ''
+                }`}>
+                  {/* Background Animation */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  
+                  {/* Triggered Alert Indicator */}
+                  {alert.triggered && (
+                    <div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  )}
+                  
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ${
+                            crypto.symbol === 'BTC' ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                            crypto.symbol === 'ETH' ? 'bg-gradient-to-r from-blue-500 to-purple-500' :
+                            'bg-gradient-to-r from-purple-500 to-pink-500'
+                          }`}>
+                            {crypto.icon}
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+                            alert.enabled ? 'bg-green-500' : 'bg-gray-500'
+                          }`}>
+                            {alert.enabled ? '✓' : '✕'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="font-bold text-white text-lg">{crypto.name}</div>
+                          <div className="text-sm text-gray-400 flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              alert.condition === 'above' 
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
+                              {alert.condition === 'above' ? '↗ Above' : '↘ Below'}
+                            </span>
+                            <span className="font-bold text-white">${parseFloat(alert.targetPrice).toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => toggleAlert(alert.id)}
-                        className={`text-xs px-2 py-1 rounded ${alert.enabled ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-300'}`}
-                      >
-                        {alert.enabled ? 'ON' : 'OFF'}
-                      </button>
-                      <button 
-                        onClick={() => removeAlert(alert.id)}
-                        className="text-xs text-red-400 hover:text-red-300"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                  {alert.triggered && (
-                    <div className="mt-2 text-xs text-green-400">
-                      ✓ Alert triggered
-                    </div>
-                  )}
+                      
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => toggleAlert(alert.id)}
+                          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
+                            alert.enabled 
+                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white shadow-md hover:shadow-green-500/25' 
+                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                          }`}
+                        >
+                          {alert.enabled ? '🟢 ON' : '⚫ OFF'}
+                        </button>
+                        <button 
+                           onClick={() => removeAlert(alert.id)}
+                           className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 text-sm rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
+                         >
+                           <span className="flex items-center gap-1">
+                             <span>🗑️</span>
+                             Remove
+                           </span>
+                         </button>
+                       </div>
+                     </div>
+                     
+                     {/* Alert Status */}
+                     {alert.triggered && (
+                       <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                         <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                           Alert triggered! Price condition met.
+                         </div>
+                       </div>
+                     )}
+                   </div>
                 </div>
               );
             })
@@ -1397,6 +1630,9 @@ export default function PortfolioPage() {
           ))}
         </div>
       </nav>
+
+      {/* Add padding at the bottom to prevent content from being hidden behind the navbar */}
+      <div className="pb-16"></div>
 
       {/* Add Asset Modal */}
       {showAddModal && (
@@ -1843,8 +2079,8 @@ export default function PortfolioPage() {
                 <input 
                   type="text" 
                   value={userProfile.username}
-                  onChange={(e) => setUserProfile({...userProfile, username: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  readOnly
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-gray-400 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -1852,8 +2088,8 @@ export default function PortfolioPage() {
                 <input 
                   type="text" 
                   value={userProfile.officialId}
-                  onChange={(e) => setUserProfile({...userProfile, officialId: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  readOnly
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-gray-400 cursor-not-allowed font-mono"
                 />
               </div>
               <div>

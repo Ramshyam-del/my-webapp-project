@@ -1,6 +1,8 @@
 import Navbar from '../component/Navbar';
 import { Herosection } from '../component/Herosection';
 import { Features } from '../component/Features';
+import { Statistics } from '../component/Statistics';
+import { Testimonials } from '../component/Testimonials';
 import { Roadmap } from '../component/Roadmap';
 import { Tokenomics } from '../component/Tokenomics';
 import Footer from '../component/Footer';
@@ -23,13 +25,19 @@ const sectionVariants = {
   }),
 };
 
-// Cryptocurrency data for home page - Reduced for production stability
+// Cryptocurrency data for home page - Enhanced with colors and icons
 const homeCryptoList = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: '🟡' },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: '🟦' },
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: '₿', color: 'from-orange-400 to-yellow-500', bgColor: 'from-orange-500/20 to-yellow-500/20' },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', color: 'from-blue-400 to-purple-500', bgColor: 'from-blue-500/20 to-purple-500/20' },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: '🟡', color: 'from-yellow-400 to-orange-500', bgColor: 'from-yellow-500/20 to-orange-500/20' },
+  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: '🟦', color: 'from-purple-400 to-pink-500', bgColor: 'from-purple-500/20 to-pink-500/20' },
 ];
+
+// Helper function to get crypto styling
+const getCryptoStyling = (symbol) => {
+  const crypto = homeCryptoList.find(c => c.symbol === symbol);
+  return crypto || { icon: '💎', color: 'from-gray-400 to-gray-500', bgColor: 'from-gray-500/20 to-gray-600/20' };
+};
 
 // Crypto Price Component
 const CryptoPrices = () => {
@@ -96,12 +104,25 @@ const CryptoPrices = () => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12 px-2 sm:px-0">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-gray-800 rounded-lg p-4 animate-pulse">
-            <div className="h-4 bg-gray-700 rounded mb-2"></div>
-            <div className="h-6 bg-gray-700 rounded"></div>
-          </div>
+          <motion.div 
+            key={i} 
+            className="relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+          >
+            <div className="animate-pulse">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-8 h-8 bg-gradient-to-r from-gray-600 to-gray-700 rounded-full"></div>
+                <div className="w-12 h-4 bg-gray-700 rounded"></div>
+              </div>
+              <div className="h-6 bg-gray-700 rounded mb-2"></div>
+              <div className="h-4 bg-gray-700 rounded w-16"></div>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 rounded-2xl animate-enhanced-pulse"></div>
+          </motion.div>
         ))}
       </div>
     );
@@ -109,30 +130,90 @@ const CryptoPrices = () => {
 
   if (error) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12 px-2 sm:px-0">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-gray-800 rounded-lg p-4">
-            <div className="text-gray-400 text-sm">Loading...</div>
+          <motion.div 
+            key={i} 
+            className="relative bg-gradient-to-br from-red-900/20 to-gray-900/50 backdrop-blur-sm rounded-2xl p-6 border border-red-500/30"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.1 }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-8 h-8 bg-gradient-to-r from-red-400 to-red-600 rounded-full flex items-center justify-center text-white text-sm">!</div>
+              <div className="text-red-400 text-xs">Error</div>
+            </div>
+            <div className="text-gray-400 text-sm mb-1">Connection Failed</div>
             <div className="text-white text-lg font-bold">--</div>
-          </div>
+          </motion.div>
         ))}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 px-2 sm:px-0">
-      {(Array.isArray(cryptoData) ? cryptoData : []).slice(0, 4).map((crypto) => (
-        <div key={crypto.symbol} className="bg-gray-800 rounded-lg p-3 sm:p-4 hover:bg-gray-700 transition-colors">
-          <div className="text-gray-400 text-sm">{crypto.name}</div>
-          <div className="text-lg sm:text-xl font-bold text-white">
-            ${parseFloat(crypto.price || 0).toFixed(2)}
-          </div>
-          <div className={`text-xs ${parseFloat(crypto.change24h || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {parseFloat(crypto.change24h || 0) >= 0 ? '+' : ''}{parseFloat(crypto.change24h || 0).toFixed(2)}%
-          </div>
-        </div>
-      ))}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 sm:mb-12 px-2 sm:px-0">
+      {(Array.isArray(cryptoData) ? cryptoData : []).slice(0, 4).map((crypto, index) => {
+        const styling = getCryptoStyling(crypto.symbol);
+        const isPositive = parseFloat(crypto.change24h || 0) >= 0;
+        
+        return (
+          <motion.div 
+            key={crypto.symbol} 
+            className="group relative bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50 hover:border-gray-600/70 transition-all duration-300 cursor-pointer overflow-hidden"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1, duration: 0.6 }}
+            whileHover={{ 
+              scale: 1.05, 
+              y: -5,
+              transition: { duration: 0.2 }
+            }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {/* Background Gradient */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${styling.bgColor} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+            
+            {/* Content */}
+            <div className="relative z-10">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className={`w-10 h-10 bg-gradient-to-r ${styling.color} rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg`}>
+                  {styling.icon}
+                </div>
+                <div className="text-gray-400 text-xs font-medium uppercase tracking-wider">
+                  {crypto.symbol}
+                </div>
+              </div>
+              
+              {/* Name */}
+              <div className="text-gray-300 text-sm font-medium mb-2">{crypto.name}</div>
+              
+              {/* Price */}
+              <div className="text-xl sm:text-2xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:bg-clip-text group-hover:from-white group-hover:to-gray-300 transition-all duration-300">
+                ${parseFloat(crypto.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              
+              {/* Change */}
+              <div className="flex items-center space-x-1">
+                <div className={`text-sm font-semibold ${
+                  isPositive ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {isPositive ? '↗' : '↘'}
+                </div>
+                <div className={`text-sm font-bold ${
+                  isPositive ? 'text-green-400' : 'text-red-400'
+                }`}>
+                  {isPositive ? '+' : ''}{parseFloat(crypto.change24h || 0).toFixed(2)}%
+                </div>
+              </div>
+            </div>
+            
+            {/* Hover Effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
@@ -172,9 +253,36 @@ export default function Home() {
         >
           <Features />
         </motion.section>
+        
+        {/* Statistics Section */}
+        <motion.section
+          id="statistics"
+          custom={3}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={sectionVariants}
+          className="w-full"
+        >
+          <Statistics />
+        </motion.section>
+        
+        {/* Testimonials Section */}
+        <motion.section
+          id="testimonials"
+          custom={4}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, amount: 0.3 }}
+          variants={sectionVariants}
+          className="w-full"
+        >
+          <Testimonials />
+        </motion.section>
+        
         <motion.section
           id="roadmap"
-          custom={3}
+          custom={5}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}
@@ -185,7 +293,7 @@ export default function Home() {
         </motion.section>
         <motion.section
           id="tokenomics"
-          custom={4}
+          custom={6}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.3 }}

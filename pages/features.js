@@ -32,14 +32,48 @@ export default function FeaturesPage() {
   const [tradeType, setTradeType] = useState('BUY');
   const [selectedLeverage, setSelectedLeverage] = useState('1x');
   const [selectedDuration, setSelectedDuration] = useState(360); // Default to 360s
+  
+  // Enhanced UI state variables
+  const [priceDirection, setPriceDirection] = useState('neutral'); // 'up', 'down', 'neutral'
+  const [lastPrice, setLastPrice] = useState('0.00');
+  const [activeTrades, setActiveTrades] = useState([]);
+  const [marketSentiment, setMarketSentiment] = useState('neutral'); // 'bullish', 'bearish', 'neutral'
+  const [priceAnimation, setPriceAnimation] = useState(false);
 
-  // Duration options with percentages
+  // Duration options with percentages (keeping original format)
   const durationOptions = [
     { seconds: 60, percentage: 30 },
     { seconds: 120, percentage: 50 },
     { seconds: 180, percentage: 70 },
     { seconds: 360, percentage: 100 }
   ];
+  
+  // Market sentiment indicators
+  const getSentimentColor = (sentiment) => {
+    switch(sentiment) {
+      case 'bullish': return 'text-green-400';
+      case 'bearish': return 'text-red-400';
+      default: return 'text-yellow-400';
+    }
+  };
+  
+  const getSentimentIcon = (sentiment) => {
+    switch(sentiment) {
+      case 'bullish': return '📈';
+      case 'bearish': return '📉';
+      default: return '➡️';
+    }
+  };
+  
+  const getRiskColor = (risk) => {
+    switch(risk) {
+      case 'high': return 'bg-red-600';
+      case 'medium': return 'bg-yellow-600';
+      case 'low': return 'bg-green-600';
+      case 'very-low': return 'bg-blue-600';
+      default: return 'bg-gray-600';
+    }
+  };
 
   // Enhanced trading pairs list
   const tradingPairs = [
@@ -132,18 +166,24 @@ export default function FeaturesPage() {
 
     // Create order object with all selected options
     const order = {
+      id: Date.now().toString(), // Simple ID generation
       type: orderSide === 'buy' ? 'BUY UP' : 'BUY FALL',
+      pair: selectedPair,
       leverage: selectedLeverage,
       duration: selectedDuration,
       durationPercentage: durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage,
       amount: parseFloat(orderAmount),
       projectedProfit: calculateProjectedProfit(),
+      entryPrice: parseFloat(currentPrice),
+      currentPrice: parseFloat(currentPrice),
       timestamp: new Date().toISOString(),
-      status: 'pending'
+      status: 'active',
+      timeLeft: selectedDuration, // Time left in seconds
+      pnl: 0 // Initial P&L
     };
 
-    // Simulate order placement
-    console.log('Order placed:', order);
+    // Add order to active trades
+    setActiveTrades(prev => [...prev, order]);
     
     // Show success message
     alert(`Order confirmed!\nType: ${order.type}\nDuration: ${order.duration}s (${order.durationPercentage}%)\nAmount: $${order.amount}\nLeverage: ${order.leverage}\nProjected Profit: $${order.projectedProfit.toFixed(2)}`);
@@ -155,7 +195,7 @@ export default function FeaturesPage() {
     setSelectedLeverage('1x');
   };
 
-  // Fetch crypto data from CoinMarketCap API
+  // Enhanced fetch crypto data with price direction tracking
   const fetchCryptoData = async () => {
     try {
       // Use relative URL to work with Next.js proxy
@@ -170,20 +210,42 @@ export default function FeaturesPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setCurrentPrice(parseFloat(data.price).toFixed(2));
+        const newPrice = parseFloat(data.price).toFixed(2);
+        
+        // Track price direction for animations
+        if (lastPrice !== '0.00' && newPrice !== lastPrice) {
+          setPriceDirection(parseFloat(newPrice) > parseFloat(lastPrice) ? 'up' : 'down');
+          setPriceAnimation(true);
+          setTimeout(() => setPriceAnimation(false), 1000);
+        }
+        
+        setLastPrice(currentPrice);
+        setCurrentPrice(newPrice);
         setPriceChange(parseFloat(data.change || 0).toFixed(2));
         setHigh24h(parseFloat(data.highPrice || data.price).toFixed(2));
         setLow24h(parseFloat(data.lowPrice || data.price).toFixed(2));
         setVolume24h(parseFloat(data.volume || 0).toFixed(0));
-        setLoading(false); // Set loading to false on success
+        
+        // Update market sentiment based on price change
+        const change = parseFloat(data.change || 0);
+        if (change > 2) {
+          setMarketSentiment('bullish');
+        } else if (change < -2) {
+          setMarketSentiment('bearish');
+        } else {
+          setMarketSentiment('neutral');
+        }
+        
+        setLoading(false);
       } else {
         console.error(`Failed to fetch ${selectedPair} from API`);
         // Use fallback data if API fails
-        setCurrentPrice('45000.00'); // Fallback price
+        setCurrentPrice('45000.00');
         setPriceChange('2.50');
         setHigh24h('46000.00');
         setLow24h('44000.00');
         setVolume24h('1000000');
+        setMarketSentiment('neutral');
         setLoading(false);
       }
     } catch (error) {
@@ -194,6 +256,7 @@ export default function FeaturesPage() {
       setHigh24h('46000.00');
       setLow24h('44000.00');
       setVolume24h('1000000');
+      setMarketSentiment('neutral');
       setLoading(false);
     }
   };
@@ -314,58 +377,147 @@ export default function FeaturesPage() {
           </div>
         </div>
 
-        {/* Trading Buttons - Mobile Responsive */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
-          <button
-            onClick={() => handleOrderClick('BUY')}
-            className="bg-green-600 hover:bg-green-700 text-white py-3 sm:py-4 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-colors"
-          >
-            BUY UP
-          </button>
-          <button
-            onClick={() => handleOrderClick('SELL')}
-            className="bg-red-600 hover:bg-red-700 text-white py-3 sm:py-4 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-colors"
-          >
-            BUY FALL
-          </button>
-        </div>
-
-        {/* Open Orders Section - Mobile Responsive */}
-        <div className="bg-gray-900 rounded-lg p-3 sm:p-4 mb-4">
-          <h3 className="text-base sm:text-lg font-bold mb-4">Open Orders</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center p-3 bg-gray-800 rounded">
-              <div>
-                <div className="font-medium text-sm sm:text-base">BTC/USDT</div>
-                <div className="text-xs sm:text-sm text-gray-400">Market Order</div>
-              </div>
-              <div className="text-right">
-                <div className="font-medium text-sm sm:text-base">$50,000.00</div>
-                <div className="text-xs sm:text-sm text-green-500">+2.5%</div>
-              </div>
+        {/* Market Sentiment Indicator */}
+        <div className="bg-gray-900 rounded-lg p-3 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-400">Market Sentiment:</span>
+              <span className={`font-bold text-sm ${getSentimentColor(marketSentiment)}`}>
+                {getSentimentIcon(marketSentiment)} {marketSentiment.toUpperCase()}
+              </span>
             </div>
-            <div className="flex justify-between items-center p-3 bg-gray-800 rounded">
-              <div>
-                <div className="font-medium text-sm sm:text-base">ETH/USDT</div>
-                <div className="text-xs sm:text-sm text-gray-400">Limit Order</div>
-              </div>
-              <div className="text-right">
-                <div className="font-medium text-sm sm:text-base">$3,200.00</div>
-                <div className="text-xs sm:text-sm text-red-500">-1.2%</div>
-              </div>
+            <div className={`text-2xl font-bold transition-all duration-500 ${priceAnimation ? 'scale-110' : 'scale-100'} ${
+              priceDirection === 'up' ? 'text-green-400' : 
+              priceDirection === 'down' ? 'text-red-400' : 'text-white'
+            }`}>
+              ${currentPrice}
             </div>
           </div>
         </div>
 
-        {/* Order Modal - Mobile Responsive */}
+        {/* Enhanced Trading Buttons - Mobile Responsive */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+          <button
+            onClick={() => handleOrderClick('BUY')}
+            className="relative bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 sm:py-5 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-green-500/25"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-2xl mb-1">📈</span>
+              <span>BUY UP</span>
+              <span className="text-xs opacity-75 mt-1">Predict Price Rise</span>
+            </div>
+            <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
+          </button>
+          <button
+            onClick={() => handleOrderClick('SELL')}
+            className="relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-4 sm:py-5 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-2xl mb-1">📉</span>
+              <span>BUY FALL</span>
+              <span className="text-xs opacity-75 mt-1">Predict Price Drop</span>
+            </div>
+            <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
+          </button>
+        </div>
+
+        {/* Enhanced Open Orders Section - Mobile Responsive */}
+        <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-4 border border-gray-700 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            <h3 className="text-base sm:text-lg font-bold text-blue-400">📊 Open Orders</h3>
+            <div className="ml-auto bg-blue-900/30 px-2 py-1 rounded-full">
+              <span className="text-blue-300 text-xs font-medium">Live ({activeTrades.length})</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {activeTrades.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <div className="text-4xl mb-2">📊</div>
+                <p className="text-sm">No active trades</p>
+                <p className="text-xs mt-1">Place a BUY UP or BUY FALL order to see it here</p>
+              </div>
+            ) : (
+              activeTrades.map((trade) => {
+                const formatTime = (seconds) => {
+                  const mins = Math.floor(seconds / 60);
+                  const secs = seconds % 60;
+                  return `${mins}m ${secs}s`;
+                };
+                
+                const calculatePnL = () => {
+                  const priceDiff = trade.currentPrice - trade.entryPrice;
+                  const leverage = parseFloat(trade.leverage.replace('x', ''));
+                  let pnl = 0;
+                  
+                  if (trade.type === 'BUY UP') {
+                    pnl = (priceDiff / trade.entryPrice) * trade.amount * leverage;
+                  } else {
+                    pnl = (-priceDiff / trade.entryPrice) * trade.amount * leverage;
+                  }
+                  
+                  return pnl;
+                };
+                
+                const pnl = calculatePnL();
+                const isProfit = pnl >= 0;
+                
+                return (
+                  <div key={trade.id} className="bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl p-3 border border-gray-600 hover:border-gray-500 transition-all duration-300 hover:shadow-lg">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 ${trade.type === 'BUY UP' ? 'bg-green-500' : 'bg-red-500'} rounded-full animate-pulse`}></div>
+                        <div>
+                          <div className={`font-medium text-sm sm:text-base ${trade.type === 'BUY UP' ? 'text-green-400' : 'text-red-400'} flex items-center gap-1`}>
+                            {trade.type === 'BUY UP' ? '📈' : '📉'} {trade.pair}
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-400">{trade.type} Order</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="bg-orange-900/30 px-2 py-1 rounded-lg border border-orange-700/50 mb-1">
+                          <span className="text-orange-300 text-xs font-bold">⏰ {formatTime(trade.timeLeft)}</span>
+                        </div>
+                        <div className="font-medium text-sm sm:text-base">${trade.amount.toFixed(2)}</div>
+                        <div className={`text-xs sm:text-sm ${isProfit ? 'text-green-500' : 'text-red-500'} animate-pulse`}>
+                          {isProfit ? '+' : ''}${pnl.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+                      <span className="text-xs text-gray-400">Entry: ${trade.entryPrice.toFixed(2)}</span>
+                      <span className="text-xs text-gray-400">Current: ${trade.currentPrice.toFixed(2)}</span>
+                      <button 
+                        onClick={() => {
+                          setActiveTrades(prev => prev.filter(t => t.id !== trade.id));
+                          alert(`Trade closed early!\nP&L: ${isProfit ? '+' : ''}$${pnl.toFixed(2)}`);
+                        }}
+                        className="text-red-400 hover:text-red-300 text-xs font-medium px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
+                      >
+                        Close Early
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Enhanced Order Modal - Mobile Responsive */}
         {showOrderModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-900 rounded-lg p-4 sm:p-6 w-full max-w-md mx-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-base sm:text-lg font-bold">{orderSide === 'buy' ? 'BUY UP' : 'BUY FALL'} Order</h3>
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto shadow-2xl border border-gray-700 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${orderSide === 'buy' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+                  <h3 className={`text-base sm:text-lg font-bold ${orderSide === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {orderSide === 'buy' ? '📈 BUY UP' : '📉 BUY FALL'} Order
+                  </h3>
+                </div>
                 <button
                   onClick={() => setShowOrderModal(false)}
-                  className="text-gray-400 hover:text-white"
+                  className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -373,34 +525,56 @@ export default function FeaturesPage() {
                 </button>
               </div>
               
-              <form onSubmit={handleOrderConfirm} className="space-y-3 sm:space-y-4">
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Leverage</label>
-                  <select
-                    value={selectedLeverage}
-                    onChange={(e) => setSelectedLeverage(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-3 text-white focus:outline-none focus:border-blue-500 text-sm sm:text-base"
-                  >
-                    <option value="1x">1x</option>
-                    <option value="2x">2x</option>
-                    <option value="5x">5x</option>
-                    <option value="10x">10x</option>
-                    <option value="20x">20x</option>
-                  </select>
+              {/* Market Info Banner */}
+              <div className="bg-gray-800 rounded-lg p-3 mb-4 border-l-4 border-blue-500">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-300">Current Price:</span>
+                  <span className={`font-bold ${priceDirection === 'up' ? 'text-green-400' : priceDirection === 'down' ? 'text-red-400' : 'text-white'}`}>
+                    ${currentPrice}
+                  </span>
                 </div>
+                <div className="flex items-center justify-between text-sm mt-1">
+                  <span className="text-gray-300">24h Change:</span>
+                  <span className={`font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
+                  </span>
+                </div>
+              </div>
+              
+              <form onSubmit={handleOrderConfirm} className="space-y-4">
+                 <div>
+                   <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                     <span className="text-blue-400">⚡</span>
+                     Leverage
+                   </label>
+                   <select
+                     value={selectedLeverage}
+                     onChange={(e) => setSelectedLeverage(e.target.value)}
+                     className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
+                   >
+                     <option value="1x">1x - Conservative</option>
+                     <option value="2x">2x - Moderate</option>
+                     <option value="5x">5x - Aggressive</option>
+                     <option value="10x">10x - High Risk</option>
+                     <option value="20x">20x - Maximum Risk</option>
+                   </select>
+                 </div>
                 
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Duration Period</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <span className="text-purple-400">⏱️</span>
+                    Duration Period
+                  </label>
                   <div className="grid grid-cols-4 gap-2">
                     {durationOptions.map((option) => (
                       <button
                         key={option.seconds}
                         type="button"
                         onClick={() => setSelectedDuration(option.seconds)}
-                        className={`py-3 px-2 rounded-lg transition-colors text-center ${
+                        className={`py-3 px-2 rounded-lg transition-all duration-200 text-center border ${
                           selectedDuration === option.seconds
-                            ? 'bg-blue-600 text-white font-bold'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-lg shadow-blue-500/25'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:border-gray-500'
                         }`}
                       >
                         <div className="text-xs font-bold">{option.seconds}s</div>
@@ -411,47 +585,70 @@ export default function FeaturesPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2">Amount (USDT)</label>
-                  <input
-                    type="number"
-                    value={orderAmount}
-                    onChange={(e) => setOrderAmount(e.target.value)}
-                    placeholder="100"
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-3 text-white focus:outline-none focus:border-blue-500 text-sm sm:text-base"
-                  />
+                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <span className="text-green-400">💰</span>
+                    Amount (USDT)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={orderAmount}
+                      onChange={(e) => setOrderAmount(e.target.value)}
+                      placeholder="100"
+                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 pl-8 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
+                      min="1"
+                      required
+                    />
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  </div>
                 </div>
                 
-                <div className="bg-gray-800 p-3 rounded">
-                  <div className="text-xs sm:text-sm text-gray-400">Duration Period</div>
-                  <div className="font-bold text-blue-500 text-sm sm:text-base">
+                <div className="bg-gradient-to-r from-blue-900/30 to-blue-800/30 p-4 rounded-lg border border-blue-700/50">
+                  <div className="text-xs sm:text-sm text-blue-300 flex items-center gap-2">
+                    <span className="text-blue-400">⏱️</span>
+                    Duration Period
+                  </div>
+                  <div className="font-bold text-blue-400 text-sm sm:text-base">
                     {selectedDuration}s ({durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage}%)
                   </div>
                 </div>
                 
-                <div className="bg-gray-800 p-3 rounded">
-                  <div className="text-xs sm:text-sm text-gray-400">Projected Profit</div>
-                  <div className="font-bold text-green-500 text-sm sm:text-base">
-                    ${calculateProjectedProfit().toFixed(2)}
+                <div className="bg-gradient-to-r from-green-900/30 to-green-800/30 p-4 rounded-lg border border-green-700/50">
+                  <div className="text-xs sm:text-sm text-green-300 flex items-center gap-2">
+                    <span className="text-green-400">💰</span>
+                    Projected Profit
+                  </div>
+                  <div className="font-bold text-green-400 text-lg sm:text-xl animate-pulse">
+                    +${calculateProjectedProfit().toFixed(2)}
+                  </div>
+                  <div className="text-xs text-green-300 mt-1 opacity-75">
+                    Risk/Reward: 1:{orderAmount ? (calculateProjectedProfit() / parseFloat(orderAmount)).toFixed(2) : '0.00'}
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowOrderModal(false)}
-                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 px-4 rounded font-medium text-sm sm:text-base transition-colors"
+                    className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white py-4 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-lg border border-gray-500"
                   >
-                    Cancel
+                    <span className="flex items-center justify-center gap-2">
+                      <span>❌</span>
+                      Cancel
+                    </span>
                   </button>
                   <button
                     type="submit"
-                    className={`flex-1 py-3 px-4 rounded font-medium text-sm sm:text-base transition-colors ${
+                    className={`flex-1 py-4 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-xl border ${
                       orderSide === 'buy' 
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-red-600 hover:bg-red-700 text-white'
+                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-green-500 hover:shadow-green-500/25'
+                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-red-500 hover:shadow-red-500/25'
                     }`}
                   >
-                    Confirm
+                    <span className="flex items-center justify-center gap-2">
+                      <span>{orderSide === 'buy' ? '🚀' : '⚡'}</span>
+                      Confirm Order
+                    </span>
                   </button>
                 </div>
               </form>

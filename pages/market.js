@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
-// Top 11 cryptocurrencies by market cap
+// Top 11 cryptocurrencies by market cap with enhanced icons and colors
 const cryptoList = [
-  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: '₿' },
-  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: 'Ξ' },
-  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: 'T' },
-  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: 'B' },
-  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: 'S' },
-  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: 'A' },
-  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: 'D' },
-  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: 'Ð' },
-  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: 'A' },
-  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: 'L' },
-  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M' }
+  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: '₿', color: 'from-orange-400 to-orange-600' },
+  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: 'Ξ', color: 'from-blue-400 to-blue-600' },
+  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: 'T', color: 'from-green-400 to-green-600' },
+  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: 'B', color: 'from-yellow-400 to-yellow-600' },
+  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: 'S', color: 'from-purple-400 to-purple-600' },
+  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: 'A', color: 'from-blue-500 to-indigo-600' },
+  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: 'D', color: 'from-pink-400 to-pink-600' },
+  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: 'Ð', color: 'from-yellow-300 to-orange-400' },
+  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: 'A', color: 'from-red-400 to-red-600' },
+  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: 'L', color: 'from-blue-400 to-cyan-500' },
+  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M', color: 'from-purple-500 to-indigo-600' }
 ];
 
 const navTabs = [
@@ -91,25 +91,48 @@ export default function MarketPage() {
   const topCryptos = marketData.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[#181c23]">
-        <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-2xl font-extrabold tracking-widest text-white bg-blue-900 px-2 py-1 rounded">Quantex</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex flex-col">
+      {/* Enhanced Header with Glassmorphism */}
+      <header className="flex items-center justify-between px-4 py-3 bg-black/20 backdrop-blur-xl border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <span className="text-white font-bold text-lg">Q</span>
+          </div>
+          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Quantex</span>
         </div>
-        <button className="relative">
-          <svg className="w-6 h-6 sm:w-7 sm:h-7 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" /></svg>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-green-400 rounded-full border-2 border-[#181c23]" />
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-xs text-green-400 font-medium">Live</span>
+          </div>
+          <button className="relative p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300">
+            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 0 1 15 0v5z"/>
+            </svg>
+          </button>
+        </div>
       </header>
       
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 p-3 sm:p-4 flex flex-col items-center rounded-b-2xl">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <div className="text-2xl sm:text-4xl">📊</div>
-          <div>
-            <div className="text-base sm:text-lg font-bold">Live Market Data</div>
-            <div className="text-xs text-blue-100">Real-time cryptocurrency prices and market information</div>
+      {/* Enhanced Banner with Animation */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
+        <div className="relative bg-gradient-to-r from-blue-900/80 via-purple-900/80 to-pink-900/80 backdrop-blur-sm p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center animate-bounce">
+                <span className="text-2xl sm:text-3xl">📊</span>
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
+                  Live Market Data
+                </h1>
+                <p className="text-sm text-blue-200/80">Real-time cryptocurrency prices and market insights</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-blue-200/60">
+              <div className="w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
+              <span>Updated every 2 minutes</span>
+            </div>
           </div>
         </div>
       </div>
@@ -118,117 +141,161 @@ export default function MarketPage() {
       
       {/* Main Content */}
       <div className="flex-1 bg-black p-2 sm:p-4">
-        {/* Error Message */}
+        {/* Enhanced Error Message */}
         {error && (
-          <div className="bg-red-900 text-red-200 px-3 sm:px-4 py-2 rounded-lg mb-4 text-sm">
-            {error}
+          <div className="bg-gradient-to-r from-red-900/50 to-red-800/30 backdrop-blur-sm border border-red-500/30 text-red-200 px-4 py-3 rounded-2xl mb-6 text-sm flex items-center gap-3">
+            <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs">!</span>
+            </div>
+            <div className="flex-1">
+              <div className="font-medium text-red-100 mb-1">Connection Error</div>
+              <div className="text-red-200/80">{error}</div>
+            </div>
           </div>
         )}
         
-        {/* Loading State */}
+        {/* Enhanced Loading State */}
         {loading && (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="text-lg sm:text-xl mb-4">Loading market data...</div>
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            </div>
-          </div>
-        )}
-        
-        {/* Market Data Table - Mobile Responsive */}
-        {!loading && (
-          <div className="bg-gray-900 rounded-lg overflow-hidden">
-            {/* Desktop Table */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-800">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">ASSET</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">PRICE</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H CHANGE</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">24H VOLUME</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">MARKET CAP</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-900 divide-y divide-gray-800">
-                  {marketData.map((crypto, index) => (
-                    <tr key={crypto.id} className="hover:bg-gray-800 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-2xl mr-3">{crypto.icon}</span>
-                          <div>
-                            <div className="text-sm font-medium text-white">{crypto.name}</div>
-                            <div className="text-xs text-gray-400">{crypto.id}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-medium text-white">${crypto.price}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className={`text-sm font-medium ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                          {crypto.isPositive ? '+' : ''}{crypto.change}%
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm text-gray-300">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm text-gray-300">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Cards */}
-            <div className="lg:hidden">
-              <div className="p-4 space-y-4">
-                {marketData.map((crypto, index) => (
-                  <div key={crypto.id} className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center">
-                        <span className="text-2xl mr-3">{crypto.icon}</span>
-                        <div>
-                          <div className="text-sm font-medium text-white">{crypto.name}</div>
-                          <div className="text-xs text-gray-400">{crypto.id}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-white">${crypto.price}</div>
-                        <div className={`text-xs ${crypto.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                          {crypto.isPositive ? '+' : ''}{crypto.change}%
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                      <div>
-                        <div className="text-gray-400">Volume</div>
-                        <div className="text-white">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-400">Market Cap</div>
-                        <div className="text-white">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="relative mb-8">
+                <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
+                <div className="w-12 h-12 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto absolute top-2 left-1/2 transform -translate-x-1/2 animate-reverse-spin"></div>
+              </div>
+              <div className="text-xl font-semibold mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                Loading Market Data
+              </div>
+              <div className="text-sm text-gray-400">Fetching real-time cryptocurrency prices...</div>
+              <div className="flex justify-center mt-4 space-x-1">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                <div className="w-2 h-2 bg-pink-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
               </div>
             </div>
           </div>
         )}
         
-        {/* API Status - Mobile Responsive */}
-        <div className="mt-4 p-3 bg-gray-800 rounded-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-green-400">Connected to CoinMarketCap API</span>
+        {/* Enhanced Market Data Table */}
+        {!loading && (
+          <div className="bg-black/40 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
+            {/* Desktop Table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-gray-800/50 to-gray-700/50 backdrop-blur-sm">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-200 uppercase tracking-wider">ASSET</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-200 uppercase tracking-wider">PRICE</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-200 uppercase tracking-wider">24H CHANGE</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-200 uppercase tracking-wider">24H VOLUME</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-200 uppercase tracking-wider">MARKET CAP</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {marketData.map((crypto, index) => {
+                    const cryptoInfo = cryptoList.find(c => c.symbol === crypto.id.toUpperCase()) || cryptoList[0];
+                    return (
+                      <tr key={crypto.id} className="hover:bg-white/5 transition-all duration-300 group cursor-pointer">
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${cryptoInfo.color} flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300`}>
+                              <span className="text-white font-bold text-lg">{crypto.icon}</span>
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors">{crypto.name}</div>
+                              <div className="text-xs text-gray-400 uppercase">{crypto.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                          <div className="text-sm font-bold text-white group-hover:text-green-300 transition-colors">${crypto.price}</div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                          <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            crypto.isPositive 
+                              ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                            <span className={`mr-1 ${crypto.isPositive ? '↗' : '↘'}`}></span>
+                            {crypto.isPositive ? '+' : ''}{crypto.change}%
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                          <div className="text-sm text-gray-300 font-medium">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                          <div className="text-sm text-gray-300 font-medium">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="text-xs text-gray-400">
-              Last updated: <span suppressHydrationWarning>{new Date().toLocaleTimeString()}</span>
+
+            {/* Enhanced Mobile Cards */}
+            <div className="lg:hidden">
+              <div className="p-4 space-y-4">
+                {marketData.map((crypto, index) => {
+                  const cryptoInfo = cryptoList.find(c => c.symbol === crypto.id.toUpperCase()) || cryptoList[0];
+                  return (
+                    <div key={crypto.id} className="bg-gradient-to-r from-gray-800/50 to-gray-700/30 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center">
+                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${cryptoInfo.color} flex items-center justify-center mr-3 shadow-lg`}>
+                            <span className="text-white font-bold text-lg">{crypto.icon}</span>
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-white">{crypto.name}</div>
+                            <div className="text-xs text-gray-400 uppercase">{crypto.id}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-white">${crypto.price}</div>
+                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                            crypto.isPositive 
+                              ? 'bg-green-500/20 text-green-400' 
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            <span className={`mr-1 ${crypto.isPositive ? '↗' : '↘'}`}></span>
+                            {crypto.isPositive ? '+' : ''}{crypto.change}%
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 pt-3 border-t border-white/10">
+                        <div className="text-center">
+                          <div className="text-xs text-gray-400 mb-1">24h Volume</div>
+                          <div className="text-sm font-semibold text-white">${(parseFloat(crypto.volume) / 1000000).toFixed(2)}M</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-xs text-gray-400 mb-1">Market Cap</div>
+                          <div className="text-sm font-semibold text-white">${(parseFloat(crypto.marketCap) / 1000000000).toFixed(2)}B</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Enhanced API Status */}
+        <div className="mt-6 p-4 bg-gradient-to-r from-gray-800/30 to-gray-700/20 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse shadow-lg shadow-green-400/50"></div>
+                <span className="text-sm text-green-400 font-medium">Live Data Stream</span>
+              </div>
+              <div className="hidden sm:block w-px h-4 bg-white/20"></div>
+              <span className="text-xs text-gray-400">CoinMarketCap API</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span suppressHydrationWarning>Updated: {new Date().toLocaleTimeString()}</span>
             </div>
           </div>
         </div>
@@ -242,7 +309,7 @@ export default function MarketPage() {
             onClick={() => router.push(tab.route)}
             className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               router.pathname === tab.route
-                ? 'bg-purple-600 text-white'
+                ? 'bg-blue-600 text-white'
                 : 'text-gray-400 hover:text-white hover:bg-gray-700'
             }`}
           >
