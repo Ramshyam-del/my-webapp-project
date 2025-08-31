@@ -2,6 +2,9 @@
   "build": {
     "env": {
       "NEXT_PUBLIC_BACKEND_URL": "https://my-webapp-project-production.up.railway.app",
+      "NEXT_PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "your_supabase_anon_key_here",
+      "NEXT_PUBLIC_API_URL": "https://www.quantex.online/api",
       "NODE_ENV": "production"
     }
   },
