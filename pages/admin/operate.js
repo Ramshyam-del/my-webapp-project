@@ -93,10 +93,66 @@ export default function AdminOperate() {
         }));
       }
       
-      // Save to database in background
-      await saveConfigToDatabase(updatedConfig);
+      // Save to database using the correct admin config API
+      // Create a partial update object with only the changed field
+      const fieldMapping = {
+        telegram: 'telegram',
+        whatsapp: 'whatsapp',
+        emailAddress: 'email_address',
+        email: 'email',
+        address: 'address',
+        mobile: 'mobile',
+        title: 'title',
+        logo: 'logo',
+        favicon: 'favicon',
+        slogan: 'slogan',
+        subbanner: 'subbanner',
+        whitePaperLink: 'white_paper_link',
+        exchangeBanner: 'exchange_banner',
+        usdtAddress: 'usdt_address',
+        btcAddress: 'btc_address',
+        ethAddress: 'eth_address'
+      };
+      
+      const dbField = fieldMapping[field] || field;
+      const partialUpdate = {
+        [dbField]: value
+      };
+      
+      const adminConfigResponse = await fetch('/api/admin/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          system_settings: partialUpdate
+        })
+      });
+      
+      if (!adminConfigResponse.ok) {
+        const errorText = await adminConfigResponse.text();
+        console.error('Admin config API error:', adminConfigResponse.status, errorText);
+        throw new Error(`Failed to save configuration: ${adminConfigResponse.status} - ${errorText}`);
+      }
+      
+      const responseData = await adminConfigResponse.json();
+      console.log('Admin config saved successfully:', responseData);
+      
+      // Also save to main config API for deposit addresses
+      if (['usdtAddress', 'btcAddress', 'ethAddress'].includes(field)) {
+        await saveConfigToDatabase(updatedConfig);
+      }
+      
     } catch (error) {
       console.error('Error updating config field:', error);
+      console.error('Error details:', {
+        field,
+        value,
+        partialUpdate,
+        message: error.message,
+        stack: error.stack
+      });
+      alert(`Error saving configuration: ${error.message}. Please check the console for details.`);
     }
   };
 
@@ -173,7 +229,7 @@ export default function AdminOperate() {
         })
       });
       
-      if (response.ok) {
+      if (adminConfigResponse.ok) {
         // Also save to localStorage as backup
         safeLocalStorage.setItem('webConfig', JSON.stringify(config));
         // Trigger events for frontend updates
