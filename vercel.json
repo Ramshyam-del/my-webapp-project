@@ -1,7 +1,8 @@
 {
   "build": {
     "env": {
-      "NEXT_PUBLIC_BACKEND_URL": "https://my-webapp-project-production.up.railway.app"
+      "NEXT_PUBLIC_BACKEND_URL": "https://my-webapp-project-production.up.railway.app",
+      "NODE_ENV": "production"
     }
   },
   "redirects": [
