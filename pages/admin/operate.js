@@ -61,7 +61,46 @@ export default function AdminOperate() {
     }
   }, [showFrontendPreview]);
 
-  const saveConfig = async () => {
+  // Helper function to update config with immediate UI feedback and database persistence
+  const updateConfigField = async (field, value, isNestedField = false) => {
+    try {
+      let updatedConfig;
+      if (isNestedField) {
+        updatedConfig = {
+          ...config,
+          [field.parent]: {
+            ...config[field.parent],
+            [field.key]: value
+          }
+        };
+      } else {
+        updatedConfig = { ...config, [field]: value };
+      }
+      
+      // Update local state
+      setConfig(updatedConfig);
+      
+      // Immediately save to localStorage and trigger UI update
+      safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+      const document = getSafeDocument();
+      if (document) {
+        document.dispatchEvent(new StorageEvent('storage', {
+          key: 'webConfig',
+          newValue: JSON.stringify(updatedConfig)
+        }));
+        document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+          detail: { config: updatedConfig }
+        }));
+      }
+      
+      // Save to database in background
+      await saveConfigToDatabase(updatedConfig);
+    } catch (error) {
+      console.error('Error updating config field:', error);
+    }
+  };
+
+  const saveConfigToDatabase = async (configToSave = config) => {
     try {
       // Save to database
       const response = await fetch('/api/config', {
@@ -72,31 +111,47 @@ export default function AdminOperate() {
         },
         body: JSON.stringify({
           deposit_addresses: {
-            usdt: config.usdtAddress,
-            btc: config.btcAddress,
-            eth: config.ethAddress
+            usdt: configToSave.usdtAddress,
+            btc: configToSave.btcAddress,
+            eth: configToSave.ethAddress
           },
           system_settings: {
-            title: config.title,
-            official_website_name: config.officialWebsiteName,
-            official_website_link: config.officialWebsiteLink,
-            email: config.email,
-            address: config.address,
-            mobile: config.mobile,
-            working_hours: config.workingHours,
-            menu_management: config.menuManagement,
-            logo: config.logo,
-            favicon: config.favicon,
-            telegram: config.telegram,
-            whatsapp: config.whatsapp,
-            whatsapp_address: config.whatsappAddress,
-            email_address: config.emailAddress,
-            slogan: config.slogan,
-            subbanner: config.subbanner,
-            white_paper_link: config.whitePaperLink
+            title: configToSave.title,
+            official_website_name: configToSave.officialWebsiteName,
+            official_website_link: configToSave.officialWebsiteLink,
+            email: configToSave.email,
+            address: configToSave.address,
+            mobile: configToSave.mobile,
+            working_hours: configToSave.workingHours,
+            menu_management: configToSave.menuManagement,
+            logo: configToSave.logo,
+            favicon: configToSave.favicon,
+            telegram: configToSave.telegram,
+            whatsapp: configToSave.whatsapp,
+            whatsapp_address: configToSave.whatsappAddress,
+            email_address: configToSave.emailAddress,
+            slogan: configToSave.slogan,
+            subbanner: configToSave.subbanner,
+            white_paper_link: configToSave.whitePaperLink,
+            exchange_banner: configToSave.exchangeBanner
           }
         })
       });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save to database');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Database save error:', error);
+      return false;
+    }
+  };
+
+  const saveConfig = async () => {
+    try {
+      const success = await saveConfigToDatabase();
       
       // Also save to admin config API for customer service
       const adminConfigResponse = await fetch('/api/admin/config', {
@@ -179,23 +234,11 @@ export default function AdminOperate() {
   };
 
   const handleWorkingHoursChange = (key) => {
-    setConfig(prev => ({
-      ...prev,
-      workingHours: {
-        ...prev.workingHours,
-        [key]: !prev.workingHours[key]
-      }
-    }));
+    updateConfigField({ parent: 'workingHours', key }, !config.workingHours[key], true);
   };
 
   const handleMenuManagementChange = (key) => {
-    setConfig(prev => ({
-      ...prev,
-      menuManagement: {
-        ...prev.menuManagement,
-        [key]: !prev.menuManagement[key]
-      }
-    }));
+    updateConfigField({ parent: 'menuManagement', key }, !config.menuManagement[key], true);
   };
 
 
@@ -209,18 +252,7 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.title}
-              onChange={(e) => {
-                const updatedConfig = { ...config, title: e.target.value };
-                setConfig(updatedConfig);
-                // Immediately save and trigger update
-                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                const document = getSafeDocument();
-                if (document) {
-                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
-                }
-              }}
+              onChange={(e) => updateConfigField('title', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter website title"
             />
@@ -231,18 +263,7 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.officialWebsiteName}
-              onChange={(e) => {
-                const updatedConfig = { ...config, officialWebsiteName: e.target.value };
-                setConfig(updatedConfig);
-                // Immediately save and trigger update
-                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                const document = getSafeDocument();
-                if (document) {
-                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
-                }
-              }}
+              onChange={(e) => updateConfigField('officialWebsiteName', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter official website name"
             />
@@ -253,18 +274,7 @@ export default function AdminOperate() {
             <input
               type="url"
               value={config.officialWebsiteLink}
-              onChange={(e) => {
-                const updatedConfig = { ...config, officialWebsiteLink: e.target.value };
-                setConfig(updatedConfig);
-                // Immediately save and trigger update
-                safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                const document = getSafeDocument();
-                if (document) {
-                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                    detail: { config: updatedConfig }
-                  }));
-                }
-              }}
+              onChange={(e) => updateConfigField('officialWebsiteLink', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="https://example.com"
             />
@@ -275,7 +285,7 @@ export default function AdminOperate() {
             <input
               type="email"
               value={config.email}
-              onChange={(e) => setConfig(prev => ({ ...prev, email: e.target.value }))}
+              onChange={(e) => updateConfigField('email', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="contact@example.com"
             />
@@ -285,7 +295,7 @@ export default function AdminOperate() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
             <textarea
               value={config.address}
-              onChange={(e) => setConfig(prev => ({ ...prev, address: e.target.value }))}
+              onChange={(e) => updateConfigField('address', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows="3"
               placeholder="Enter company address"
@@ -298,13 +308,13 @@ export default function AdminOperate() {
               <input
                 type="time"
                 value={config.mobile}
-                onChange={(e) => setConfig(prev => ({ ...prev, mobile: e.target.value }))}
+                onChange={(e) => updateConfigField('mobile', e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <input
                 type="time"
                 value={config.mobile}
-                onChange={(e) => setConfig(prev => ({ ...prev, mobile: e.target.value }))}
+                onChange={(e) => updateConfigField('mobile', e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -352,7 +362,7 @@ export default function AdminOperate() {
               <input
                 type="text"
                 value={config.logo}
-                onChange={(e) => setConfig(prev => ({ ...prev, logo: e.target.value }))}
+                onChange={(e) => updateConfigField('logo', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Logo file path"
               />
@@ -430,7 +440,7 @@ export default function AdminOperate() {
               <input
                 type="text"
                 value={config.favicon}
-                onChange={(e) => setConfig(prev => ({ ...prev, favicon: e.target.value }))}
+                onChange={(e) => updateConfigField('favicon', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Favicon file path"
               />
@@ -448,7 +458,7 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.telegram}
-              onChange={(e) => setConfig(prev => ({ ...prev, telegram: e.target.value }))}
+              onChange={(e) => updateConfigField('telegram', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Telegram username or link"
             />
@@ -459,7 +469,7 @@ export default function AdminOperate() {
              <input
                type="text"
                value={config.whatsapp}
-               onChange={(e) => setConfig(prev => ({ ...prev, whatsapp: e.target.value }))}
+               onChange={(e) => updateConfigField('whatsapp', e.target.value)}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="WhatsApp number or link"
              />
@@ -470,7 +480,7 @@ export default function AdminOperate() {
              <input
                type="email"
                value={config.emailAddress}
-               onChange={(e) => setConfig(prev => ({ ...prev, emailAddress: e.target.value }))}
+               onChange={(e) => updateConfigField('emailAddress', e.target.value)}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Email address"
              />
@@ -489,7 +499,7 @@ export default function AdminOperate() {
             <input
               type="text"
               value={config.slogan || ''}
-              onChange={(e) => setConfig(prev => ({ ...prev, slogan: e.target.value }))}
+              onChange={(e) => updateConfigField('slogan', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter slogan"
             />
@@ -504,24 +514,7 @@ export default function AdminOperate() {
                 <input
                   type="text"
                   value={config.exchangeBanner || ''}
-                  onChange={(e) => {
-                    const newValue = e.target.value;
-                    setConfig(prev => ({ ...prev, exchangeBanner: newValue }));
-                    // Immediately save and trigger update
-                    const updatedConfig = { ...config, exchangeBanner: newValue };
-                    safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                    const document = getSafeDocument();
-                    if (document) {
-                      document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                        detail: { config: updatedConfig }
-                      }));
-                      // Also dispatch storage event for cross-tab updates
-                      document.dispatchEvent(new StorageEvent('storage', {
-                        key: 'webConfig',
-                        newValue: JSON.stringify(updatedConfig)
-                      }));
-                    }
-                  }}
+                  onChange={(e) => updateConfigField('exchangeBanner', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter banner image URL"
                 />
@@ -553,16 +546,7 @@ export default function AdminOperate() {
                           // In a real implementation, you would upload this file to your server
                           // For this example, we'll simulate by creating a fake URL
                           const fakeUrl = `/uploads/banner-${Date.now()}.jpg`;
-                          setConfig(prev => ({ ...prev, exchangeBanner: fakeUrl }));
-                          // Immediately save and trigger update
-                          const updatedConfig = { ...config, exchangeBanner: fakeUrl };
-                          safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                          const document = getSafeDocument();
-                          if (document) {
-                            document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                              detail: { config: updatedConfig }
-                            }));
-                          }
+                          updateConfigField('exchangeBanner', fakeUrl);
                           alert('Banner updated! In a real implementation, this would upload the file to your server.');
                         }
                       };
@@ -574,16 +558,7 @@ export default function AdminOperate() {
                   </button>
                   <button
                     onClick={() => {
-                      setConfig(prev => ({ ...prev, exchangeBanner: '' }));
-                      // Immediately save and trigger update
-                      const updatedConfig = { ...config, exchangeBanner: '' };
-                      safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                      const document = getSafeDocument();
-                      if (document) {
-                        document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                          detail: { config: updatedConfig }
-                        }));
-                      }
+                      updateConfigField('exchangeBanner', '');
                     }}
                     className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600 transition-colors"
                   >
@@ -600,7 +575,7 @@ export default function AdminOperate() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Value</label>
             <textarea
               value={config.slogan || ''}
-              onChange={(e) => setConfig(prev => ({ ...prev, slogan: e.target.value }))}
+              onChange={(e) => updateConfigField('slogan', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows="4"
               placeholder="Enter slogan content"
@@ -627,7 +602,7 @@ export default function AdminOperate() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Value</label>
             <textarea
               value={config.subbanner || ''}
-              onChange={(e) => setConfig(prev => ({ ...prev, subbanner: e.target.value }))}
+              onChange={(e) => updateConfigField('subbanner', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows="4"
               placeholder="Enter subbanner content"
@@ -655,7 +630,7 @@ export default function AdminOperate() {
             <input
               type="url"
               value={config.whitePaperLink || ''}
-              onChange={(e) => setConfig(prev => ({ ...prev, whitePaperLink: e.target.value }))}
+              onChange={(e) => updateConfigField('whitePaperLink', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter white paper link"
             />
@@ -689,28 +664,7 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.usdtAddress}
-                               onChange={(e) => {
-                  const newValue = e.target.value;
-                  console.log('USDT address changed to:', newValue);
-                  setConfig(prev => ({ ...prev, usdtAddress: newValue }));
-                  // Immediately save and trigger update
-                  const updatedConfig = { ...config, usdtAddress: newValue };
-                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                  console.log('Dispatching webConfigUpdated event');
-                  const document = getSafeDocument();
-                  if (document) {
-                    document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                      detail: { config: updatedConfig }
-                    }));
-                  }
-                  // Also dispatch storage event for cross-tab updates
-                  if (document) {
-                    document.dispatchEvent(new StorageEvent('storage', {
-                      key: 'webConfig',
-                      newValue: JSON.stringify(updatedConfig)
-                    }));
-                  }
-                }}
+               onChange={(e) => updateConfigField('usdtAddress', e.target.value)}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter USDT wallet address"
              />
@@ -718,16 +672,8 @@ export default function AdminOperate() {
                <button
                  onClick={() => {
                    const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
-                   setConfig(prev => ({ ...prev, usdtAddress: newAddress }));
-                   // Immediately save and trigger update
-                   const updatedConfig = { ...config, usdtAddress: newAddress };
-                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   const document = getSafeDocument();
-                   if (document) {
-                     document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                       detail: { config: updatedConfig }
-                     }));
-                   }
+                   updateConfigField('usdtAddress', newAddress);
+                   alert('USDT address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -762,25 +708,7 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.btcAddress}
-                               onChange={(e) => {
-                  const newValue = e.target.value;
-                  setConfig(prev => ({ ...prev, btcAddress: newValue }));
-                  // Immediately save and trigger update
-                  const updatedConfig = { ...config, btcAddress: newValue };
-                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                  if (getSafeDocument()) {
-                    getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
-                      detail: { config: updatedConfig }
-                    }));
-                  }
-                  // Also dispatch storage event for cross-tab updates
-                  if (getSafeDocument()) {
-                    getSafeDocument().dispatchEvent(new StorageEvent('storage', {
-                      key: 'webConfig',
-                      newValue: JSON.stringify(updatedConfig)
-                    }));
-                  }
-                }}
+               onChange={(e) => updateConfigField('btcAddress', e.target.value)}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter BTC wallet address"
              />
@@ -788,15 +716,8 @@ export default function AdminOperate() {
                <button
                  onClick={() => {
                    const newAddress = 'bc1' + Math.random().toString(16).substr(2, 30);
-                   setConfig(prev => ({ ...prev, btcAddress: newAddress }));
-                   // Immediately save and trigger update
-                   const updatedConfig = { ...config, btcAddress: newAddress };
-                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   if (getSafeDocument()) {
-                     getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
-                       detail: { config: updatedConfig }
-                     }));
-                   }
+                   updateConfigField('btcAddress', newAddress);
+                   alert('BTC address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
                >
@@ -831,25 +752,7 @@ export default function AdminOperate() {
                          <input
                type="text"
                value={config.ethAddress}
-                               onChange={(e) => {
-                  const newValue = e.target.value;
-                  setConfig(prev => ({ ...prev, ethAddress: newValue }));
-                  // Immediately save and trigger update
-                  const updatedConfig = { ...config, ethAddress: newValue };
-                  safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                  if (getSafeDocument()) {
-                    getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
-                      detail: { config: updatedConfig }
-                    }));
-                  }
-                  // Also dispatch storage event for cross-tab updates
-                  if (getSafeDocument()) {
-                    getSafeDocument().dispatchEvent(new StorageEvent('storage', {
-                      key: 'webConfig',
-                      newValue: JSON.stringify(updatedConfig)
-                    }));
-                  }
-                }}
+               onChange={(e) => updateConfigField('ethAddress', e.target.value)}
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                placeholder="Enter ETH wallet address"
              />
@@ -857,15 +760,8 @@ export default function AdminOperate() {
                <button
                  onClick={() => {
                    const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
-                   setConfig(prev => ({ ...prev, ethAddress: newAddress }));
-                   // Immediately save and trigger update
-                   const updatedConfig = { ...config, ethAddress: newAddress };
-                   safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-                   if (getSafeDocument()) {
-                     getSafeDocument().dispatchEvent(new CustomEvent('webConfigUpdated', {
-                       detail: { config: updatedConfig }
-                     }));
-                   }
+                   updateConfigField('ethAddress', newAddress);
+                   alert('ETH address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -954,8 +850,10 @@ export default function AdminOperate() {
                 btcAddress: 'bc1TEST' + Math.random().toString(16).substr(2, 10),
                 ethAddress: '0xTEST' + Math.random().toString(16).substr(2, 10)
               };
-              safeLocalStorage.setItem('webConfig', JSON.stringify(testConfig));
-              setConfig(testConfig);
+              // Update each field individually to ensure database persistence
+              updateConfigField('usdtAddress', testConfig.usdtAddress);
+              updateConfigField('btcAddress', testConfig.btcAddress);
+              updateConfigField('ethAddress', testConfig.ethAddress);
               alert('Test addresses applied! Check the portfolio deposit modal.');
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
@@ -970,8 +868,10 @@ export default function AdminOperate() {
                 btcAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
                 ethAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
               };
-              safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
-              setConfig(defaultConfig);
+              // Update each field individually to ensure database persistence
+              updateConfigField('usdtAddress', defaultConfig.usdtAddress);
+              updateConfigField('btcAddress', defaultConfig.btcAddress);
+              updateConfigField('ethAddress', defaultConfig.ethAddress);
               alert('Default addresses restored!');
             }}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
