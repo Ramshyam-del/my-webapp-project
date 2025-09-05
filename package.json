@@ -12,7 +12,7 @@
     "reinstall": "npm run clean && npm install",
     "rebuild": "npm run reinstall && next build",
     "clean:build": "rimraf .next && npm run build",
-    "postinstall": "rimraf .next || true",
+    "postinstall": "node -e \"try { require('fs').rmSync('.next', { recursive: true, force: true }); } catch (e) { console.log('No .next directory to clean'); }\"",
     "ci:build": "npm ci && next build",
     "audit:secrets:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"Select-String -Path * -Pattern 'eyJ|SUPABASE|API_KEY|Bearer |@Million|admin@quantex' -Recurse | Select Path,LineNumber\"",
     "audit:secrets:nix": "grep -RIn \"eyJ\\|SUPABASE\\|API_KEY\\|Bearer \\|@Million\\|admin@quantex\" --exclude-dir=node_modules --exclude=*.lock .",
@@ -34,6 +34,7 @@
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.1",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
     "framer-motion": "^11.14.4",
@@ -55,7 +56,6 @@
     "wagmi": "^2.12.0"
   },
   "devDependencies": {
-    "dotenv": "^17.2.1",
     "eslint": "^8.40.0",
     "eslint-config-next": "^13.5.11",
     "prettier": "^3.6.2",

@@ -1,4 +1,4 @@
-import { serverSupabase } from '../../../lib/supabaseServer';
+import { serverSupabase } from '../../../backend/lib/supabaseServer';
 
 function extractToken(req) {
   const authHeader = req.headers.authorization;
