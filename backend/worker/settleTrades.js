@@ -22,16 +22,19 @@ async function settleBatch() {
       try {
         let outcome = 'LOSS';
         let pnl = 0;
+        let delta = 0; // Balance adjustment needed
 
         if (t.admin_decision === 'WIN') {
           pnl = computeProfit({ amount: t.amount, leverage: t.leverage, duration: t.duration });
           outcome = 'WIN';
+          // For wins: return original amount + profit
+          delta = Number(t.amount) + pnl;
         } else {
           pnl = -Number(t.amount);
           outcome = 'LOSS';
+          // For losses: do nothing (amount was already deducted when trade was created)
+          delta = 0;
         }
-
-        const delta = outcome === 'WIN' ? pnl : -Number(t.amount);
 
         const { error: balErr } = await supabaseAdmin.rpc('adjust_balance', {
           p_user_id: t.user_id, p_currency: t.currency, p_delta: delta

@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, code: 'QUERY_ERROR', message: 'Failed to fetch users' })
     }
 
-    return res.status(200).json({ ok: true, page, limit, data: users || [] })
+    return res.status(200).json({ ok: true, page, limit, data: { items: users || [] } })
   } catch (e) {
     return res.status(500).json({ ok: false, code: 'INTERNAL_ERROR', message: 'Internal error' })
   }

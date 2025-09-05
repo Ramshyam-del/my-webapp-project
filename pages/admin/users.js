@@ -20,6 +20,10 @@ const TradesList = dynamic(() => import('../../component/TradesList'), {
   loading: () => <div className="p-4 text-sm text-gray-500">Loading trades...</div>,
 });
 
+
+
+
+
 export default function AdminUsers() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('users');
@@ -66,8 +70,8 @@ export default function AdminUsers() {
 
   const loadUsers = async () => {
     try {
-      const response = await authedFetchJson('/api/admin/users');
-      setUsers(response?.data?.items ?? []);
+      const response = await authedFetchJson('/api/admin/users-with-balances');
+      setUsers(response?.data?.users ?? []);
     } catch (err) {
       console.error('Failed to load users:', err);
       setUsers([]);
@@ -160,6 +164,10 @@ export default function AdminUsers() {
       <TradesList />
     </ErrorBoundary>
   );
+
+
+
+
 
   return (
     <AdminLayout title="User Management">

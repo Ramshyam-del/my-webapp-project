@@ -77,7 +77,9 @@ export default function MainDashboard() {
       await supabase.auth.signOut();
       router.push('/login');
     } catch (error) {
-      console.error('Error logging out:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error logging out:', error);
+      }
     }
   };
 
@@ -323,4 +325,4 @@ export default function MainDashboard() {
       </div>
   </div>
 ); 
-} 
+}

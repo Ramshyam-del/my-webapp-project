@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { useConfig } from '../hooks/useConfig';
+import DepositMonitor from '../components/DepositMonitor';
 
 export default function DepositPage() {
   const router = useRouter();
@@ -10,6 +12,12 @@ export default function DepositPage() {
   const [selectedCrypto, setSelectedCrypto] = useState(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [generatingAddress, setGeneratingAddress] = useState(false);
+  const [activeDeposits, setActiveDeposits] = useState([]);
+  const [showDepositHistory, setShowDepositHistory] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('100');
+  const [showAmountModal, setShowAmountModal] = useState(false);
+  const [selectedCryptoForAmount, setSelectedCryptoForAmount] = useState(null);
 
   // Cryptocurrency options - will be loaded from database
   const [cryptoOptions, setCryptoOptions] = useState([
@@ -149,16 +157,99 @@ export default function DepositPage() {
     }
   };
 
+  // Generate or get user-specific deposit address
+  const generateDepositAddress = async (currency, amount = 100) => {
+    setGeneratingAddress(true);
+    try {
+      const response = await fetch('/api/deposits/generate-address', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          cryptoType: currency.toUpperCase(),
+          amount: amount
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate address');
+      }
+
+      const result = await response.json();
+      return result.data;
+    } catch (error) {
+      console.error('Error generating deposit address:', error);
+      toast.error(error.message || 'Failed to generate deposit address');
+      return null;
+    } finally {
+      setGeneratingAddress(false);
+    }
+  };
+
   // Handle crypto selection
   const handleCryptoSelect = (crypto) => {
-    setSelectedCrypto(crypto);
-    setShowQRModal(true);
+    setSelectedCryptoForAmount(crypto);
+    setShowAmountModal(true);
+  };
+
+  // Handle amount confirmation and address generation
+  const handleAmountConfirm = async () => {
+    if (!depositAmount || parseFloat(depositAmount) <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    const addressData = await generateDepositAddress(selectedCryptoForAmount.symbol, parseFloat(depositAmount));
+    if (addressData) {
+      setSelectedCrypto({
+        ...selectedCryptoForAmount,
+        address: addressData.address,
+        qrCode: addressData.qrCodeUrl,
+        network: addressData.network,
+        amount: parseFloat(depositAmount)
+      });
+      setShowAmountModal(false);
+      setShowQRModal(true);
+    }
+  };
+
+  // Load deposit history
+  const loadDepositHistory = async () => {
+    try {
+      const response = await fetch('/api/deposits/history?limit=10', {
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Filter for active deposits (not completed, failed, or expired)
+        const activeStatuses = ['pending', 'monitoring', 'detected', 'confirming', 'partial'];
+        const active = result.data?.deposits?.filter(d => activeStatuses.includes(d.status)) || [];
+        setActiveDeposits(active);
+      }
+    } catch (error) {
+      console.error('Error loading deposit history:', error);
+    }
+  };
+
+  // Handle deposit status update
+  const handleDepositStatusUpdate = (updatedDeposit) => {
+    if (updatedDeposit.status === 'completed') {
+      // Refresh the page or update balance
+      toast.success('Deposit completed! Your balance has been updated.');
+      loadDepositHistory();
+    }
   };
 
   useEffect(() => {
     setMounted(true);
     // Load initial config
     loadConfig();
+    // Load active deposits
+    loadDepositHistory();
 
     // Listen for config updates from other tabs/windows
     const handleConfigUpdate = (event) => {
@@ -270,29 +361,111 @@ export default function DepositPage() {
       </div>
 
       <div className="p-4">
-        <h2 className="text-2xl font-bold mb-6 text-center">Deposit</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Deposit</h2>
+          {activeDeposits.length > 0 && (
+            <button
+              onClick={() => setShowDepositHistory(!showDepositHistory)}
+              className="text-blue-400 hover:text-blue-300 text-sm font-medium"
+            >
+              {showDepositHistory ? 'Hide' : 'Show'} Active Deposits ({activeDeposits.length})
+            </button>
+          )}
+        </div>
+
+        {/* Active Deposits */}
+        {showDepositHistory && activeDeposits.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-300">Active Deposits</h3>
+            {activeDeposits.map((deposit) => (
+              <DepositMonitor
+                key={deposit.id}
+                depositId={deposit.id}
+                onStatusUpdate={handleDepositStatusUpdate}
+                autoRefresh={true}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Cryptocurrency Options */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {cryptoOptions.map((crypto) => (
             <div
               key={crypto.id}
-              onClick={() => handleCryptoSelect(crypto)}
-              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 cursor-pointer transition-all duration-200 hover:shadow-lg hover:bg-gray-750"
+              onClick={() => !generatingAddress && handleCryptoSelect(crypto)}
+              className={`bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-200 ${
+                generatingAddress 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:border-gray-600 cursor-pointer hover:shadow-lg hover:bg-gray-750'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 ${crypto.color} rounded-full flex items-center justify-center text-white text-xl font-bold`}>
-                  {crypto.icon}
+                  {generatingAddress ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                  ) : (
+                    crypto.icon
+                  )}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">{crypto.name}</h3>
-                  <p className="text-sm text-gray-400">{crypto.network}</p>
+                  <p className="text-sm text-gray-400">
+                    {generatingAddress ? 'Generating address...' : crypto.network}
+                  </p>
                 </div>
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Amount Input Modal */}
+      {showAmountModal && selectedCryptoForAmount && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4">
+              <button 
+                onClick={() => setShowAmountModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                ←
+              </button>
+              <h3 className="text-lg font-bold">Deposit {selectedCryptoForAmount.symbol}</h3>
+              <div className="w-6"></div>
+            </div>
+
+            {/* Amount Input */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Amount (USD equivalent)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                value={depositAmount}
+                onChange={(e) => setDepositAmount(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                placeholder="Enter amount in USD"
+              />
+              <p className="text-xs text-gray-400 mt-2">
+                Minimum deposit: $1.00 USD
+              </p>
+            </div>
+
+            {/* Confirm Button */}
+            <button
+              onClick={handleAmountConfirm}
+              disabled={generatingAddress || !depositAmount || parseFloat(depositAmount) <= 0}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
+            >
+              {generatingAddress ? 'Generating Address...' : 'Generate Deposit Address'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* QR Code Modal */}
       {showQRModal && selectedCrypto && (
@@ -306,7 +479,7 @@ export default function DepositPage() {
               >
                 ←
               </button>
-              <h3 className="text-lg font-bold">Deposit {selectedCrypto.symbol}</h3>
+              <h3 className="text-lg font-bold">Deposit ${selectedCrypto.amount} USD in {selectedCrypto.symbol}</h3>
               <div className="w-6"></div>
             </div>
 

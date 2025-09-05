@@ -11,6 +11,8 @@ const UserList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,7 +54,7 @@ const UserList = () => {
       totalAssets: 12500.50,
       totalRecharge: 15000.00,
       totalWithdraw: 2500.00,
-      superiorAccount: 'admin@quantex.com',
+      superiorAccount: 'system',
       latestIp: '192.168.1.100',
       latestTime: '2024-01-15 14:30:25',
       withdrawalStatus: true,
@@ -93,28 +95,76 @@ const UserList = () => {
   ];
 
   // Fetch users from API
-  const fetchUsers = async () => {
+  const fetchUsers = async (showLoadingIndicator = true) => {
     try {
-      setLoading(true);
+      if (showLoadingIndicator) {
+        setLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
       setError(null);
       
-      // For now, use mock data. Replace with real API call:
-      // const response = await authedFetchJson('/api/admin/users');
-      // setUsers(response?.data?.items ?? []);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setUsers(mockUsers);
+      const response = await authedFetchJson('/api/admin/users-with-balances');
+      if (response && response.ok && response.data && response.data.users) {
+        // Map API data to expected format with balance information
+        const mappedUsers = response.data.users.map(user => ({
+          id: user.id,
+          email: user.email,
+          userAccount: user.email,
+          invitationCode: 'N/A',
+          vipLevel: 'VIP0',
+          balanceStatus: user.status === 'active' ? 'Active' : 'Frozen',
+          creditScore: 0,
+          realNameAuth: 'uncertified',
+          totalAssets: user.totalBalance || 0,
+          totalRecharge: user.balances?.USDT || 0,
+          totalWithdraw: user.totalWithdraw || 0,
+          superiorAccount: 'N/A',
+          latestIp: user.latestIpAddress || 'N/A',
+          latestTime: user.latestLoginTime ? new Date(user.latestLoginTime).toLocaleString() : new Date(user.createdAt).toLocaleString(),
+          withdrawalStatus: user.status === 'active',
+          transactionStatus: user.status === 'active',
+          accountStatus: user.status === 'active' ? 'Normal' : 'Frozen',
+          registrationTime: new Date(user.createdAt).toLocaleString(),
+          role: user.role || 'user',
+          usdt_withdraw_address: '',
+          btc_withdraw_address: '',
+          eth_withdraw_address: '',
+          trx_withdraw_address: '',
+          xrp_withdraw_address: '',
+          // Add balance information for display
+          usdtBalance: user.balances?.USDT || 0,
+          btcBalance: user.balances?.BTC || 0,
+          ethBalance: user.balances?.ETH || 0,
+          trxBalance: user.balances?.TRX || 0,
+          xrpBalance: user.balances?.XRP || 0
+        }));
+        setUsers(mappedUsers);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
       setError('Failed to load users: ' + error.message);
+      // Fallback to mock data if API fails
+      setUsers(mockUsers);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
+      setLastUpdated(new Date());
     }
   };
 
   useEffect(() => {
     fetchUsers();
+    
+    // Set up automatic refresh every 30 seconds for real-time updates
+    const refreshInterval = setInterval(() => {
+      fetchUsers(false); // Don't show loading indicator for automatic refreshes
+    }, 30000); // 30 seconds
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Filter users based on current filters
@@ -220,13 +270,13 @@ const UserList = () => {
           : user
       ));
 
-      const response = await authedFetchJson(`/api/admin/users/${userId}/${statusType}`, {
+      const response = await authedFetchJson(`/api/admin/users/${userId}/status`, {
         method: 'POST',
         body: JSON.stringify({ status: newValue })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update status');
+      if (!response || !response.ok) {
+        throw new Error(response?.message || 'Failed to update status');
       }
 
       setSuccess(`${statusType.replace(/([A-Z])/g, ' $1').trim()} updated successfully`);
@@ -239,6 +289,11 @@ const UserList = () => {
     }
   };
 
+  // Manual refresh function
+  const handleManualRefresh = () => {
+    fetchUsers(false); // Don't show full loading, just refreshing indicator
+  };
+
   // Handle action buttons
   const handleOneClickLogin = async (userId) => {
     try {
@@ -246,9 +301,11 @@ const UserList = () => {
         method: 'POST'
       });
       
-      if (response.ok) {
+      if (response && response.ok) {
         setSuccess('One-click login initiated');
         setTimeout(() => setSuccess(null), 3000);
+      } else {
+        throw new Error(response?.message || 'Failed to initiate login');
       }
     } catch (error) {
       setError('Failed to initiate login: ' + error.message);
@@ -262,9 +319,11 @@ const UserList = () => {
         method: 'POST'
       });
       
-      if (response.ok) {
+      if (response && response.ok) {
         setSuccess('Bank card action completed');
         setTimeout(() => setSuccess(null), 3000);
+      } else {
+        throw new Error(response?.message || 'Failed to process bank card action');
       }
     } catch (error) {
       setError('Failed to process bank card action: ' + error.message);
@@ -432,9 +491,40 @@ const UserList = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">User Management</h2>
-          <p className="text-sm text-gray-600 mt-1">Manage user accounts and permissions</p>
+          <div className="flex items-center space-x-4 mt-1">
+            <p className="text-sm text-gray-600">Manage user accounts and permissions</p>
+            {lastUpdated && (
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">
+                  Last updated: {lastUpdated.toLocaleTimeString()}
+                </span>
+                {isRefreshing && (
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3 mt-4 sm:mt-0">
+          <button 
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors flex items-center justify-center space-x-2"
+          >
+            {isRefreshing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Refreshing...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Refresh</span>
+              </>
+            )}
+          </button>
           <button className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
             + Add User
           </button>

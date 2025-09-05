@@ -25,9 +25,7 @@ function extractToken(req) {
  * Authenticate user middleware - validates JWT and sets req.user
  */
 async function authenticateUser(req, res, next) {
-  // Bypass admin API calls
-  if (req.originalUrl && req.originalUrl.startsWith('/api/admin')) return next();
-  if (req.isAdminApi === true) return next();
+  // Note: Admin routes should be authenticated, not bypassed
   
   // Optional debug logging
   if (process.env.DEBUG_ADMIN_AUTH === '1' && !res.headersSent) {

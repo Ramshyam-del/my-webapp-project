@@ -40,7 +40,8 @@ export default function AlertsPage() {
       setError('');
       
       // Use Binance API - more reliable than CoinGecko
-      const response = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
+      const binanceApiUrl = process.env.NEXT_PUBLIC_BINANCE_API_URL || 'https://api.binance.com';
+      const response = await fetch(`${binanceApiUrl}/api/v3/ticker/24hr`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -100,8 +101,9 @@ export default function AlertsPage() {
       // Fallback to CoinGecko if Binance fails
       try {
         const cryptoIds = cryptoList.map(crypto => crypto.id).join(',');
+        const coingeckoApiUrl = process.env.NEXT_PUBLIC_COINGECKO_API_URL || 'https://api.coingecko.com';
         const fallbackResponse = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoIds}&vs_currencies=usd&include_24hr_change=true`,
+          `${coingeckoApiUrl}/api/v3/simple/price?ids=${cryptoIds}&vs_currencies=usd&include_24hr_change=true`,
           {
             method: 'GET',
             headers: {

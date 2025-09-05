@@ -109,7 +109,7 @@ export default async function handler(req, res) {
       res.status(500).json({
         success: false,
         error: 'Failed to update admin configuration',
-        message: error.message
+        ...(process.env.NODE_ENV === 'development' && { message: error.message })
       });
     }
   } else {

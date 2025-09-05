@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { hybridFetch } from '../lib/hybridFetch';
+import { useAuth } from '../contexts/AuthContext';
 
 const Portfolio = () => {
+  const { user, isAuthenticated } = useAuth();
   const [portfolio, setPortfolio] = useState(null);
   const [openTrades, setOpenTrades] = useState([]);
   const [stats, setStats] = useState({
@@ -17,90 +19,42 @@ const Portfolio = () => {
   // Fetch portfolio data
   const fetchPortfolio = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (!isAuthenticated) return;
       
-      if (!session) {
-        setError('Please log in to view portfolio');
-        return;
-      }
-
-      const response = await fetch('/api/portfolio/balance', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPortfolio(data);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to fetch portfolio');
-      }
+      const response = await hybridFetch('/api/portfolio/balance');
+      setPortfolio(response.data);
     } catch (error) {
-      console.error('Error fetching portfolio:', error);
-      setError('Network error. Please try again.');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching portfolio:', error);
+      }
     }
   };
 
   // Fetch open trades
   const fetchOpenTrades = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (!isAuthenticated) return;
       
-      if (!session) return;
-
-      const response = await fetch('/api/trades?status=OPEN&limit=100', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOpenTrades(data.trades || []);
-      }
+      const response = await hybridFetch('/api/trades/open');
+      setOpenTrades(response.data.trades || []);
     } catch (error) {
-      console.error('Error fetching open trades:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching open trades:', error);
+      }
     }
   };
 
   // Fetch trading statistics
   const fetchStats = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (!isAuthenticated) return;
       
-      if (!session) return;
-
-      const response = await fetch('/api/trades?limit=1000', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const trades = data.trades || [];
-        
-        // Calculate statistics
-        const closedTrades = trades.filter(trade => trade.status === 'CLOSED');
-        const totalPnL = closedTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
-        const winningTrades = closedTrades.filter(trade => (trade.pnl || 0) > 0);
-        const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
-        const avgPnL = closedTrades.length > 0 ? totalPnL / closedTrades.length : 0;
-        
-        setStats({
-          totalPnL,
-          totalTrades: trades.length,
-          winRate,
-          avgPnL
-        });
-      }
+      const response = await hybridFetch('/api/portfolio/stats');
+      setStats(response.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching stats:', error);
+      }
     }
   };
 
@@ -153,8 +107,10 @@ const Portfolio = () => {
       setLoading(false);
     };
 
-    initializeData();
-  }, []);
+    if (isAuthenticated && user) {
+      initializeData();
+    }
+  }, [isAuthenticated, user]);
 
   if (loading) {
     return (

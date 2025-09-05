@@ -34,7 +34,7 @@ const UserList = () => {
       totalAssets: 12500.50,
       totalRecharge: 15000.00,
       totalWithdraw: 2500.00,
-      superiorAccount: 'admin@quantex.com',
+      superiorAccount: 'system',
       latestIp: '192.168.1.100',
       latestTime: '2024-01-15 14:30:25',
       withdrawalStatus: true,

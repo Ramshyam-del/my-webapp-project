@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { hybridFetch, checkHybridAuth } from '../lib/hybridFetch';
 
 const AuthContext = createContext();
 
@@ -11,12 +11,14 @@ export const useAuth = () => {
   return context;
 };
 
+// API base URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4001';
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState(null);
   const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Initialize auth state
   useEffect(() => {
@@ -25,43 +27,61 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       try {
         setError(null);
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        setLoading(true);
         
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          setError(sessionError.message);
-          return;
+        // Check if user is authenticated by calling /me endpoint
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [Init] Checking auth with:', `${API_BASE_URL}/api/auth/me`);
         }
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          method: 'GET',
+          credentials: 'include', // Include cookies
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
 
         if (!isMounted) return;
         
-        setSession(currentSession || null);
-        setUser(currentSession?.user || null);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 [Init] Auth response status:', response.status);
+        }
         
-        if (currentSession?.user) {
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', currentSession.user.id)
-              .single();
-            
-            if (!isMounted) return;
-            
-            if (profileError) {
-              console.warn('Profile fetch error:', profileError);
-              // Don't set error for profile issues, just continue without profile
-            } else if (profile) {
-              setUserProfile(profile);
+        if (response.ok) {
+          const data = await response.json();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [Init] Auth response data:', data);
+          }
+          if (data.ok && data.user) {
+            setUser(data.user);
+            setIsAuthenticated(true);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('✅ [Init] Auth successful, user:', data.user.email);
             }
-          } catch (profileError) {
-            console.warn('Profile error:', profileError);
-            // Continue without profile
+          } else {
+            setUser(null);
+            setIsAuthenticated(false);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('❌ [Init] Auth failed - no user in response');
+            }
+          }
+        } else {
+          // No valid token or user not found
+          setUser(null);
+          setIsAuthenticated(false);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('❌ [Init] Auth failed with status:', response.status);
           }
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Auth initialization error:', error);
+        }
         setError(error.message);
+        if (isMounted) {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -71,66 +91,41 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      if (!isMounted) return;
-      
-      try {
-        setError(null);
-        setSession(nextSession || null);
-        setUser(nextSession?.user || null);
-        
-        if (nextSession?.user) {
-          try {
-            const { data: profile, error: profileError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', nextSession.user.id)
-              .single();
-            
-            if (!isMounted) return;
-            
-            if (profileError) {
-              console.warn('Profile fetch error:', profileError);
-            } else if (profile) {
-              setUserProfile(profile);
-            }
-          } catch (profileError) {
-            console.warn('Profile error:', profileError);
-          }
-        } else {
-          setUserProfile(null);
-        }
-      } catch (error) {
-        console.error('Auth state change error:', error);
-        setError(error.message);
-      }
-    });
-
+    // Cleanup function
     return () => {
       isMounted = false;
-      subscription?.unsubscribe();
     };
   }, []);
 
-  // Sign up function
+  // Sign up function with JWT backend
   const signUp = async (email, password, userData = {}) => {
     try {
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: userData
-        }
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: signUp called with userData:', userData);
+      }
+      
+      // Use hybridFetch for consistency
+      const response = await hybridFetch('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          firstName: userData.first_name,
+          lastName: userData.last_name,
+          username: userData.username,
+          phone: userData.phone
+        })
       });
       
-      if (error) {
-        setError(error.message);
-        return { success: false, error };
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: Backend signUp response:', response.data);
       }
-
-      return { success: true, data };
+      
+      // Registration successful - user needs to verify email
+      // Don't set session yet, wait for email verification
+      return { success: true, data: response.data };
     } catch (error) {
       setError(error.message);
       return { success: false, error };
@@ -139,29 +134,56 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Sign in function
+  // Sign in function with JWT backend
   const signIn = async (email, password) => {
     try {
-      console.log('AuthContext: Starting sign in process...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: Starting sign in process...');
+      }
       setLoading(true);
       setError(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      
+      // Clear any existing user profile data from localStorage before login
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('tempUserProfile');
+        // Also clear any other user-specific cached data
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('user') || key.includes('profile') || key.includes('portfolio'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+      
+      // Use hybridFetch for consistency
+      const response = await hybridFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password
+        })
       });
       
-      console.log('AuthContext: Sign in response:', { data, error });
-      
-      if (error) {
-        console.log('AuthContext: Sign in failed:', error);
-        setError(error.message);
-        return { success: false, error };
+      if (process.env.NODE_ENV === 'development') {
+        console.log('AuthContext: Backend signIn response:', response.data);
       }
 
-      console.log('AuthContext: Sign in successful, user:', data?.user);
-      return { success: true, data };
+      // Set user data from backend response (JWT tokens are in cookies)
+      if (response.data.user) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('AuthContext: Sign in successful, user:', response.data.user);
+        }
+      }
+      
+      return { success: true, data: response.data };
     } catch (error) {
-      console.error('AuthContext: Sign in error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('AuthContext: Sign in error:', error);
+      }
       setError(error.message);
       return { success: false, error };
     } finally {
@@ -169,93 +191,126 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Sign out function
+  // Sign out function with JWT backend
   const signOut = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-      const { error } = await supabase.auth.signOut();
+      // Use hybridFetch for consistency
+      await hybridFetch('/api/auth/logout', {
+        method: 'POST'
+      });
       
-      if (error) {
-        setError(error.message);
-        return { success: false, error };
-      }
-
+      // Clear local state
       setUser(null);
-      setSession(null);
-      setUserProfile(null);
+      setIsAuthenticated(false);
+      
+      // Clear user-specific data from localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('tempUserProfile');
+        // Clear any other user-specific cached data
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('user') || key.includes('profile') || key.includes('portfolio'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
 
       return { success: true };
     } catch (error) {
-      setError(error.message);
-      return { success: false, error };
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Sign out error:', error);
+      }
+      // Clear local state even if logout fails
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Clear user-specific data from localStorage even if logout fails
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('tempUserProfile');
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('user') || key.includes('profile') || key.includes('portfolio'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      }
+      
+      return { success: true }; // Still return success since we cleared local state
     } finally {
       setLoading(false);
     }
   };
 
-  // Update user profile
-  const updateProfile = async (profileData) => {
+  // Check authentication status
+  const checkAuth = useCallback(async () => {
     try {
-      setError(null);
-      const { data, error } = await supabase
-        .from('users')
-        .update(profileData)
-        .eq('id', user?.id)
-        .select()
-        .single();
+      const response = await hybridFetch('/api/auth/me');
       
-      if (error) {
-        setError(error.message);
-        return { success: false, error };
+      if (response.data && response.data.ok && response.data.user) {
+        setUser(response.data.user);
+        setIsAuthenticated(true);
+        return true;
       }
-
-      if (data) {
-        setUserProfile(data);
-      }
-
-      return { success: true, data };
+      
+      // If we get here, authentication failed
+      setUser(null);
+      setIsAuthenticated(false);
+      return false;
     } catch (error) {
-      setError(error.message);
-      return { success: false, error };
+      console.error('Auth check failed:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      return false;
     }
-  };
+  }, []);
 
-  // Refresh user profile
-  const refreshProfile = async () => {
+  // Refresh user data from backend
+  const refreshUser = async () => {
+    if (!isAuthenticated) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-      
-      if (error) {
-        console.error('Profile refresh error:', error);
-        return;
-      }
+      console.log('🔍 [Refresh] Checking auth with hybridFetch');
+      const response = await hybridFetch('/api/auth/me');
 
-      if (data) {
-        setUserProfile(data);
+      console.log('🔍 [Refresh] Auth response:', response);
+      
+      if (response.data && response.data.ok && response.data.user) {
+        setUser(response.data.user);
+        console.log('✅ [Refresh] Auth successful, user:', response.data.user.email);
+        return response.data.user;
+      } else {
+        // Token might be expired, clear auth state
+        setUser(null);
+        setIsAuthenticated(false);
+        console.log('❌ [Refresh] Auth failed - no user in response');
+        return null;
       }
     } catch (error) {
-      console.error('Profile refresh error:', error);
+      console.error('❌ [Refresh] User refresh error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
+      return null;
     }
   };
 
   const value = {
     user,
-    session,
-    userProfile,
     loading,
     error,
     signUp,
     signIn,
     signOut,
-    updateProfile,
-    refreshProfile,
-    isAuthenticated: !!user,
-    isAdmin: userProfile?.role === 'admin'
+    checkAuth,
+    refreshUser,
+    isAuthenticated,
+    isAdmin: user?.role === 'admin'
   };
 
   return (
@@ -263,4 +318,4 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
-}; 
+};

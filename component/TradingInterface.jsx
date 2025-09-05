@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { hybridFetch } from '../lib/hybridFetch';
+import { useAuth } from '../contexts/AuthContext';
 
 const TradingInterface = () => {
+  const { user, isAuthenticated } = useAuth();
+  
   // State management
   const [selectedPair, setSelectedPair] = useState('BTC/USDT');
   const [orderSide, setOrderSide] = useState('buy');
@@ -20,7 +23,6 @@ const TradingInterface = () => {
   
   // User data
   const [balance, setBalance] = useState(0);
-  const [user, setUser] = useState(null);
 
   // Trading pairs
   const tradingPairs = [
@@ -57,49 +59,38 @@ const TradingInterface = () => {
         }
       }
     } catch (error) {
-      console.error('Error fetching price:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching price:', error);
+      }
     }
   };
 
   // Fetch user balance
   const fetchBalance = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const response = await fetch('/api/portfolio/balance', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setBalance(data.balance || 0);
-        }
-      }
+      if (!isAuthenticated) return;
+      
+      const response = await hybridFetch('/api/portfolio/balance');
+      setBalance(response.data.balance || 0);
     } catch (error) {
-      console.error('Error fetching balance:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching balance:', error);
+      }
     }
   };
 
   // Initialize component
   useEffect(() => {
-    const initializeComponent = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        fetchBalance();
-      }
-      fetchPrice();
-    };
-
-    initializeComponent();
+    if (isAuthenticated && user) {
+      fetchBalance();
+    }
+    fetchPrice();
     
     // Set up price updates every 5 seconds
     const priceInterval = setInterval(fetchPrice, 5000);
     
     return () => clearInterval(priceInterval);
-  }, [selectedPair]);
+  }, [selectedPair, isAuthenticated, user]);
 
   // Calculate order details
   const calculateOrderDetails = () => {
@@ -109,11 +100,15 @@ const TradingInterface = () => {
     const requiredMargin = totalValue / leverage;
     const potentialPnL = totalValue * 0.1; // Example 10% potential profit
     
+    // User needs sufficient balance to cover the trade amount (amount at risk)
+    const tradeAmount = orderAmount;
+    
     return {
       totalValue: totalValue.toFixed(2),
       requiredMargin: requiredMargin.toFixed(2),
       potentialPnL: potentialPnL.toFixed(2),
-      canAfford: balance >= requiredMargin
+      tradeAmount: tradeAmount.toFixed(2),
+      canAfford: balance >= tradeAmount
     };
   };
 
@@ -125,8 +120,7 @@ const TradingInterface = () => {
     setSuccess(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!isAuthenticated || !user) {
         setError('Please log in to place orders');
         return;
       }
@@ -141,28 +135,20 @@ const TradingInterface = () => {
         duration: duration
       };
 
-      const response = await fetch('/api/trading/order', {
+      const result = await hybridFetch('/api/trading/order', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(orderData)
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        setSuccess(`Order placed successfully! Trade ID: ${result.data.trade.id}`);
-        setAmount('');
-        setPrice('');
-        fetchBalance(); // Refresh balance
-      } else {
-        setError(result.error || 'Failed to place order');
-      }
+      setSuccess(`Order placed successfully! Trade ID: ${result.data.trade.id}`);
+      setAmount('');
+      setPrice('');
+      fetchBalance(); // Refresh balance
     } catch (error) {
-      console.error('Error placing order:', error);
-      setError('Network error. Please try again.');
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error placing order:', error);
+      }
+      setError(error.message || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -343,8 +329,13 @@ const TradingInterface = () => {
             
             <div className="flex justify-between">
               <span>Required Margin:</span>
+              <span>${orderDetails.requiredMargin}</span>
+            </div>
+            
+            <div className="flex justify-between">
+              <span>Trade Amount (At Risk):</span>
               <span className={orderDetails.canAfford ? 'text-green-600' : 'text-red-600'}>
-                ${orderDetails.requiredMargin}
+                ${orderDetails.tradeAmount}
               </span>
             </div>
             

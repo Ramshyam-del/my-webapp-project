@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { getSafeDocument } from '../utils/safeStorage';
+import AuthWrapper from '../component/AuthWrapper';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
@@ -201,7 +202,8 @@ export default function ExchangePage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <AuthWrapper requireAuth={true}>
+      <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#181c23]">
         <div className="flex items-center gap-2">
@@ -474,6 +476,7 @@ export default function ExchangePage() {
       
       {/* Add padding at the bottom to prevent content from being hidden behind the navbar */}
       <div className="pb-16"></div>
-    </div>
+      </div>
+    </AuthWrapper>
   );
 }

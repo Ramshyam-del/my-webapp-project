@@ -3,14 +3,6 @@ const bcrypt = require('bcryptjs');
 
 // Security Configuration
 const securityConfig = {
-  // JWT Configuration
-  jwt: {
-    secret: process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex'),
-    refreshSecret: process.env.JWT_REFRESH_SECRET || crypto.randomBytes(64).toString('hex'),
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-    algorithm: 'HS256'
-  },
 
   // Password Configuration
   password: {
@@ -171,4 +163,4 @@ module.exports = {
   comparePassword,
   sanitizeInput,
   sanitizeObject
-}; 
+};

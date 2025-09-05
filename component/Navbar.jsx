@@ -6,7 +6,6 @@ import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfig } from './useConfig';
 import AuthModal from './AuthModal';
-import WalletConnectButton from './WalletConnectButton';
 
 export default function Navbar() {
   const router = useRouter();
@@ -20,25 +19,33 @@ export default function Navbar() {
   try {
     authContext = useAuth();
   } catch (error) {
-    console.warn('AuthContext not available, using fallback state');
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('AuthContext not available, using fallback state');
+    }
     authContext = { user: null, isAuthenticated: false, loading: false, signOut: () => {} };
   }
 
   const { user, signOut, loading } = authContext;
 
   useEffect(() => {
-    console.log('🔄 Navbar: Initializing client side...');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 Navbar: Initializing client side...');
+    }
     setIsClient(true);
     const document = getSafeDocument();
     if (document) {
       document.documentElement.style.scrollBehavior = 'smooth';
     }
-    console.log('✅ Navbar: Client side initialized');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Navbar: Client side initialized');
+    }
   }, []);
 
   useEffect(() => {
     if (isClient && !loading) {
-      console.log('🔄 Navbar: Updating auth state:', { user: !!user, loading });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Navbar: Updating auth state:', { user: !!user, loading });
+      }
       setIsAuthenticated(!!user);
     }
   }, [user, loading, isClient]);
@@ -156,7 +163,6 @@ export default function Navbar() {
           >
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <WalletConnectButton />
                 <motion.button
                   onClick={handleLogout}
                   className="relative px-6 py-2 rounded-lg font-medium text-white overflow-hidden group"
@@ -176,7 +182,6 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center space-x-4">
-                <WalletConnectButton />
                 <motion.button
                   onClick={() => setShowAuth(true)}
                   className="relative px-6 py-2 rounded-lg font-medium text-white overflow-hidden group"
@@ -185,7 +190,7 @@ export default function Navbar() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-80 group-hover:opacity-100 transition-opacity" />
                   <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-                  <span className="relative z-10">Sign In</span>
+                  <span className="relative z-10">Log In</span>
                   <motion.div
                     className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-cyan-400/20"
                     initial={{ x: '-100%' }}
@@ -267,7 +272,6 @@ export default function Navbar() {
                 >
                   {isAuthenticated ? (
                     <>
-                      <WalletConnectButton />
                       <motion.button
                         onClick={handleLogout}
                         className="relative px-4 py-3 rounded-lg font-medium text-white overflow-hidden"
@@ -281,7 +285,6 @@ export default function Navbar() {
                     </>
                   ) : (
                     <>
-                      <WalletConnectButton />
                       <motion.button
                         onClick={() => setShowAuth(true)}
                         className="relative px-4 py-3 rounded-lg font-medium text-white overflow-hidden"
@@ -290,7 +293,7 @@ export default function Navbar() {
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 opacity-80" />
                         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
-                        <span className="relative z-10">Sign In</span>
+                        <span className="relative z-10">Log In</span>
                       </motion.button>
                     </>
                   )}

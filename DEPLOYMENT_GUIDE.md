@@ -36,7 +36,7 @@ SUPABASE_ANON_KEY=your-anon-key
 PORT=4001
 NODE_ENV=production
 ADMIN_API_KEY=your-secure-admin-api-key
-JWT_SECRET=your-jwt-secret
+SUPABASE_JWT_SECRET=your-supabase-jwt-secret
 CORS_ORIGIN=https://www.quantex.online
 ```
 

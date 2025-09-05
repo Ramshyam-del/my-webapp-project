@@ -8,7 +8,9 @@ export const safeLocalStorage = {
     try {
       return localStorage.getItem(key)
     } catch (error) {
-      console.warn('localStorage.getItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('localStorage.getItem failed:', error)
+      }
       return null
     }
   },
@@ -18,7 +20,9 @@ export const safeLocalStorage = {
     try {
       localStorage.setItem(key, value)
     } catch (error) {
-      console.warn('localStorage.setItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('localStorage.setItem failed:', error)
+      }
     }
   },
   
@@ -27,7 +31,9 @@ export const safeLocalStorage = {
     try {
       localStorage.removeItem(key)
     } catch (error) {
-      console.warn('localStorage.removeItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('localStorage.removeItem failed:', error)
+      }
     }
   },
   
@@ -36,7 +42,9 @@ export const safeLocalStorage = {
     try {
       localStorage.clear()
     } catch (error) {
-      console.warn('localStorage.clear failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('localStorage.clear failed:', error)
+      }
     }
   }
 }
@@ -48,7 +56,9 @@ export const safeSessionStorage = {
     try {
       return sessionStorage.getItem(key)
     } catch (error) {
-      console.warn('sessionStorage.getItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('sessionStorage.getItem failed:', error)
+      }
       return null
     }
   },
@@ -58,7 +68,9 @@ export const safeSessionStorage = {
     try {
       sessionStorage.setItem(key, value)
     } catch (error) {
-      console.warn('sessionStorage.setItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('sessionStorage.setItem failed:', error)
+      }
     }
   },
   
@@ -67,7 +79,9 @@ export const safeSessionStorage = {
     try {
       sessionStorage.removeItem(key)
     } catch (error) {
-      console.warn('sessionStorage.removeItem failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('sessionStorage.removeItem failed:', error)
+      }
     }
   },
   
@@ -76,7 +90,9 @@ export const safeSessionStorage = {
     try {
       sessionStorage.clear()
     } catch (error) {
-      console.warn('sessionStorage.clear failed:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('sessionStorage.clear failed:', error)
+      }
     }
   }
 }

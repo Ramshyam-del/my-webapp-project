@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase';
+import { supabaseAdmin } from '../../../backend/lib/supabaseAdmin';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -68,7 +69,10 @@ export default async function handler(req, res) {
     let executionPrice = orderPrice;
     if (type === 'market') {
       try {
-        const priceResponse = await fetch(`${req.headers.host ? `http://${req.headers.host}` : 'http://localhost:3000'}/api/trading/price/${pair}`);
+        const baseUrl = req.headers.host ? 
+        `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers.host}` : 
+        process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+      const priceResponse = await fetch(`${baseUrl}/api/trading/price/${pair}`);
         if (priceResponse.ok) {
           const priceData = await priceResponse.json();
           executionPrice = priceData.data.price;
@@ -94,7 +98,7 @@ export default async function handler(req, res) {
     const requiredMargin = totalValue / orderLeverage;
 
     // Check user balance (simplified - assumes USDT balance)
-    const { data: portfolio, error: portfolioError } = await supabase
+    const { data: portfolio, error: portfolioError } = await supabaseAdmin
       .from('portfolios')
       .select('balance')
       .eq('user_id', user.id)
@@ -108,10 +112,14 @@ export default async function handler(req, res) {
 
     const currentBalance = portfolio?.balance || 0;
     
-    if (side === 'buy' && currentBalance < requiredMargin) {
+    // For both buy and sell orders, user needs sufficient balance to cover the trade amount
+    // This represents the amount at risk in the trade
+    const tradeAmount = orderAmount; // The actual amount the user is trading with
+    
+    if (currentBalance < tradeAmount) {
       return res.status(400).json({ 
         error: 'Insufficient balance', 
-        required: requiredMargin,
+        required: tradeAmount,
         available: currentBalance
       });
     }
@@ -127,7 +135,7 @@ export default async function handler(req, res) {
       pair: pair,
       leverage: orderLeverage,
       duration: duration,
-      amount: requiredMargin,
+      amount: tradeAmount,
       start_ts: now.toISOString(),
       expiry_ts: expiry.toISOString(),
       status: 'OPEN',
@@ -139,7 +147,7 @@ export default async function handler(req, res) {
     };
 
     // Insert trade
-    const { data: trade, error: tradeError } = await supabase
+    const { data: trade, error: tradeError } = await supabaseAdmin
       .from('trades')
       .insert([tradeData])
       .select()
@@ -150,27 +158,27 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to create trade' });
     }
 
-    // Update user balance (deduct margin for buy orders)
-    if (side === 'buy') {
-      const newBalance = currentBalance - requiredMargin;
-      
-      const { error: balanceError } = await supabase
-        .from('portfolios')
-        .upsert({
-          user_id: user.id,
-          currency: 'USDT',
-          balance: newBalance,
-          updated_at: now.toISOString()
-        }, {
-          onConflict: 'user_id,currency'
-        });
+    // Update user balance (deduct trade amount for all orders)
+    // The trade amount is deducted immediately when the trade is created
+    // This amount will be returned with profit/loss when the trade is settled
+    const newBalance = currentBalance - tradeAmount;
+    
+    const { error: balanceError } = await supabaseAdmin
+      .from('portfolios')
+      .upsert({
+        user_id: user.id,
+        currency: 'USDT',
+        balance: newBalance,
+        updated_at: now.toISOString()
+      }, {
+        onConflict: 'user_id,currency'
+      });
 
-      if (balanceError) {
-        console.error('Balance update error:', balanceError);
-        // Rollback trade creation
-        await supabase.from('trades').delete().eq('id', trade.id);
-        return res.status(500).json({ error: 'Failed to update balance' });
-      }
+    if (balanceError) {
+      console.error('Balance update error:', balanceError);
+      // Rollback trade creation
+      await supabaseAdmin.from('trades').delete().eq('id', trade.id);
+      return res.status(500).json({ error: 'Failed to update balance' });
     }
 
     res.status(200).json({
@@ -181,7 +189,7 @@ export default async function handler(req, res) {
           price: executionPrice,
           totalValue,
           requiredMargin,
-          newBalance: side === 'buy' ? currentBalance - requiredMargin : currentBalance
+          newBalance: currentBalance - tradeAmount
         }
       },
       message: `${side.toUpperCase()} order executed successfully`

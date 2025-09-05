@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Topbar = ({ sidebarOpen, setSidebarOpen }) => {
   const [notifications, setNotifications] = useState(3);
   const [searchQuery, setSearchQuery] = useState('');
+  const { user, isAuthenticated } = useAuth();
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
@@ -59,11 +61,20 @@ export const Topbar = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="relative">
             <button className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-medium">A</span>
+                <span className="text-white text-sm font-medium">
+                  {isAuthenticated && user ? 
+                    (user.username ? user.username.charAt(0).toUpperCase() : 
+                     user.first_name ? user.first_name.charAt(0).toUpperCase() : 
+                     user.email.charAt(0).toUpperCase()) : 'U'}
+                </span>
               </div>
               <div className="hidden md:block text-left">
-                <div className="text-sm font-medium text-gray-900">Admin User</div>
-                <div className="text-xs text-gray-500">user</div>
+                <div className="text-sm font-medium text-gray-900">
+                  {isAuthenticated && user ? 
+                    (user.username || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email) : 
+                    'User'}
+                </div>
+                <div className="text-xs text-gray-500">{user?.role || 'user'}</div>
               </div>
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -74,4 +85,4 @@ export const Topbar = ({ sidebarOpen, setSidebarOpen }) => {
       </div>
     </header>
   );
-}; 
+};

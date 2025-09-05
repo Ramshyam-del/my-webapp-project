@@ -1,34 +1,15 @@
 "use client"
 
-import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function AdminTopbar({ title }) {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function getUser() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('Error getting user:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    getUser();
-  }, []);
+  const { user, loading, signOut } = useAuth();
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut();
       router.push('/admin/login');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -62,4 +43,4 @@ export default function AdminTopbar({ title }) {
       </div>
     </div>
   );
-} 
+}

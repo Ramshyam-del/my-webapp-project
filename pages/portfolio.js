@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { supabase } from '../lib/supabase';
+import useRealTimeBalance from '../hooks/useRealTimeBalance';
+import { useAuth } from '../contexts/AuthContext';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -71,6 +73,19 @@ const navTabs = [
 export default function PortfolioPage() {
   const router = useRouter();
   const [marketData, setMarketData] = useState([]);
+  
+  // Authentication context
+  const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
+  
+  // Real-time balance hook
+  const { 
+    balances: realTimeBalances, 
+    totalBalance: realTimeTotalBalance, 
+    isConnected: wsConnected, 
+    lastUpdate: balanceLastUpdate,
+    transactions: recentTransactions,
+    refreshBalance 
+  } = useRealTimeBalance();
   // Portfolio data is now fetched via portfolioBalance from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -123,6 +138,11 @@ export default function PortfolioPage() {
     whatsapp: '',
     email: ''
   });
+  const [kycStatus, setKycStatus] = useState({
+    status: 'required', // 'required', 'pending', 'approved', 'rejected'
+    verifiedAt: null,
+    loading: true
+  });
   const [portfolioBalance, setPortfolioBalance] = useState({
     totalBalance: 0,
     currencies: [],
@@ -166,6 +186,50 @@ export default function PortfolioPage() {
     }
   };
 
+  // Fetch user's KYC status from database
+  const fetchKycStatus = async () => {
+    try {
+      setKycStatus(prev => ({ ...prev, loading: true }));
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setKycStatus({ status: 'required', verifiedAt: null, loading: false });
+        return;
+      }
+      
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('document_verification_status, kyc_verified_at, verification_level')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching KYC status:', error);
+        setKycStatus({ status: 'required', verifiedAt: null, loading: false });
+        return;
+      }
+      
+      let status = 'required';
+      if (user.document_verification_status === 'approved' && user.kyc_verified_at) {
+        status = 'approved';
+      } else if (user.document_verification_status === 'rejected') {
+        status = 'rejected';
+      } else if (user.document_verification_status === 'pending') {
+        status = 'pending';
+      }
+      
+      setKycStatus({
+        status,
+        verifiedAt: user.kyc_verified_at,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Error fetching KYC status:', error);
+      setKycStatus({ status: 'required', verifiedAt: null, loading: false });
+    }
+  };
+
   // Load deposit addresses from webConfig stored by admin /admin/operate
   const loadDepositAddressesFromLocal = () => {
     try {
@@ -184,51 +248,21 @@ export default function PortfolioPage() {
     }
   };
 
-  // Fetch user data from authentication
-  const fetchUserData = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // Don't redirect to non-existent login page, just use default data
-        setUserProfile({
-          username: 'Guest User',
-          officialId: 'GUEST' + Math.random().toString(36).substr(2, 6),
-          vipLevel: "Bronze",
-          email: '',
-          phone: ''
-        });
-        return;
-      }
-
-      // Fetch user profile from database
-      const { data: profile, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        // Use basic user data from session
-        setUserProfile({
-          username: session.user.email?.split('@')[0] || 'User',
-          officialId: session.user.id?.slice(-8) || 'ID' + Math.random().toString(36).substr(2, 6),
-          vipLevel: "Bronze",
-          email: session.user.email || '',
-          phone: session.user.phone || ''
-        });
-      } else if (profile) {
-        setUserProfile({
-          username: profile.username || profile.full_name || session.user.email?.split('@')[0] || 'User',
-          officialId: profile.id?.slice(-8) || 'ID' + Math.random().toString(36).substr(2, 6),
-          vipLevel: profile.vip_level || "Bronze",
-          email: profile.email || session.user.email || '',
-          phone: profile.phone || session.user.phone || ''
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      // Don't redirect to non-existent login page, just use default data
+  // Update user profile based on authenticated user
+  const updateUserProfile = () => {
+    if (isAuthenticated && user) {
+      setUserProfile({
+        username: user.username || user.email?.split('@')[0] || 'User',
+        officialId: user.id?.slice(-8) || 'ID' + Math.random().toString(36).substr(2, 6),
+        vipLevel: user.vip_level || "Bronze",
+        email: user.email || '',
+        phone: user.phone || ''
+      });
+    } else {
+      // Clear any stale temp profile data
+      localStorage.removeItem('tempUserProfile');
+      
+      // Set default guest profile
       setUserProfile({
         username: 'Guest User',
         officialId: 'GUEST' + Math.random().toString(36).substr(2, 6),
@@ -241,36 +275,48 @@ export default function PortfolioPage() {
 
   // Fetch user's portfolio balance from database
   const fetchPortfolioBalance = async () => {
+    console.log('🚀 fetchPortfolioBalance function called!');
+    
     try {
       setBalanceLoading(true);
       
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Portfolio balance fetch - Session:', session);
+      
+      // Only use authenticated user data - no fallbacks
       if (!session) {
-        // Don't redirect to non-existent login page, just return empty data
-        setPortfolioBalance({
-          totalBalance: 0,
-          currencies: [],
-          summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
-        });
-        setBalanceLoading(false);
+        console.log('No session found, user must be authenticated');
+        setPortfolioBalance({ totalBalance: 0, currencies: [] });
         return;
       }
       
       const userId = session.user.id; // Use actual user ID from auth
+      console.log('Fetching balance for user ID:', userId);
       
-      const response = await fetch(`/api/portfolio/balance?userId=${userId}`, {
+      const apiUrl = `/api/portfolio/balance?userId=${userId}`;
+      console.log('Making API request to:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
       
+      console.log('Balance API response status:', response.status);
+      console.log('Balance API response ok:', response.ok);
+      
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('Balance API response data:', JSON.stringify(data, null, 2));
+      console.log('About to call setPortfolioBalance with:', data);
       setPortfolioBalance(data);
+      console.log('setPortfolioBalance called successfully');
       setBalanceLoading(false);
       
     } catch (error) {
@@ -283,6 +329,45 @@ export default function PortfolioPage() {
         summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
       });
     }
+  };
+
+  // Get effective balance data (real-time if available, otherwise API data)
+  const getEffectiveBalanceData = () => {
+    console.log('getEffectiveBalanceData called');
+    console.log('wsConnected:', wsConnected);
+    console.log('realTimeBalances:', realTimeBalances);
+    console.log('portfolioBalance:', portfolioBalance);
+    
+    if (wsConnected && realTimeBalances && Object.keys(realTimeBalances).length > 0) {
+      console.log('Using real-time balance data');
+      // Convert real-time balances to portfolio format
+      const currencies = Object.entries(realTimeBalances).map(([currency, balance]) => ({
+        currency: currency.toUpperCase(),
+        balance: parseFloat(balance) || 0,
+        value: parseFloat(balance) || 0 // Will be calculated with market data
+      }));
+      
+      const result = {
+        totalBalance: realTimeTotalBalance || 0,
+        currencies,
+        summary: {
+          totalCurrencies: currencies.length,
+          totalBalance: realTimeTotalBalance || 0,
+          lastUpdated: balanceLastUpdate
+        },
+        isRealTime: true
+      };
+      console.log('Real-time balance result:', result);
+      return result;
+    }
+    
+    console.log('Using API balance data');
+    const result = {
+      ...portfolioBalance,
+      isRealTime: false
+    };
+    console.log('API balance result:', result);
+    return result;
   };
 
   // Fetch real-time price data - LIVE DATA ONLY
@@ -677,17 +762,53 @@ export default function PortfolioPage() {
     return { totalValue, totalSpent, profit };
   };
 
+  // Update user profile when authentication state changes
   useEffect(() => {
+    if (!authLoading) {
+      updateUserProfile();
+    }
+  }, [user, isAuthenticated, authLoading]);
+
+  // Redirect to login if not authenticated (after auth loading is complete)
+  // TEMPORARILY DISABLED FOR TESTING
+  // useEffect(() => {
+  //   if (!authLoading && !isAuthenticated) {
+  //     router.push('/login');
+  //   }
+  // }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    console.log('🎯 Portfolio useEffect is running!');
+    
     setMounted(true);
-    fetchUserData(); // Fetch actual user data first
     fetchContactConfig(); // Fetch contact configuration
     loadDepositAddressesFromLocal();
     loadAlerts();
     loadTransactions(); // Load transactions on mount
     loadPortfolioHistory(); // Load portfolio history
-    fetchPortfolioBalance(); // Fetch portfolio balance from database
+    
+    // Always fetch portfolio balance on mount
+    console.log('🔥 About to call fetchPortfolioBalance');
+    try {
+      fetchPortfolioBalance(); // Fetch portfolio balance from database
+      console.log('✅ fetchPortfolioBalance called successfully');
+    } catch (error) {
+      console.error('❌ Error calling fetchPortfolioBalance:', error);
+    }
+    
+    // Fetch KYC status on mount
+    fetchKycStatus();
+    
     fetchMarketData();
-    const interval = setInterval(fetchMarketData, 30000);
+    const marketInterval = setInterval(fetchMarketData, 30000);
+    
+    // Set up automatic balance refresh every 30 seconds
+    const balanceInterval = setInterval(() => {
+      if (!wsConnected) {
+        fetchPortfolioBalance();
+      }
+    }, 30000);
+    
     // Listen for admin config updates from /admin/operate
     const document = getSafeDocument();
     const onCfg = () => {
@@ -695,9 +816,51 @@ export default function PortfolioPage() {
       fetchContactConfig();
     };
     if (document) document.addEventListener('webConfigUpdated', onCfg);
+    
+    // Listen for page visibility changes to refresh balance when user returns
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !wsConnected) {
+        fetchPortfolioBalance();
+      }
+    };
+    if (document) document.addEventListener('visibilitychange', handleVisibilityChange);
+    
     return () => {
-      clearInterval(interval);
-      if (document) document.removeEventListener('webConfigUpdated', onCfg);
+      clearInterval(marketInterval);
+      clearInterval(balanceInterval);
+      if (document) {
+        document.removeEventListener('webConfigUpdated', onCfg);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [wsConnected]);
+
+  // Handle real-time transaction notifications
+  useEffect(() => {
+    if (recentTransactions && recentTransactions.length > 0) {
+      // Update local transactions list with new real-time transactions
+      setTransactions(prev => {
+        const newTransactions = recentTransactions.filter(rt => 
+          !prev.some(pt => pt.id === rt.id)
+        );
+        return [...newTransactions, ...prev].slice(0, 50); // Keep last 50 transactions
+      });
+    }
+  }, [recentTransactions]);
+
+  // Setup global toast notification function for transactions
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.showTransactionToast = (transaction) => {
+        // You can integrate with react-hot-toast here if needed
+        console.log('New transaction:', transaction);
+      };
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.showTransactionToast;
+      }
     };
   }, []);
 
@@ -710,11 +873,43 @@ export default function PortfolioPage() {
 
   // Get real holdings from portfolio data
   const getRealHoldings = () => {
-    if (!marketData.length || !portfolioBalance.currencies || portfolioBalance.currencies.length === 0) return [];
+    if (!portfolioBalance.currencies || portfolioBalance.currencies.length === 0) return [];
     
     return portfolioBalance.currencies.map(currency => {
+      if (currency.balance <= 0) return null;
+      
+      // Handle USDT as a special case (stablecoin with $1 value)
+      if (currency.currency === 'USDT') {
+        return {
+          cryptoId: 'tether',
+          symbol: 'USDT',
+          name: 'Tether/USDT',
+          amount: currency.balance,
+          currentValue: currency.balance * 1.00, // USDT is always $1
+          profit: 0,
+          profitPercent: 0,
+          icon: 'T',
+          avgPrice: 1.00
+        };
+      }
+      
+      // For other currencies, try to find matching market data
       const crypto = marketData.find(c => c.name.split('/')[0] === currency.currency || c.id === currency.currency.toLowerCase());
-      if (!crypto || currency.balance <= 0) return null;
+      if (!crypto) {
+        // If no market data found, still show the balance with unknown price
+        const cryptoInfo = cryptoList.find(c => c.symbol === currency.currency);
+        return {
+          cryptoId: cryptoInfo?.id || currency.currency.toLowerCase(),
+          symbol: currency.currency,
+          name: cryptoInfo?.name || `${currency.currency}/USDT`,
+          amount: currency.balance,
+          currentValue: 0, // Unknown value without market data
+          profit: 0,
+          profitPercent: 0,
+          icon: cryptoInfo?.icon || currency.currency.charAt(0).toUpperCase(),
+          avgPrice: 0
+        };
+      }
       
       const currentPrice = parseFloat(crypto.price);
       const amount = currency.balance;
@@ -854,6 +1049,18 @@ export default function PortfolioPage() {
     return null;
   }
 
+  // Show loading while authentication is being checked
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       {/* Enhanced Header */}
@@ -982,6 +1189,20 @@ export default function PortfolioPage() {
         {/* Quick Actions */}
         <div className="mt-4 flex justify-center gap-4">
           <button 
+            onClick={() => {
+              if (wsConnected) {
+                refreshBalance();
+              } else {
+                fetchPortfolioBalance();
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-700/50 hover:bg-blue-600/50 rounded-lg text-xs text-blue-300 hover:text-white transition-all duration-200 border border-blue-600/30 hover:border-blue-500/50"
+            disabled={balanceLoading}
+          >
+            <span className={balanceLoading ? 'animate-spin' : ''}>{balanceLoading ? '⟳' : '🔄'}</span>
+            <span>Refresh</span>
+          </button>
+          <button 
             onClick={() => setShowAnalyticsModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
           >
@@ -1027,11 +1248,25 @@ export default function PortfolioPage() {
                   </div>
                 ) : (
                   <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    ${portfolioBalance.totalBalance.toLocaleString()}
+                    ${getEffectiveBalanceData().totalBalance.toLocaleString()}
                   </span>
                 )}
               </div>
-              <div className="text-xs text-blue-300/80">USD • Live Balance</div>
+              <div className="flex items-center gap-2 text-xs text-blue-300/80">
+                <span>USD • {getEffectiveBalanceData().isRealTime ? 'Real-time' : 'API'} Balance</span>
+                {wsConnected && (
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    <span className="text-green-400">Live</span>
+                  </div>
+                )}
+                {!wsConnected && (
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
+                    <span className="text-yellow-400">Polling</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1096,11 +1331,19 @@ export default function PortfolioPage() {
       </div>
 
       {/* Currency Balances */}
-      {!balanceLoading && portfolioBalance.currencies.length > 0 && (
+      {!balanceLoading && getEffectiveBalanceData().currencies.length > 0 && (
         <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-          <h3 className="text-sm font-medium text-gray-400 mb-3">Currency Balances</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-400">Currency Balances</h3>
+            {getEffectiveBalanceData().isRealTime && (
+              <div className="flex items-center gap-1 text-xs">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span className="text-green-400">Live Updates</span>
+              </div>
+            )}
+          </div>
           <div className="space-y-2">
-            {portfolioBalance.currencies.map((currency, index) => (
+            {getEffectiveBalanceData().currencies.map((currency, index) => (
               <div key={index} className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
@@ -1570,34 +1813,38 @@ export default function PortfolioPage() {
             onClick={() => setShowKycModal(true)}
           >
             <div className="flex items-center gap-3">
-              <span className="text-green-400">✓</span>
+              {kycStatus.loading ? (
+                <span className="text-gray-400">⏳</span>
+              ) : kycStatus.status === 'approved' ? (
+                <span className="text-green-400">✓</span>
+              ) : kycStatus.status === 'rejected' ? (
+                <span className="text-red-400">✗</span>
+              ) : kycStatus.status === 'pending' ? (
+                <span className="text-yellow-400">⏳</span>
+              ) : (
+                <span className="text-orange-400">⚠</span>
+              )}
               <span className="text-sm">KYC Verification</span>
-              <span className="text-xs text-green-400">Verified</span>
+              {kycStatus.loading ? (
+                <span className="text-xs text-gray-400">Loading...</span>
+              ) : (
+                <span className={`text-xs ${
+                  kycStatus.status === 'approved' ? 'text-green-400' :
+                  kycStatus.status === 'rejected' ? 'text-red-400' :
+                  kycStatus.status === 'pending' ? 'text-yellow-400' :
+                  'text-orange-400'
+                }`}>
+                  {kycStatus.status === 'approved' ? 'Approved' :
+                   kycStatus.status === 'rejected' ? 'Rejected' :
+                   kycStatus.status === 'pending' ? 'Pending' :
+                   'Required'}
+                </span>
+              )}
             </div>
             <span className="text-gray-400">›</span>
           </div>
           
-          <div 
-            className="flex items-center justify-between p-3 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-            onClick={() => setShowPasswordModal(true)}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-gray-400">🔑</span>
-              <span className="text-sm">Change Password</span>
-            </div>
-            <span className="text-gray-400">›</span>
-          </div>
-          
-          <div 
-            className="flex items-center justify-between p-3 bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors"
-            onClick={() => setShowNotificationModal(true)}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-gray-400">✉️</span>
-              <span className="text-sm">System Notification</span>
-            </div>
-            <span className="text-gray-400">›</span>
-          </div>
+
         </div>
       </div>
 
@@ -1847,59 +2094,75 @@ export default function PortfolioPage() {
               </button>
             </div>
             
-            <div className="bg-green-900 bg-opacity-20 border border-green-500 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-green-400">✓</span>
-                <span className="text-green-400 font-medium">Verification Complete</span>
+            {kycStatus.loading ? (
+              <div className="bg-gray-900 bg-opacity-20 border border-gray-500 rounded-lg p-6 mb-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-gray-400 text-2xl">⏳</span>
+                  <span className="text-gray-400 font-medium text-lg">Loading KYC Status...</span>
+                </div>
               </div>
-              <p className="text-sm text-gray-300">Your identity has been successfully verified. You have full access to all platform features.</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Full Name</label>
-                <input 
-                  type="text" 
-                  value="John Doe"
-                  disabled
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-400"
-                />
+            ) : kycStatus.status === 'approved' ? (
+              <div className="bg-green-900 bg-opacity-20 border border-green-500 rounded-lg p-6 mb-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-green-400 text-2xl">✅</span>
+                  <span className="text-green-400 font-medium text-lg">KYC Verification Approved</span>
+                </div>
+                <p className="text-gray-300 text-base leading-relaxed">
+                  Your identity has been successfully verified.
+                </p>
+                {kycStatus.verifiedAt && (
+                  <p className="text-sm text-gray-400 mt-2">
+                    Verified on {new Date(kycStatus.verifiedAt).toLocaleDateString()}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Date of Birth</label>
-                <input 
-                  type="text" 
-                  value="01/01/1990"
-                  disabled
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-400"
-                />
+            ) : kycStatus.status === 'rejected' ? (
+              <div className="bg-red-900 bg-opacity-20 border border-red-500 rounded-lg p-6 mb-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-red-400 text-2xl">❌</span>
+                  <span className="text-red-400 font-medium text-lg">KYC Verification Rejected</span>
+                </div>
+                <p className="text-gray-300 text-base leading-relaxed">
+                  Your KYC verification was rejected. Please contact customer service for assistance.
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Our team can help you resolve any issues with your verification.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">ID Number</label>
-                <input 
-                  type="text" 
-                  value="ID123456789"
-                  disabled
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-400"
-                />
+            ) : kycStatus.status === 'pending' ? (
+              <div className="bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-lg p-6 mb-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-yellow-400 text-2xl">⏳</span>
+                  <span className="text-yellow-400 font-medium text-lg">KYC Verification Pending</span>
+                </div>
+                <p className="text-gray-300 text-base leading-relaxed">
+                  Your KYC verification is currently under review.
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  We'll notify you once the review is complete.
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Verification Date</label>
-                <input 
-                  type="text" 
-                  value="15/01/2024"
-                  disabled
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-gray-400"
-                />
+            ) : (
+              <div className="bg-blue-900 bg-opacity-20 border border-blue-500 rounded-lg p-6 mb-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <span className="text-blue-400 text-2xl">🎧</span>
+                  <span className="text-blue-400 font-medium text-lg">KYC Verification Required</span>
+                </div>
+                <p className="text-gray-300 text-base leading-relaxed">
+                  Please contact our customer service for KYC verification.
+                </p>
+                <p className="text-sm text-gray-400 mt-2">
+                  Our team will guide you through the verification process.
+                </p>
               </div>
+            )}
               
-              <button 
-                onClick={() => setShowKycModal(false)}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
-              >
-                Close
-              </button>
-            </div>
+            <button 
+              onClick={() => setShowKycModal(false)}
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
@@ -2097,8 +2360,8 @@ export default function PortfolioPage() {
                 <input 
                   type="email" 
                   value={userProfile.email}
-                  onChange={(e) => setUserProfile({...userProfile, email: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  readOnly
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-gray-400 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -2106,8 +2369,8 @@ export default function PortfolioPage() {
                 <input 
                   type="tel" 
                   value={userProfile.phone}
-                  onChange={(e) => setUserProfile({...userProfile, phone: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                  readOnly
+                  className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-gray-400 cursor-not-allowed"
                 />
               </div>
               <div>
@@ -2120,21 +2383,28 @@ export default function PortfolioPage() {
                 />
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex justify-center gap-3">
                 <button 
                   onClick={() => setShowProfileModal(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button 
-                  onClick={() => {
-                    alert('Profile updated successfully!');
-                    setShowProfileModal(false);
+                  onClick={async () => {
+                    try {
+                      await signOut();
+                      setShowProfileModal(false);
+                      // Force page reload to clear all cached data
+                      window.location.reload();
+                    } catch (error) {
+                      console.error('Logout error:', error);
+                      alert('Error logging out. Please try again.');
+                    }
                   }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded"
                 >
-                  Save Profile
+                  Logout
                 </button>
               </div>
             </div>

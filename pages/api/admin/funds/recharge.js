@@ -6,7 +6,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, currency, amount, adminId } = req.body || {};
+    // Get the authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Verify the token and get user info
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: 'Invalid token' });
+    }
+
+    // Check if user is admin
+    const { data: adminUser, error: adminError } = await supabaseAdmin
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (adminError || !adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ ok: false, error: 'Admin access required' });
+    }
+
+    const { userId, currency, amount, adminId, remark } = req.body || {};
     const amt = Number(amount);
     
     if (!userId || !currency || !Number.isFinite(amt) || amt <= 0) {
@@ -48,8 +73,10 @@ export default async function handler(req, res) {
         user_id: userId,
         currency,
         amount: amt,
-        type: 'RECHARGE',
-        created_by: adminId || 'admin'
+        type: 'recharge',
+        status: 'completed',
+        remark: remark || null,
+        admin_id: adminId || user.id
       });
 
     if (txError) {

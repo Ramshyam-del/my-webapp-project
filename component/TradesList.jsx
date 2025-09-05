@@ -19,10 +19,19 @@ const TradesList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Modal state
-  const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState(null);
+  const [closeModalOpen, setCloseModalOpen] = useState(false);
   const [exitPrice, setExitPrice] = useState('');
   const [closingTrade, setClosingTrade] = useState(false);
+  const [processingTrade, setProcessingTrade] = useState(null);
+  
+  // Win/Loss confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState({
+    isOpen: false,
+    tradeId: null,
+    decision: null,
+    tradePair: null
+  });
 
   // Fetch trades from API
   const fetchTrades = useCallback(async () => {
@@ -45,16 +54,20 @@ const TradesList = () => {
       
       const response = await authedFetchJson(`/api/admin/trades?${params.toString()}`);
       
-      if (response.ok) {
-        setTrades(response.items || []);
-        setTotalItems(response.total || 0);
-        setTotalPages(response.pages || 1);
+      if (response && response.ok && response.data) {
+        setTrades(response.data.items || []);
+        setTotalItems(response.data.pagination?.total || 0);
+        setTotalPages(response.data.pagination?.total_pages || 1);
       } else {
-        throw new Error(response.error || 'Failed to fetch trades');
+        throw new Error(response?.message || 'Failed to fetch trades');
       }
     } catch (error) {
-      console.error('Error fetching trades:', error);
-      setError('Failed to load trades: ' + error.message);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching trades:', error);
+      }
+      setError(process.env.NODE_ENV === 'development' ? 
+           'Failed to load trades: ' + error.message : 
+           'Failed to load trades');
       setTrades([]);
       setTotalItems(0);
       setTotalPages(1);
@@ -80,6 +93,50 @@ const TradesList = () => {
     setCurrentPage(1);
   };
 
+  // Check if trade has expired
+  const isTradeExpired = (trade) => {
+    if (!trade.expiry_ts) return false;
+    return new Date() > new Date(trade.expiry_ts);
+  };
+
+  // Show confirmation modal for trade decision
+  const showTradeDecisionConfirmation = (tradeId, decision, tradePair) => {
+    setConfirmationModal({
+      isOpen: true,
+      tradeId,
+      decision,
+      tradePair
+    });
+  };
+
+  // Handle confirmed trade decision
+  const handleConfirmedTradeDecision = async () => {
+    const { tradeId, decision } = confirmationModal;
+    
+    try {
+      setProcessingTrade(tradeId);
+      setError(null);
+      setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null });
+
+      const response = await authedFetchJson(`/api/admin/trades/${tradeId}/decision`, {
+        method: 'PATCH',
+        body: JSON.stringify({ decision })
+      });
+
+      if (response && response.ok) {
+        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully`);
+        fetchTrades(); // Refresh the list
+      } else {
+        throw new Error(response?.message || `Failed to mark trade as ${decision.toLowerCase()}`);
+      }
+    } catch (error) {
+      console.error('Error setting trade decision:', error);
+      setError(`Failed to mark trade as ${decision.toLowerCase()}: ` + error.message);
+    } finally {
+      setProcessingTrade(null);
+    }
+  };
+
   // Handle close trade
   const handleCloseTrade = async () => {
     if (!selectedTrade || !exitPrice || isNaN(Number(exitPrice))) {
@@ -96,14 +153,14 @@ const TradesList = () => {
         body: JSON.stringify({ exitPrice: Number(exitPrice) })
       });
 
-      if (response.ok) {
-        setSuccess(`Trade closed successfully. PnL: $${response.trade.pnl.toFixed(2)}`);
+      if (response && response.ok && response.data) {
+        setSuccess(`Trade closed successfully. PnL: $${response.data.trade.pnl.toFixed(2)}`);
         setCloseModalOpen(false);
         setSelectedTrade(null);
         setExitPrice('');
         fetchTrades(); // Refresh the list
       } else {
-        throw new Error(response.message || 'Failed to close trade');
+        throw new Error(response?.message || 'Failed to close trade');
       }
     } catch (error) {
       console.error('Error closing trade:', error);
@@ -339,16 +396,29 @@ const TradesList = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       {trade.status === 'OPEN' && (
-                        <button
-                          onClick={() => {
-                            setSelectedTrade(trade);
-                            setExitPrice('');
-                            setCloseModalOpen(true);
-                          }}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        >
-                          Close
-                        </button>
+                        <div className="flex flex-col space-y-1 items-center">
+                          {isTradeExpired(trade) && (
+                            <div className="text-xs text-orange-600 font-medium mb-1">
+                              ⚠️ Expired - Auto Loss Soon
+                            </div>
+                          )}
+                          <div className="flex space-x-2 justify-center">
+                            <button
+                              onClick={() => showTradeDecisionConfirmation(trade.id, 'WIN', trade.pair)}
+                              disabled={processingTrade === trade.id}
+                              className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
+                            >
+                              {processingTrade === trade.id ? 'Processing...' : '✓ Win'}
+                            </button>
+                            <button
+                              onClick={() => showTradeDecisionConfirmation(trade.id, 'LOSS', trade.pair)}
+                              disabled={processingTrade === trade.id}
+                              className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 transition-colors font-medium"
+                            >
+                              {processingTrade === trade.id ? 'Processing...' : '✗ Loss'}
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -475,6 +545,77 @@ const TradesList = () => {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                 >
                   {closingTrade ? 'Closing...' : 'Close Trade'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Win/Loss Confirmation Modal */}
+      {confirmationModal.isOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Confirm Trade Decision
+                </h3>
+                <button
+                  onClick={() => setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null })}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <div className="flex items-center justify-center mb-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl ${
+                    confirmationModal.decision === 'WIN' 
+                      ? 'bg-green-100 text-green-600' 
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {confirmationModal.decision === 'WIN' ? '✓' : '✗'}
+                  </div>
+                </div>
+                
+                <p className="text-center text-gray-700 mb-2">
+                  Are you sure you want to mark this trade as 
+                  <span className={`font-bold ${
+                    confirmationModal.decision === 'WIN' ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {confirmationModal.decision}
+                  </span>?
+                </p>
+                
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    <strong>Trade Pair:</strong> {confirmationModal.tradePair}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Trade ID:</strong> {confirmationModal.tradeId?.slice(0, 8)}...
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null })}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmedTradeDecision}
+                  disabled={processingTrade === confirmationModal.tradeId}
+                  className={`flex-1 px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${
+                    confirmationModal.decision === 'WIN'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {processingTrade === confirmationModal.tradeId ? 'Processing...' : `Confirm ${confirmationModal.decision}`}
                 </button>
               </div>
             </div>

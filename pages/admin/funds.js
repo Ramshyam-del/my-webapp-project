@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 
 export default function AdminFunds() {
   const [funds, setFunds] = useState([]);
@@ -11,126 +12,184 @@ export default function AdminFunds() {
     changeAmount: '',
     remark: ''
   });
-  const [userBalances, setUserBalances] = useState({});
+  const [userBalances, setUserBalances] = useState([]);
+  const [stats, setStats] = useState({
+    totalRecharges: 0,
+    totalWithdrawals: 0,
+    pendingCount: 0,
+    completedCount: 0
+  });
+  const [operationLoading, setOperationLoading] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationData, setNotificationData] = useState({ type: 'success', message: '' });
 
-  // Mock user balances
-  const mockBalances = {
-    'john@example.com': { BTC: 0.5, USDT: 2500, ETH: 2.5 },
-    'jane@example.com': { BTC: 0.2, USDT: 1200, ETH: 1.0 },
-    'mike@example.com': { BTC: 0.8, USDT: 5000, ETH: 4.0 }
+  // Helper function to show notifications
+  const showNotification = (type, message) => {
+    setNotificationData({ type, message });
+    setShowNotificationModal(true);
+  };
+
+  // Fetch users with balances
+  const fetchUsersWithBalances = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showNotification('error', 'Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/admin/users-with-balances', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserBalances(data.data.users);
+      } else {
+        console.error('Failed to fetch users with balances');
+        showNotification('error', 'Failed to fetch user balances');
+      }
+    } catch (error) {
+      console.error('Error fetching users with balances:', error);
+      showNotification('error', 'Error fetching user balances');
+    }
+  };
+
+  // Fetch fund transactions
+  const fetchFundTransactions = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showNotification('error', 'Authentication required');
+        return;
+      }
+
+      const response = await fetch('/api/admin/fund-transactions', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFunds(data.data.transactions);
+        setStats(data.data.stats);
+      } else {
+        console.error('Failed to fetch fund transactions');
+        showNotification('error', 'Failed to fetch fund transactions');
+      }
+    } catch (error) {
+      console.error('Error fetching fund transactions:', error);
+      showNotification('error', 'Error fetching fund transactions');
+    }
   };
 
   useEffect(() => {
-    // Simulate loading funds data
-    setTimeout(() => {
-      setFunds([
-        { 
-          id: 1, 
-          type: 'recharge', 
-          amount: 5000, 
-          currency: 'USDT', 
-          status: 'completed', 
-          user: 'john@example.com', 
-          date: new Date(),
-          remark: 'Initial deposit'
-        },
-        { 
-          id: 2, 
-          type: 'withdraw', 
-          amount: 2500, 
-          currency: 'USDT', 
-          status: 'pending', 
-          user: 'jane@example.com', 
-          date: new Date(Date.now() - 86400000),
-          remark: 'Withdrawal request'
-        },
-        { 
-          id: 3, 
-          type: 'recharge', 
-          amount: 1000, 
-          currency: 'BTC', 
-          status: 'completed', 
-          user: 'mike@example.com', 
-          date: new Date(Date.now() - 172800000),
-          remark: 'BTC deposit'
-        }
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchUsersWithBalances(),
+        fetchFundTransactions()
       ]);
-      setUserBalances(mockBalances);
       setLoading(false);
-    }, 1000);
+    };
+    
+    loadData();
   }, []);
 
-  const handleOperationSubmit = (e) => {
+  const handleOperationSubmit = async (e) => {
     e.preventDefault();
     
     if (!operation.userAccount || !operation.changeAmount) {
-      alert('Please fill in all required fields');
+      showNotification('error', 'Please fill in all required fields');
       return;
     }
 
-    // Validate user exists
-    if (!userBalances[operation.userAccount]) {
-      alert('User account not found');
+    // Find user by email/username
+    const user = userBalances.find(u => 
+      u.email === operation.userAccount || u.username === operation.userAccount
+    );
+    
+    if (!user) {
+      showNotification('error', 'User account not found');
       return;
     }
 
     // Validate amount
     const amount = parseFloat(operation.changeAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Please enter a valid amount');
+      showNotification('error', 'Please enter a valid amount');
       return;
     }
 
     // Check if user has sufficient balance for withdrawal
     if (operation.type === 'withdraw') {
-      const currentBalance = userBalances[operation.userAccount][operation.currency] || 0;
+      const currentBalance = user.balances[operation.currency] || 0;
       if (currentBalance < amount) {
-        alert(`Insufficient balance. Current ${operation.currency} balance: ${currentBalance}`);
+        showNotification('error', `Insufficient balance. Current ${operation.currency} balance: ${currentBalance}`);
         return;
       }
     }
 
-    // Simulate API call
-    console.log('Processing operation:', operation);
-    
-    // Update user balances
-    const updatedBalances = { ...userBalances };
-    if (!updatedBalances[operation.userAccount]) {
-      updatedBalances[operation.userAccount] = {};
-    }
-    
-    const currentBalance = updatedBalances[operation.userAccount][operation.currency] || 0;
-    if (operation.type === 'recharge') {
-      updatedBalances[operation.userAccount][operation.currency] = currentBalance + amount;
-    } else {
-      updatedBalances[operation.userAccount][operation.currency] = currentBalance - amount;
-    }
-    
-    setUserBalances(updatedBalances);
+    setOperationLoading(true);
 
-    // Add to funds history
-    const newOperation = {
-      id: Date.now(),
-      type: operation.type,
-      amount: amount,
-      currency: operation.currency,
-      status: 'completed',
-      user: operation.userAccount,
-      date: new Date(),
-      remark: operation.remark
-    };
-    
-    setFunds([newOperation, ...funds]);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showNotification('error', 'Authentication required');
+        return;
+      }
 
-    alert(`${operation.type === 'recharge' ? 'Recharge' : 'Withdrawal'} processed successfully!`);
-    setShowOperationModal(false);
-    setOperation({
-      type: 'recharge',
-      userAccount: '',
-      currency: 'USDT',
-      changeAmount: '',
-      remark: ''
-    });
+      // Call the backend API for fund operations
+      const endpoint = operation.type === 'recharge' ? '/api/admin/funds/recharge' : '/api/admin/funds/withdraw';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_ADMIN_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          currency: operation.currency,
+          amount: amount,
+          remark: operation.remark,
+          adminId: session.user.id
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.ok) {
+        showNotification('success', `${operation.type === 'recharge' ? 'Recharge' : 'Withdrawal'} processed successfully!`);
+        
+        // Refresh data
+        await Promise.all([
+          fetchUsersWithBalances(),
+          fetchFundTransactions()
+        ]);
+        
+        // Reset form
+        setShowOperationModal(false);
+        setOperation({
+          type: 'recharge',
+          userAccount: '',
+          currency: 'USDT',
+          changeAmount: '',
+          remark: ''
+        });
+      } else {
+        showNotification('error', result.error || 'Operation failed');
+      }
+    } catch (error) {
+      console.error('Error processing operation:', error);
+      showNotification('error', 'Error processing operation');
+    } finally {
+      setOperationLoading(false);
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -193,7 +252,7 @@ export default function AdminFunds() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Recharges</p>
               <p className="text-2xl font-bold text-gray-900">
-                {funds.filter(f => f.type === 'recharge').length}
+                ${stats.totalRecharges.toLocaleString()}
               </p>
             </div>
           </div>
@@ -209,7 +268,7 @@ export default function AdminFunds() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Withdrawals</p>
               <p className="text-2xl font-bold text-gray-900">
-                {funds.filter(f => f.type === 'withdraw').length}
+                ${stats.totalWithdrawals.toLocaleString()}
               </p>
             </div>
           </div>
@@ -225,7 +284,7 @@ export default function AdminFunds() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Total Volume</p>
               <p className="text-2xl font-bold text-gray-900">
-                {funds.reduce((sum, f) => sum + f.amount, 0).toLocaleString()}
+                ${(stats.totalRecharges + stats.totalWithdrawals).toLocaleString()}
               </p>
             </div>
           </div>
@@ -241,7 +300,7 @@ export default function AdminFunds() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Pending</p>
               <p className="text-2xl font-bold text-gray-900">
-                {funds.filter(f => f.status === 'pending').length}
+                {stats.pendingCount}
               </p>
             </div>
           </div>
@@ -262,12 +321,17 @@ export default function AdminFunds() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {Object.entries(userBalances).map(([user, balances]) => (
-                <tr key={user} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(balances.BTC || 0, 'BTC')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(balances.USDT || 0, 'USDT')}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(balances.ETH || 0, 'ETH')}</td>
+              {userBalances.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{user.email}</div>
+                    {user.username && (
+                      <div className="text-sm text-gray-500">@{user.username}</div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(user.balances.BTC || 0, 'BTC')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(user.balances.USDT || 0, 'USDT')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(user.balances.ETH || 0, 'ETH')}</td>
                 </tr>
               ))}
             </tbody>
@@ -300,14 +364,19 @@ export default function AdminFunds() {
                 {funds.map((fund) => (
                   <tr key={fund.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {fund.date.toLocaleDateString()}
+                      {new Date(fund.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
                         {fund.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{fund.user}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{fund.user_email}</div>
+                      {fund.user_username && (
+                        <div className="text-sm text-gray-500">@{fund.user_username}</div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatCurrency(fund.amount, fund.currency)}
                     </td>
@@ -316,7 +385,7 @@ export default function AdminFunds() {
                         {fund.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -360,7 +429,7 @@ export default function AdminFunds() {
                   value={operation.userAccount}
                   onChange={(e) => setOperation({...operation, userAccount: e.target.value})}
                   className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter user email"
+                  placeholder="Enter user email or username"
                 />
               </div>
               
@@ -415,20 +484,57 @@ export default function AdminFunds() {
                     });
                   }}
                   className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                  disabled={operationLoading}
                 >
                   Reset
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={operationLoading}
                 >
-                  Confirm
+                  {operationLoading ? 'Processing...' : 'Confirm'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Notification Modal */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center mb-4">
+              <div className={`p-2 rounded-full mr-3 ${
+                notificationData.type === 'success' ? 'bg-green-100' : 'bg-red-100'
+              }`}>
+                {notificationData.type === 'success' ? (
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </div>
+              <h3 className={`text-lg font-bold ${
+                notificationData.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {notificationData.type === 'success' ? 'Success' : 'Error'}
+              </h3>
+            </div>
+            <p className="text-gray-700 mb-6">{notificationData.message}</p>
+            <button
+              onClick={() => setShowNotificationModal(false)}
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}

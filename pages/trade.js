@@ -25,6 +25,14 @@ export default function TradePage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderSide, setOrderSide] = useState('buy');
   const [ordersLoading, setOrdersLoading] = useState(false);
+  
+  // User balance state
+  const [balance, setBalance] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  
+  // Notification modal state
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationData, setNotificationData] = useState({ title: '', message: '', type: 'info' });
 
   // Enhanced trading pairs list - Reduced for production stability
   const tradingPairs = [
@@ -65,6 +73,47 @@ export default function TradePage() {
     } finally {
       setOrdersLoading(false);
     }
+  };
+
+  // Fetch user balance
+  const fetchBalance = async () => {
+    try {
+      setBalanceLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setBalance(0);
+        return;
+      }
+
+      const response = await fetch('/api/portfolio/balance', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'x-user-id': session.user.id
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Get USDT balance specifically
+        const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
+        setBalance(usdtBalance);
+      } else {
+        console.error('Failed to fetch balance');
+        setBalance(0);
+      }
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+      setBalance(0);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  // Helper function to show notification modal
+  const showNotification = (title, message, type = 'info') => {
+    setNotificationData({ title, message, type });
+    setShowNotificationModal(true);
   };
 
   // Fetch crypto data from CoinMarketCap API
@@ -120,12 +169,19 @@ export default function TradePage() {
   // Handle order placement
   const handlePlaceOrder = async () => {
     if (!orderAmount || orderAmount <= 0) {
-      alert('Please enter a valid amount');
+      showNotification('Invalid Amount', 'Please enter a valid amount', 'warning');
       return;
     }
 
     if (orderType === 'limit' && (!orderPrice || orderPrice <= 0)) {
-      alert('Please enter a valid price for limit orders');
+      showNotification('Invalid Price', 'Please enter a valid price for limit orders', 'warning');
+      return;
+    }
+
+    // Check if user has sufficient balance
+    const tradeAmount = parseFloat(orderAmount);
+    if (balance < tradeAmount) {
+      showNotification('Insufficient Balance', `Required: $${tradeAmount.toFixed(2)}\nAvailable: $${balance.toFixed(2)}`, 'error');
       return;
     }
 
@@ -135,7 +191,7 @@ export default function TradePage() {
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        alert('Please log in to place orders');
+        showNotification('Authentication Required', 'Please log in to place orders', 'warning');
         return;
       }
 
@@ -169,7 +225,7 @@ export default function TradePage() {
       setShowOrderModal(false);
       
       // Show success message
-      alert(`Order placed successfully! Order ID: ${result.order.id}`);
+      showNotification('Order Placed Successfully!', `Order ID: ${result.order.id}`, 'success');
       
       // Refresh data
       fetchPriceData();
@@ -177,7 +233,7 @@ export default function TradePage() {
       
     } catch (error) {
       console.error('Error placing order:', error);
-      alert(`Failed to place order: ${error.message}`);
+      showNotification('Order Failed', `Failed to place order: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -192,6 +248,7 @@ export default function TradePage() {
       fetchPriceData();
       fetchOrderBook();
       fetchUserOrders();
+      fetchBalance(); // Fetch user balance
       
       const cryptoInterval = setInterval(fetchPriceData, 10000);
       const orderBookInterval = setInterval(fetchOrderBook, 5000);
@@ -204,6 +261,11 @@ export default function TradePage() {
       };
     }
   }, [mounted, selectedPair]);
+
+  // Fetch balance when user authentication changes
+  useEffect(() => {
+    fetchBalance();
+  }, []);
 
   const handleOrderClick = (side) => {
     setOrderSide(side);
@@ -455,6 +517,26 @@ export default function TradePage() {
                 />
               </div>
               
+              {/* Balance Display */}
+              <div className="bg-gray-700 p-3 rounded border border-gray-600">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs sm:text-sm text-gray-400">Available Balance:</span>
+                  <span className="text-xs sm:text-sm font-medium text-white">
+                    {balanceLoading ? 'Loading...' : `$${balance.toFixed(2)} USDT`}
+                  </span>
+                </div>
+                {orderAmount && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs sm:text-sm text-gray-400">Can Afford:</span>
+                    <span className={`text-xs sm:text-sm font-medium ${
+                      parseFloat(orderAmount) <= balance ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {parseFloat(orderAmount) <= balance ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
               {/* Order Summary */}
               <div className="bg-gray-700 p-3 rounded">
                 <div className="text-xs sm:text-sm text-gray-400 mb-1">Order Summary</div>
@@ -493,9 +575,61 @@ export default function TradePage() {
         </div>
       )}
     
+      {/* Notification Modal */}
+      {showNotificationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto shadow-2xl border border-gray-700 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full animate-pulse ${
+                  notificationData.type === 'success' ? 'bg-green-500' :
+                  notificationData.type === 'error' ? 'bg-red-500' :
+                  notificationData.type === 'warning' ? 'bg-yellow-500' :
+                  'bg-blue-500'
+                }`}></div>
+                <h3 className={`text-base sm:text-lg font-bold ${
+                  notificationData.type === 'success' ? 'text-green-400' :
+                  notificationData.type === 'error' ? 'text-red-400' :
+                  notificationData.type === 'warning' ? 'text-yellow-400' :
+                  'text-blue-400'
+                }`}>
+                  {notificationData.type === 'success' ? '✅' :
+                   notificationData.type === 'error' ? '❌' :
+                   notificationData.type === 'warning' ? '⚠️' : 'ℹ️'} {notificationData.title}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowNotificationModal(false)}
+                className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-4 mb-4">
+              <p className="text-gray-300 whitespace-pre-line">{notificationData.message}</p>
+            </div>
+            
+            <button
+              onClick={() => setShowNotificationModal(false)}
+              className={`w-full py-3 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                notificationData.type === 'success' ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border border-green-500' :
+                notificationData.type === 'error' ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border border-red-500' :
+                notificationData.type === 'warning' ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white border border-yellow-500' :
+                'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border border-blue-500'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Navigation - Mobile Responsive (Bottom) */}
       <div className="pb-16"></div>
-      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-10">
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-50">
         {navTabs.map((tab) => (
           <button
             key={tab.label}

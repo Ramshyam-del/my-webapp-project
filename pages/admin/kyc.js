@@ -7,37 +7,49 @@ export default function AdminKYC() {
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
-    // Simulate loading KYC data
-    setTimeout(() => {
-      setKycRequests([
-        {
-          id: 1,
-          user: 'john.doe@example.com',
-          status: 'pending',
-          submittedAt: new Date(),
-          documents: ['passport', 'utility_bill'],
-          notes: 'Documents look good, pending verification'
-        },
-        {
-          id: 2,
-          user: 'jane.smith@example.com',
-          status: 'approved',
-          submittedAt: new Date(Date.now() - 86400000),
-          documents: ['drivers_license', 'bank_statement'],
-          notes: 'Approved - all documents verified'
-        },
-        {
-          id: 3,
-          user: 'mike.wilson@example.com',
-          status: 'rejected',
-          submittedAt: new Date(Date.now() - 172800000),
-          documents: ['passport'],
-          notes: 'Rejected - incomplete documentation'
-        }
-      ]);
-        setLoading(false);
-    }, 1000);
+    fetchKycData();
   }, []);
+
+  const fetchKycData = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await fetch('/api/admin/users/kyc', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      
+      const result = await response.json();
+      
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to fetch KYC data');
+      }
+      
+      // Transform the data to match expected format
+      const transformedData = result.data.map(user => ({
+        id: user.id,
+        user: user.user,
+        status: user.status === 'not_submitted' ? 'pending' : user.status,
+        submittedAt: new Date(user.submittedAt),
+        documents: user.documents || [],
+        notes: user.notes,
+        username: user.username,
+        first_name: user.first_name,
+        last_name: user.last_name
+      }));
+      
+      setKycRequests(transformedData);
+    } catch (error) {
+      console.error('Failed to fetch KYC data:', error);
+      setError(error.message || 'Failed to load KYC data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -52,12 +64,44 @@ export default function AdminKYC() {
     }
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    setKycRequests(prev => 
-      prev.map(request => 
-        request.id === id ? { ...request, status: newStatus } : request
-      )
-    );
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const response = await fetch(`/api/admin/users/${id}/kyc`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          status: newStatus,
+          notes: `Status changed to ${newStatus} by admin`
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to update KYC status');
+      }
+      
+      // Update local state
+      setKycRequests(prev => 
+        prev.map(request => 
+          request.id === id ? { 
+            ...request, 
+            status: newStatus,
+            notes: `Status changed to ${newStatus} by admin on ${new Date().toLocaleDateString()}`
+          } : request
+        )
+      );
+      
+      // Show success message (you can add a toast notification here)
+      console.log(`KYC status updated successfully for user ${id}`);
+      
+    } catch (error) {
+      console.error('Failed to update KYC status:', error);
+      setError(error.message || 'Failed to update KYC status');
+    }
   };
 
   const filteredRequests = filterStatus === 'all' 

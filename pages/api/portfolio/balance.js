@@ -9,15 +9,23 @@ export default async function handler(req, res) {
     // Get user ID from query params or headers (you may need to adjust this based on your auth setup)
     const userId = req.query.userId || req.headers['x-user-id'];
     
+    console.log('🔍 [API] Balance API called with userId:', userId);
+    console.log('🔍 [API] Query params:', req.query);
+    console.log('🔍 [API] Headers x-user-id:', req.headers['x-user-id']);
+    
     if (!userId) {
+      console.log('❌ [API] No user ID provided');
       return res.status(400).json({ error: 'User ID is required' });
     }
 
     // Fetch user's portfolio balances
+    console.log('🔍 [API] Querying portfolios table for user_id:', userId);
     const { data: portfolios, error } = await supabaseAdmin
       .from('portfolios')
       .select('*')
       .eq('user_id', userId);
+    
+    console.log('🔍 [API] Supabase query result:', { portfolios, error });
 
     if (error) {
       console.error('Error fetching portfolio balances:', error);
@@ -26,6 +34,7 @@ export default async function handler(req, res) {
 
     // Calculate total balance across all currencies
     const totalBalance = portfolios.reduce((sum, portfolio) => sum + Number(portfolio.balance), 0);
+    console.log('🔍 [API] Calculated total balance:', totalBalance);
 
     // Format the response
     const response = {
@@ -41,7 +50,8 @@ export default async function handler(req, res) {
         lastUpdated: portfolios.length > 0 ? Math.max(...portfolios.map(p => new Date(p.updated_at).getTime())) : null
       }
     };
-
+    
+    console.log('🔍 [API] Final response:', JSON.stringify(response, null, 2));
     res.status(200).json(response);
 
   } catch (error) {

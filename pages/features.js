@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 
 export default function FeaturesPage() {
   const navTabs = [
@@ -39,6 +40,14 @@ export default function FeaturesPage() {
   const [activeTrades, setActiveTrades] = useState([]);
   const [marketSentiment, setMarketSentiment] = useState('neutral'); // 'bullish', 'bearish', 'neutral'
   const [priceAnimation, setPriceAnimation] = useState(false);
+  
+  // User balance state
+  const [balance, setBalance] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  
+  // Modal state for notifications
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [notificationData, setNotificationData] = useState({ title: '', message: '', type: 'info' });
 
   // Duration options with percentages (keeping original format)
   const durationOptions = [
@@ -139,7 +148,67 @@ export default function FeaturesPage() {
     setShowOrderModal(true);
   };
 
+  // Show notification modal
+  const showNotification = (title, message, type = 'info') => {
+    setNotificationData({ title, message, type });
+    setShowNotificationModal(true);
+  };
+
   // Calculate projected profit based on amount, duration percentage, and leverage
+  // Test balance functionality removed - using only real user data
+
+  // Fetch user balance
+  const fetchBalance = async () => {
+    try {
+      setBalanceLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Debug logging
+      console.log('🔍 [Balance] Session check:', {
+        hasSession: !!session,
+        userId: session?.user?.id,
+        userEmail: session?.user?.email
+      });
+      
+      // Only use authenticated user data - no fallbacks
+      if (!session) {
+        console.log('❌ [Balance] No session found, user must be authenticated');
+        setBalance(0);
+        return;
+      }
+      
+      const userId = session.user.id; // Use actual user ID from auth
+      
+      console.log('🔍 [Balance] Using user ID:', userId);
+
+      const response = await fetch(`/api/portfolio/balance?userId=${userId}`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('🔍 [Balance] API response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 [Balance] API response data:', data);
+        // Get USDT balance specifically
+        const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
+        console.log('🔍 [Balance] USDT balance found:', usdtBalance);
+        setBalance(usdtBalance);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ [Balance] Failed to fetch balance:', response.status, errorText);
+        setBalance(0);
+      }
+    } catch (error) {
+      console.error('❌ [Balance] Error fetching balance:', error);
+      setBalance(0);
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
   const calculateProjectedProfit = () => {
     if (!orderAmount || parseFloat(orderAmount) <= 0) {
       return 0;
@@ -156,43 +225,110 @@ export default function FeaturesPage() {
   };
 
   // Handle order confirmation
-  const handleOrderConfirm = (e) => {
+  const handleOrderConfirm = async (e) => {
     e.preventDefault();
     
     if (!orderAmount || parseFloat(orderAmount) <= 0) {
-      alert('Please enter a valid amount');
+      showNotification('Invalid Amount', 'Please enter a valid amount', 'error');
       return;
     }
 
-    // Create order object with all selected options
-    const order = {
-      id: Date.now().toString(), // Simple ID generation
-      type: orderSide === 'buy' ? 'BUY UP' : 'BUY FALL',
-      pair: selectedPair,
-      leverage: selectedLeverage,
-      duration: selectedDuration,
-      durationPercentage: durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage,
-      amount: parseFloat(orderAmount),
-      projectedProfit: calculateProjectedProfit(),
-      entryPrice: parseFloat(currentPrice),
-      currentPrice: parseFloat(currentPrice),
-      timestamp: new Date().toISOString(),
-      status: 'active',
-      timeLeft: selectedDuration, // Time left in seconds
-      pnl: 0 // Initial P&L
-    };
+    // Check if user has sufficient balance
+    const tradeAmount = parseFloat(orderAmount);
+    console.log('Balance check - Available:', balance, 'Required:', tradeAmount);
+    
+    if (balance < tradeAmount) {
+      console.log('Insufficient balance detected - Available:', balance, 'Required:', tradeAmount);
+      showNotification(
+        'Insufficient Balance', 
+        `Required: $${tradeAmount.toFixed(2)}\nAvailable: $${balance.toFixed(2)}`, 
+        'error'
+      );
+      return;
+    }
+    
+    console.log('Balance check passed - proceeding with trade');
 
-    // Add order to active trades
-    setActiveTrades(prev => [...prev, order]);
-    
-    // Show success message
-    alert(`Order confirmed!\nType: ${order.type}\nDuration: ${order.duration}s (${order.durationPercentage}%)\nAmount: $${order.amount}\nLeverage: ${order.leverage}\nProjected Profit: $${order.projectedProfit.toFixed(2)}`);
-    
-    // Close modal and reset form
-    setShowOrderModal(false);
-    setOrderAmount('');
-    setSelectedDuration(360);
-    setSelectedLeverage('1x');
+    try {
+      // Get auth token from Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        showNotification('Authentication Required', 'Please log in to place trades', 'warning');
+        return;
+      }
+
+      // Convert duration from seconds to appropriate format
+      const durationInSeconds = selectedDuration;
+      let durationString;
+      if (durationInSeconds < 60) {
+        durationString = `${durationInSeconds}s`;
+      } else if (durationInSeconds < 3600) {
+        durationString = `${Math.floor(durationInSeconds / 60)}m`;
+      } else {
+        durationString = `${Math.floor(durationInSeconds / 3600)}h`;
+      }
+
+      // Create trade via API
+      const response = await fetch('/api/trading/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          pair: selectedPair,
+          side: orderSide, // 'buy' or 'sell'
+          type: 'market',
+          amount: parseFloat(orderAmount),
+          leverage: parseInt(selectedLeverage.replace('x', '')),
+          duration: durationString
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create trade');
+      }
+
+      // Create local order object for UI display
+      const order = {
+        id: result.data.trade.id.toString(),
+        type: orderSide === 'buy' ? 'BUY UP' : 'BUY FALL',
+        pair: selectedPair,
+        leverage: selectedLeverage,
+        duration: selectedDuration,
+        durationPercentage: durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage,
+        amount: parseFloat(orderAmount),
+        projectedProfit: calculateProjectedProfit(),
+        entryPrice: result.data.execution.price,
+        currentPrice: result.data.execution.price,
+        timestamp: new Date().toISOString(),
+        status: 'active',
+        timeLeft: selectedDuration,
+        pnl: 0
+      };
+
+      // Add order to active trades
+      setActiveTrades(prev => [...prev, order]);
+      
+      // Show success message
+      showNotification(
+        'Order Confirmed!', 
+        `Type: ${order.type}\nDuration: ${order.duration}s (${order.durationPercentage}%)\nAmount: $${order.amount}\nLeverage: ${order.leverage}\nEntry Price: $${result.data.execution.price}`,
+        'success'
+      );
+      
+      // Close modal and reset form
+      setShowOrderModal(false);
+      setOrderAmount('');
+      setSelectedDuration(360);
+      setSelectedLeverage('1x');
+
+    } catch (error) {
+      console.error('Error creating trade:', error);
+      showNotification('Trade Failed', `Failed to create trade: ${error.message}`, 'error');
+    }
   };
 
   // Enhanced fetch crypto data with price direction tracking
@@ -287,10 +423,16 @@ export default function FeaturesPage() {
     if (mounted) {
       setLoading(true); // Set loading when fetching data
       fetchCryptoData();
+      fetchBalance(); // Fetch user balance
       const interval = setInterval(fetchCryptoData, 10000);
       return () => clearInterval(interval);
     }
   }, [mounted, selectedPair]);
+
+  // Fetch balance when user authentication changes
+  useEffect(() => {
+    fetchBalance();
+  }, []);
 
   if (!mounted) {
     return (
@@ -490,7 +632,11 @@ export default function FeaturesPage() {
                       <button 
                         onClick={() => {
                           setActiveTrades(prev => prev.filter(t => t.id !== trade.id));
-                          alert(`Trade closed early!\nP&L: ${isProfit ? '+' : ''}$${pnl.toFixed(2)}`);
+                          showNotification(
+                            'Trade Closed Early',
+                            `P&L: ${isProfit ? '+' : ''}$${pnl.toFixed(2)}`,
+                            isProfit ? 'success' : 'error'
+                          );
                         }}
                         className="text-red-400 hover:text-red-300 text-xs font-medium px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
                       >
@@ -503,6 +649,58 @@ export default function FeaturesPage() {
             )}
           </div>
         </div>
+
+        {/* Notification Modal */}
+        {showNotificationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto shadow-2xl border border-gray-700 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${
+                    notificationData.type === 'success' ? 'bg-green-500' :
+                    notificationData.type === 'error' ? 'bg-red-500' :
+                    notificationData.type === 'warning' ? 'bg-yellow-500' :
+                    'bg-blue-500'
+                  }`}></div>
+                  <h3 className={`text-base sm:text-lg font-bold ${
+                    notificationData.type === 'success' ? 'text-green-400' :
+                    notificationData.type === 'error' ? 'text-red-400' :
+                    notificationData.type === 'warning' ? 'text-yellow-400' :
+                    'text-blue-400'
+                  }`}>
+                    {notificationData.type === 'success' ? '✅' :
+                     notificationData.type === 'error' ? '❌' :
+                     notificationData.type === 'warning' ? '⚠️' : 'ℹ️'} {notificationData.title}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setShowNotificationModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="bg-gray-800 rounded-lg p-4 mb-4">
+                <p className="text-gray-300 whitespace-pre-line">{notificationData.message}</p>
+              </div>
+              
+              <button
+                onClick={() => setShowNotificationModal(false)}
+                className={`w-full py-3 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                  notificationData.type === 'success' ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border border-green-500' :
+                  notificationData.type === 'error' ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border border-red-500' :
+                  notificationData.type === 'warning' ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white border border-yellow-500' :
+                  'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border border-blue-500'
+                }`}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Enhanced Order Modal - Mobile Responsive */}
         {showOrderModal && (
@@ -539,6 +737,38 @@ export default function FeaturesPage() {
                     {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
                   </span>
                 </div>
+              </div>
+              
+              {/* Balance Display */}
+              <div className="bg-gray-800 rounded-lg p-3 mb-4 border-l-4 border-green-500">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-300 flex items-center gap-2">
+                    <span className="text-green-400">💰</span>
+                    Available Balance:
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`font-bold ${balanceLoading ? 'text-gray-400' : 'text-green-400'}`}>
+                      {balanceLoading ? 'Loading...' : `$${balance.toFixed(2)} USDT`}
+                    </span>
+                    <button
+                      onClick={fetchBalance}
+                      disabled={balanceLoading}
+                      className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
+                      title="Refresh Balance"
+                    >
+                      🔄
+                    </button>
+
+                  </div>
+                </div>
+                {orderAmount && (
+                  <div className="flex items-center justify-between text-sm mt-1">
+                    <span className="text-gray-300">Can Afford:</span>
+                    <span className={`font-bold ${balance >= parseFloat(orderAmount || 0) ? 'text-green-400' : 'text-red-400'}`}>
+                      {balance >= parseFloat(orderAmount || 0) ? '✅ Yes' : '❌ Insufficient'}
+                    </span>
+                  </div>
+                )}
               </div>
               
               <form onSubmit={handleOrderConfirm} className="space-y-4">

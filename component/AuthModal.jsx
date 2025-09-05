@@ -1,107 +1,233 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
+// API configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4001';
+
+function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
   const router = useRouter();
-  const [mode, setMode] = useState(initialMode); // 'login' or 'register'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState(initialMode);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    username: '',
+    phone: ''
+  });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotStep, setForgotStep] = useState('email');
+  const [forgotForm, setForgotForm] = useState({
+    email: '',
+    otp: '',
+    newPassword: '',
+    resetToken: ''
+  });
 
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
+  const validatePhone = (phone) => {
+    const phoneRegex = /^[+]?[1-9]?[0-9]{7,15}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (error) setError('');
+  };
+
+  const handleForgotInputChange = (e) => {
+    const { name, value } = e.target;
+    setForgotForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (error) setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setLoading(true);
+    setIsLoading(true);
 
     try {
-      if (mode === 'login') {
-        console.log('Attempting login with:', email);
-        const result = await signIn(email, password);
-        console.log('Login result:', result);
-        
-        if (result.success) {
-          console.log('Login successful, redirecting to home page...');
-          setSuccess('Login successful! Redirecting...');
-          setTimeout(() => {
-            console.log('Closing modal and redirecting...');
-            onClose();
-            setEmail('');
-            setPassword('');
-            setError('');
-            setSuccess('');
-            // Redirect to exchange page after successful login
-            router.push('/exchange');
-          }, 1500);
-        } else {
-          console.log('Login failed:', result.error);
-          setError(result.error?.message || 'Login failed');
-        }
-      } else {
-        // Register mode
-        if (password !== confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
+      if (!validateEmail(formData.email)) {
+        throw new Error('Please enter a valid email address');
+      }
 
-        if (password.length < 6) {
-          setError('Password must be at least 6 characters');
-          setLoading(false);
-          return;
+      if (!validatePassword(formData.password)) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      if (mode === 'register') {
+        if (!formData.firstName.trim() || !formData.lastName.trim()) {
+          throw new Error('First name and last name are required');
         }
-
-        const userData = {
-          username,
-          first_name: firstName,
-          last_name: lastName,
-          phone
-        };
-
-        const result = await signUp(email, password, userData);
-        if (result.success) {
-          setSuccess('Registration successful! Please check your email to verify your account.');
-          setTimeout(() => {
-            onClose();
-            resetForm();
-          }, 2000);
-        } else {
-          setError(result.error?.message || 'Registration failed');
+        if (!formData.username.trim()) {
+          throw new Error('Username is required');
+        }
+        if (!validatePhone(formData.phone)) {
+          throw new Error('Please enter a valid phone number');
         }
       }
-    } catch (error) {
-      console.error('Authentication error:', error);
-      setError('An unexpected error occurred');
+
+      if (mode === 'login') {
+        // Use AuthContext signIn function for login
+        const result = await signIn(formData.email, formData.password);
+        if (result.success) {
+          setSuccess('Login successful! Redirecting...');
+          onClose();
+          // Give authentication state time to settle before redirecting
+          setTimeout(async () => {
+            console.log('AuthModal: Redirecting to exchange after login');
+            await router.push('/exchange');
+          }, 500);
+        } else {
+          throw new Error(result.error?.message || 'Login failed');
+        }
+      } else {
+        // Handle registration with direct API call
+        const endpoint = '/api/auth/register';
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData),
+          credentials: 'include'
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Registration failed');
+        }
+        setSuccess('Registration successful! Please log in.');
+        setTimeout(() => {
+          setMode('login');
+          setFormData({
+            email: formData.email,
+            password: '',
+            firstName: '',
+            lastName: '',
+            username: '',
+            phone: ''
+          });
+        }, 2000);
+      }
+    } catch (err) {
+      setError(err.message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-    setUsername('');
-    setFirstName('');
-    setLastName('');
-    setPhone('');
+  const handleForgotPasswordSubmit = async (e) => {
+    e.preventDefault();
     setError('');
     setSuccess('');
-  };
+    setIsLoading(true);
 
-  const switchMode = () => {
-    setMode(mode === 'login' ? 'register' : 'login');
-    resetForm();
+    try {
+      if (forgotStep === 'email') {
+        if (!validateEmail(forgotForm.email)) {
+          throw new Error('Please enter a valid email address');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: forgotForm.email }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to send reset email');
+        }
+
+        setSuccess('Reset code sent to your email!');
+        setForgotStep('otp');
+      } else if (forgotStep === 'otp') {
+        if (!forgotForm.otp.trim()) {
+          throw new Error('Please enter the verification code');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/verify-reset-otp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            email: forgotForm.email, 
+            otp: forgotForm.otp 
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Invalid verification code');
+        }
+
+        setForgotForm(prev => ({ ...prev, resetToken: data.resetToken }));
+        setSuccess('Code verified! Enter your new password.');
+        setForgotStep('newPassword');
+      } else if (forgotStep === 'newPassword') {
+        if (!validatePassword(forgotForm.newPassword)) {
+          throw new Error('Password must be at least 6 characters long');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            resetToken: forgotForm.resetToken,
+            newPassword: forgotForm.newPassword 
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to reset password');
+        }
+
+        setSuccess('Password reset successful! You can now log in.');
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setForgotStep('email');
+          setForgotForm({ email: '', otp: '', newPassword: '', resetToken: '' });
+          setMode('login');
+        }, 2000);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -111,7 +237,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
       <div className="bg-gray-900 rounded-lg p-8 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-white">
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
+            {showForgotPassword ? 'Reset Password' : (mode === 'login' ? 'Log In' : 'Create Account')}
           </h2>
           <button
             onClick={onClose}
@@ -135,137 +261,235 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'register' && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
+        {showForgotPassword ? (
+          <div className="space-y-4">
+            <div className="flex items-center mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotStep('email');
+                  setForgotForm({ email: '', otp: '', newPassword: '', resetToken: '' });
+                  setError('');
+                  setSuccess('');
+                }}
+                className="text-gray-400 hover:text-white transition-colors mr-3"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h3 className="text-lg font-semibold text-white">
+                {forgotStep === 'email' && 'Reset Password'}
+                {forgotStep === 'otp' && 'Enter Verification Code'}
+                {forgotStep === 'newPassword' && 'Set New Password'}
+              </h3>
+            </div>
+
+            <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
+              {forgotStep === 'email' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    First Name
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={forgotForm.email}
+                    onChange={handleForgotInputChange}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter your email address"
+                    required
+                  />
+                </div>
+              )}
+
+              {forgotStep === 'otp' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Verification Code
                   </label>
                   <input
                     type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                    placeholder="First Name"
+                    name="otp"
+                    value={forgotForm.otp}
+                    onChange={handleForgotInputChange}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter 6-digit code"
+                    maxLength="6"
+                    required
                   />
+                  <p className="text-sm text-gray-400 mt-1">
+                    Check your email for the verification code
+                  </p>
                 </div>
+              )}
+
+              {forgotStep === 'newPassword' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Last Name
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    value={forgotForm.newPassword}
+                    onChange={handleForgotInputChange}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter new password"
+                    required
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? 'Processing...' : (
+                  forgotStep === 'email' ? 'Send Reset Code' :
+                  forgotStep === 'otp' ? 'Verify Code' :
+                  'Reset Password'
+                )}
+              </button>
+            </form>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'register' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="First name"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Last name"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Username
                   </label>
                   <input
                     type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                    placeholder="Last Name"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Choose a username"
+                    required
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                  placeholder="Username"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                  placeholder="Phone Number"
-                />
-              </div>
-            </>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-              placeholder="Enter your email"
-            />
-          </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Phone number"
+                    required
+                  />
+                </div>
+              </>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-              placeholder="Enter your password"
-            />
-          </div>
-
-          {mode === 'register' && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                Confirm Password
+                Email Address
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Password
               </label>
               <input
                 type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your password"
                 required
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                placeholder="Confirm your password"
               />
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-medium rounded transition-colors"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {mode === 'login' ? 'Signing In...' : 'Creating Account...'}
-              </span>
-            ) : (
-              mode === 'login' ? 'Sign In' : 'Create Account'
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? 'Processing...' : (mode === 'login' ? 'Log In' : 'Create Account')}
+            </button>
+
+            {mode === 'login' && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             )}
-          </button>
-        </form>
+          </form>
+        )}
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={switchMode}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            {mode === 'login' 
-              ? "Don't have an account? Sign up" 
-              : "Already have an account? Sign in"
-            }
-          </button>
-        </div>
+        {!showForgotPassword && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+              className="text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              {mode === 'login' 
+                ? "Don't have an account? Sign up" 
+                : "Already have an account? Log in"
+              }
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
-} 
+}
+
+export default AuthModal;

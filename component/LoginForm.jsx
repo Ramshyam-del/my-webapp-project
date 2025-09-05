@@ -67,7 +67,7 @@ export const LoginForm = () => {
       if (forgotStep === 'email') {
         // Use Supabase password reset
         const { error } = await supabase.auth.resetPasswordForEmail(forgotForm.email, {
-          redirectTo: `${getSafeLocation()?.origin || 'http://localhost:3000'}/reset-password`
+          redirectTo: `${getSafeLocation()?.origin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/reset-password`
         });
         
         if (error) {
@@ -220,4 +220,4 @@ export const LoginForm = () => {
       )}
     </div>
   );
-}; 
+};

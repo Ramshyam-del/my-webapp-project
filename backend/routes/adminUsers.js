@@ -224,4 +224,143 @@ router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/users/kyc - Get users with KYC information
+router.get('/kyc', authenticateUser, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    let query = serverSupabase
+      .from('users')
+      .select(`
+        id, 
+        email, 
+        username,
+        first_name,
+        last_name,
+        document_verification_status,
+        kyc_verified_at,
+        created_at,
+        updated_at
+      `)
+      .order('created_at', { ascending: false });
+    
+    // Filter by KYC status if provided
+    if (status && ['pending', 'approved', 'rejected', 'not_submitted'].includes(status)) {
+      query = query.eq('document_verification_status', status);
+    }
+    
+    const { data: users, error } = await query;
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Transform data to match frontend expectations
+    const transformedUsers = users.map(user => ({
+      id: user.id,
+      user: user.email,
+      status: user.document_verification_status || 'not_submitted',
+      submittedAt: user.updated_at || user.created_at,
+      documents: [], // We'll add document handling later if needed
+      notes: user.kyc_verified_at 
+        ? `Verified on ${new Date(user.kyc_verified_at).toLocaleDateString()}`
+        : user.document_verification_status === 'rejected'
+        ? 'KYC verification rejected'
+        : user.document_verification_status === 'pending'
+        ? 'KYC verification pending review'
+        : 'KYC not submitted',
+      username: user.username,
+      first_name: user.first_name,
+      last_name: user.last_name
+    }));
+    
+    res.json({
+      ok: true,
+      data: transformedUsers
+    });
+  } catch (error) {
+    console.error('GET /api/admin/users/kyc failed:', error);
+    res.status(500).json({
+      ok: false,
+      code: 'server_error',
+      message: 'Failed to fetch KYC data'
+    });
+  }
+});
+
+// PATCH /api/admin/users/:id/kyc - Update user KYC status
+router.patch('/:id/kyc', authenticateUser, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes } = req.body;
+    
+    if (!id) {
+      return res.status(400).json({
+        ok: false,
+        code: 'bad_request',
+        message: 'User id required'
+      });
+    }
+    
+    if (!status || !['approved', 'rejected', 'pending'].includes(status)) {
+      return res.status(400).json({
+        ok: false,
+        code: 'bad_request',
+        message: 'Valid status required (approved, rejected, pending)'
+      });
+    }
+    
+    const updates = {
+      document_verification_status: status,
+      updated_at: new Date().toISOString()
+    };
+    
+    // Set kyc_verified_at timestamp for approved status
+    if (status === 'approved') {
+      updates.kyc_verified_at = new Date().toISOString();
+      updates.verification_level = 'kyc_verified';
+    } else if (status === 'rejected') {
+      updates.kyc_verified_at = null;
+      updates.verification_level = 'email_verified';
+    } else {
+      updates.kyc_verified_at = null;
+      updates.verification_level = 'kyc_pending';
+    }
+    
+    // Add admin notes if provided
+    if (notes) {
+      updates.admin_notes = notes;
+    }
+    
+    const { data: user, error } = await serverSupabase
+      .from('users')
+      .update(updates)
+      .eq('id', id)
+      .select('id, email, document_verification_status, kyc_verified_at, verification_level')
+      .single();
+    
+    if (error) {
+      throw error;
+    }
+    
+    res.json({
+      ok: true,
+      data: {
+        id: user.id,
+        email: user.email,
+        status: user.document_verification_status,
+        kyc_verified_at: user.kyc_verified_at,
+        verification_level: user.verification_level
+      }
+    });
+  } catch (error) {
+    console.error('PATCH /api/admin/users/:id/kyc failed:', error);
+    res.status(500).json({
+      ok: false,
+      code: 'server_error',
+      message: 'Failed to update KYC status'
+    });
+  }
+});
+
 module.exports = router;
