@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
+    "build": "npm install --legacy-peer-deps && next build",
     "start": "next start -p 3000",
     "lint": "next lint",
     "format": "prettier --write .",
@@ -28,7 +28,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@rainbow-me/rainbowkit": "^2.2.0",
+    "@rainbow-me/rainbowkit": "^2.1.0",
     "@supabase/supabase-js": "^2.53.0",
     "autoprefixer": "^10.4.20",
     "chart.js": "^4.5.0",
@@ -52,7 +52,7 @@
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
     "viem": "^2.37.2",
-    "wagmi": "^2.14.3"
+    "wagmi": "^2.12.0"
   },
   "devDependencies": {
     "dotenv": "^17.2.1",
