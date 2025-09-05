@@ -1,103 +1,125 @@
-# Quantex - Cryptocurrency Exchange Platform
+# Cross-Browser Synchronization Web Application
 
-A modern cryptocurrency exchange platform built with Next.js, Express.js, and Supabase.
+A comprehensive web application with advanced cross-browser synchronization capabilities, real-time state management, and seamless multi-device experience.
+
+## Features
+
+### 🔄 Cross-Browser Synchronization
+- **Real-time state synchronization** across multiple browser instances
+- **Shared authentication** with automatic login/logout sync
+- **Live data updates** for balances, portfolios, and user preferences
+- **Cross-device notifications** for trades and important events
+- **Session conflict resolution** for simultaneous actions
+
+### 🔐 Authentication & Security
+- Server-side session storage with Redis/database persistence
+- Secure token management across browser instances
+- Session monitoring and management
+- Automatic session cleanup and security alerts
+
+### 📡 Real-Time Communication
+- BroadcastChannel API for instant cross-browser messaging
+- Enhanced WebSocket broadcasting across all user sessions
+- Efficient state synchronization with debouncing and conflict resolution
+- Push notifications with service worker integration
+
+### 🎯 Advanced Features
+- Session conflict detection and resolution strategies
+- Cross-device notification system with priority levels
+- Real-time portfolio and balance synchronization
+- Comprehensive notification center with filtering
+- Conflict management dashboard
+
+## Project Structure
+
+```
+my-webapp-project/
+├── components/
+│   ├── conflicts/
+│   │   ├── ConflictManager.js          # Session conflict management UI
+│   │   └── ConflictManager.css         # Conflict manager styles
+│   └── notifications/
+│       ├── NotificationCenter.js       # Notification display center
+│       ├── NotificationCenter.css      # Notification center styles
+│       ├── NotificationItem.js         # Individual notification component
+│       ├── NotificationItem.css        # Notification item styles
+│       ├── NotificationSettings.js     # Notification preferences UI
+│       └── NotificationSettings.css    # Notification settings styles
+├── contexts/
+│   └── CrossBrowserAuthContext.js      # Cross-browser authentication context
+├── hooks/
+│   ├── useCrossDeviceNotifications.js  # Notification management hooks
+│   ├── useRealTimeState.js             # Real-time state synchronization hooks
+│   └── useSessionConflictResolver.js   # Session conflict resolution hooks
+├── services/
+│   ├── broadcastService.js             # BroadcastChannel communication service
+│   ├── crossDeviceNotifications.js     # Cross-device notification system
+│   ├── realTimeStateSync.js            # Real-time state synchronization
+│   ├── sessionConflictResolver.js      # Session conflict resolution logic
+│   └── sessionStorage.js               # Server-side session management
+├── docs/
+│   └── CrossBrowserSyncGuide.md        # Comprehensive implementation guide
+└── README.md                           # This file
+```
 
 ## Quick Start
 
-### Option 1: Use the PowerShell Script (Recommended)
-```powershell
-powershell -ExecutionPolicy Bypass -File start_servers.ps1
+### 1. Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd my-webapp-project
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-### Option 2: Manual Start
-1. Start Backend Server:
-   ```bash
-   cd backend
-   npm start
-   ```
+### 2. Environment Configuration
 
-2. Start Frontend Server (in a new terminal):
-   ```bash
-   npm run dev
-   ```
-
-## Server URLs
- - **Frontend**: http://localhost:3000
- - **Backend**: http://localhost:4001
-
-## Environment configuration
-
-Create `.env.local` and `backend/.env` with these keys:
-
-```
-# frontend
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_BACKEND_URL=http://localhost:4001
-
-# backend
+```env
+# Backend Configuration
+REDIS_URL=redis://localhost:6379
 SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-BACKEND_PORT=4001
-CORS_ORIGIN=http://localhost:3000
-COINMARKETCAP_API_KEY=optional
-NODE_ENV=production
+
+# Session Configuration
+SESSION_TIMEOUT=86400000  # 24 hours
+SESSION_CLEANUP_INTERVAL=3600000  # 1 hour
+
+# Notification Configuration
+VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
 ```
 
-Never commit real keys. Use the provided `.env.example` files for placeholders.
+### 3. Basic Setup
 
-Git ignore rules must block env files:
+```javascript
+// In your main App.js
+import { CrossBrowserAuthProvider } from './contexts/CrossBrowserAuthContext.js';
+import { broadcastService } from './services/broadcastService.js';
+import { realTimeStateSync } from './services/realTimeStateSync.js';
 
+// Initialize services
+broadcastService.initialize();
+realTimeStateSync.initialize();
+
+function App() {
+  return (
+    <CrossBrowserAuthProvider>
+      {/* Your app components */}
+    </CrossBrowserAuthProvider>
+  );
+}
 ```
-.env
-.env.*
-backend/.env
+
+### 4. Start Development Server
+
+```bash
+npm start
 ```
-
-Key rotation:
-- Rotate in Supabase Dashboard → Settings → API
-- Update new keys in your envs; redeploy backend and frontend
-
-Admin creation:
-- Prefer Supabase Auth UI to create admin; then in SQL: `update users set role='admin' where email = $1;`
-- Or run: `ADMIN_EMAIL=... ADMIN_PASSWORD=... node scripts/set-admin.js`
-
-Ensure admin profile row exists:
-- Run: `ADMIN_EMAIL=... node scripts/ensure-admin-user.js`
-  - Resolves auth UID for ADMIN_EMAIL
-  - Upserts `public.users` with id=UID, role='admin', status='active'
-
-Login verification contract:
-- Client: sign in via Supabase, then call `GET /api/admin/me` with `Authorization: Bearer <access_token>`
-- Server: verifies token (or Supabase cookies), fetches profile by auth UID
-- Responses:
-  - 200 `{ ok: true, user }` only if `role='admin'`
-  - 403 `{ ok: false, code: 'not_admin', message: 'Not an admin' }`
-  - 401 `{ ok: false, code: 'unauthorized' }`
-
-## Features
-- Real-time cryptocurrency price data via CoinMarketCap API
-- User authentication with Supabase
-- Admin panel for system management
-- Mobile-responsive design
-- Real-time configuration updates
-
-## Troubleshooting
-
-### If API calls fail:
-1. Ensure both servers are running
-2. Check that backend is on port 4001
-3. Check that frontend is on port 3000
-4. Verify environment variables are set in `.env.local`
-
-### If servers won't start:
-1. Kill existing Node.js processes: `taskkill /f /im node.exe`
-2. Run the PowerShell script again
-
-## Environment Variables
-Make sure `.env.local` contains:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `COINMARKETCAP_API_KEY`
-- `BACKEND_PORT=4001`

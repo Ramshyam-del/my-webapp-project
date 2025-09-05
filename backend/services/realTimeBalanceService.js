@@ -1,5 +1,6 @@
 const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
+const sessionService = require('./sessionService');
 
 // Initialize Supabase client with real-time configuration
 const supabase = createClient(
@@ -22,7 +23,10 @@ class RealTimeBalanceService {
   constructor() {
     this.wss = null;
     this.clients = new Map(); // userId -> Set of WebSocket connections
+    this.sessionClients = new Map(); // sessionId -> WebSocket connection
+    this.userSessions = new Map(); // userId -> Set of sessionIds
     this.isRunning = false;
+    this.sessionService = sessionService;
   }
 
   start(server) {
@@ -68,7 +72,7 @@ class RealTimeBalanceService {
   }
 
   async handleMessage(ws, data) {
-    const { type, userId, token } = data;
+    const { type, userId, token, sessionData } = data;
 
     switch (type) {
       case 'authenticate':
@@ -79,6 +83,15 @@ class RealTimeBalanceService {
         break;
       case 'unsubscribe_balance':
         this.unsubscribeFromBalance(ws, userId);
+        break;
+      case 'sync_session_data':
+        await this.handleSessionDataSync(ws, sessionData);
+        break;
+      case 'broadcast_to_sessions':
+        await this.handleBroadcastToSessions(ws, data);
+        break;
+      case 'request_session_list':
+        await this.handleSessionListRequest(ws);
         break;
       default:
         ws.send(JSON.stringify({ error: 'Unknown message type' }));
@@ -99,14 +112,47 @@ class RealTimeBalanceService {
         return;
       }
 
-      // Store authenticated user info
+      // Create or validate session for cross-browser sync
+      const deviceInfo = {
+        userAgent: ws.upgradeReq?.headers['user-agent'] || 'Unknown',
+        timestamp: Date.now()
+      };
+      
+      const sessionResult = await this.sessionService.createSession(
+        userId, 
+        deviceInfo, 
+        ws.upgradeReq?.connection?.remoteAddress,
+        deviceInfo.userAgent
+      );
+
+      // Store authenticated user and session info
       ws.userId = userId;
+      ws.sessionId = sessionResult.sessionId;
+      ws.sessionToken = sessionResult.sessionToken;
       ws.authenticated = true;
+      
+      // Map session to WebSocket
+      this.sessionClients.set(sessionResult.sessionId, ws);
+      
+      // Track user sessions
+      if (!this.userSessions.has(userId)) {
+        this.userSessions.set(userId, new Set());
+      }
+      this.userSessions.get(userId).add(sessionResult.sessionId);
       
       ws.send(JSON.stringify({ 
         type: 'auth_success', 
-        message: 'Authentication successful' 
+        message: 'Authentication successful',
+        sessionId: sessionResult.sessionId,
+        sessionToken: sessionResult.sessionToken
       }));
+      
+      // Broadcast session creation to other browser instances
+      this.broadcastSessionEvent(userId, 'session_created', {
+        sessionId: sessionResult.sessionId,
+        deviceInfo,
+        timestamp: Date.now()
+      }, sessionResult.sessionId);
       
     } catch (error) {
       console.error('Authentication error:', error);
@@ -158,6 +204,32 @@ class RealTimeBalanceService {
         this.clients.delete(ws.userId);
       }
     }
+    
+    // Handle session cleanup
+    if (ws.sessionId) {
+      this.sessionClients.delete(ws.sessionId);
+      
+      if (ws.userId && this.userSessions.has(ws.userId)) {
+        this.userSessions.get(ws.userId).delete(ws.sessionId);
+        if (this.userSessions.get(ws.userId).size === 0) {
+          this.userSessions.delete(ws.userId);
+        }
+      }
+      
+      // Invalidate session in database
+      if (ws.sessionToken) {
+        this.sessionService.invalidateSession(ws.sessionToken)
+          .catch(error => console.error('Error invalidating session:', error));
+      }
+      
+      // Broadcast session end to other browser instances
+      if (ws.userId) {
+        this.broadcastSessionEvent(ws.userId, 'session_ended', {
+          sessionId: ws.sessionId,
+          timestamp: Date.now()
+        }, ws.sessionId);
+      }
+    }
   }
 
   async sendCurrentBalance(userId) {
@@ -193,8 +265,8 @@ class RealTimeBalanceService {
         });
       }
 
-      // Send to all connected clients for this user
-      this.broadcastToUser(userId, balanceData);
+      // Send to all connected clients for this user (cross-browser)
+      this.broadcastToAllUserSessions(userId, balanceData);
       
     } catch (error) {
       console.error('Error sending current balance:', error);
@@ -221,6 +293,162 @@ class RealTimeBalanceService {
     }
   }
 
+  /**
+   * Broadcast session events to all user's browser instances except the sender
+   */
+  broadcastSessionEvent(userId, eventType, eventData, excludeSessionId = null) {
+    if (!this.userSessions.has(userId)) return;
+
+    const userSessionIds = this.userSessions.get(userId);
+    const message = JSON.stringify({
+      type: 'session_event',
+      eventType,
+      data: eventData,
+      timestamp: Date.now()
+    });
+
+    userSessionIds.forEach(sessionId => {
+      if (sessionId !== excludeSessionId && this.sessionClients.has(sessionId)) {
+        const ws = this.sessionClients.get(sessionId);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(message);
+        }
+      }
+    });
+  }
+
+  /**
+   * Broadcast data to all sessions of a user across browsers
+   */
+  broadcastToAllUserSessions(userId, data, excludeSessionId = null) {
+    if (!this.userSessions.has(userId)) return;
+
+    const userSessionIds = this.userSessions.get(userId);
+    const message = JSON.stringify(data);
+
+    userSessionIds.forEach(sessionId => {
+      if (sessionId !== excludeSessionId && this.sessionClients.has(sessionId)) {
+        const ws = this.sessionClients.get(sessionId);
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(message);
+        }
+      }
+    });
+  }
+
+  /**
+    * Sync session data across all user's browser instances
+    */
+   async syncSessionData(userId, sessionData, sourceSessionId) {
+     try {
+       // Update session data in database
+       const sessions = await this.sessionService.getAllUserSessions(userId);
+       
+       for (const session of sessions) {
+         if (session.id !== sourceSessionId) {
+           await this.sessionService.updateSessionData(session.session_token, sessionData);
+         }
+       }
+
+       // Broadcast to connected sessions
+       this.broadcastToAllUserSessions(userId, {
+         type: 'session_data_sync',
+         sessionData,
+         timestamp: Date.now()
+       }, sourceSessionId);
+
+     } catch (error) {
+       console.error('Error syncing session data:', error);
+     }
+   }
+
+   /**
+    * Handle session data synchronization request
+    */
+   async handleSessionDataSync(ws, sessionData) {
+     if (!ws.authenticated || !ws.userId || !ws.sessionId) {
+       ws.send(JSON.stringify({ 
+         type: 'error', 
+         message: 'Not authenticated' 
+       }));
+       return;
+     }
+
+     try {
+       await this.syncSessionData(ws.userId, sessionData, ws.sessionId);
+       
+       ws.send(JSON.stringify({ 
+         type: 'session_sync_success', 
+         message: 'Session data synchronized' 
+       }));
+     } catch (error) {
+       console.error('Session sync error:', error);
+       ws.send(JSON.stringify({ 
+         type: 'error', 
+         message: 'Failed to sync session data' 
+       }));
+     }
+   }
+
+   /**
+    * Handle broadcast to all user sessions
+    */
+   async handleBroadcastToSessions(ws, data) {
+     if (!ws.authenticated || !ws.userId) {
+       ws.send(JSON.stringify({ 
+         type: 'error', 
+         message: 'Not authenticated' 
+       }));
+       return;
+     }
+
+     const { broadcastType, broadcastData } = data;
+     
+     this.broadcastToAllUserSessions(ws.userId, {
+       type: 'cross_browser_broadcast',
+       broadcastType,
+       data: broadcastData,
+       sourceSessionId: ws.sessionId,
+       timestamp: Date.now()
+     }, ws.sessionId);
+   }
+
+   /**
+    * Handle session list request
+    */
+   async handleSessionListRequest(ws) {
+     if (!ws.authenticated || !ws.userId) {
+       ws.send(JSON.stringify({ 
+         type: 'error', 
+         message: 'Not authenticated' 
+       }));
+       return;
+     }
+
+     try {
+       const sessions = await this.sessionService.getAllUserSessions(ws.userId);
+       const activeSessions = sessions.map(session => ({
+         id: session.id,
+         deviceInfo: session.device_info,
+         lastActivity: session.last_activity,
+         isConnected: this.sessionClients.has(session.id),
+         isCurrent: session.id === ws.sessionId
+       }));
+
+       ws.send(JSON.stringify({ 
+         type: 'session_list', 
+         sessions: activeSessions,
+         currentSessionId: ws.sessionId
+       }));
+     } catch (error) {
+       console.error('Session list error:', error);
+       ws.send(JSON.stringify({ 
+         type: 'error', 
+         message: 'Failed to get session list' 
+       }));
+     }
+   }
+
   setupSupabaseSubscriptions() {
     console.log('Setting up Supabase real-time subscriptions...');
     
@@ -240,7 +468,7 @@ class RealTimeBalanceService {
           console.log('📧 User ID from payload:', userId);
           console.log('👥 Connected clients:', Array.from(this.clients.keys()));
           
-          if (userId && this.clients.has(userId)) {
+          if (userId && (this.clients.has(userId) || this.userSessions.has(userId))) {
             console.log('📤 Sending balance update to user:', userId);
             await this.sendCurrentBalance(userId);
           } else {
@@ -273,11 +501,11 @@ class RealTimeBalanceService {
           console.log('📧 Transaction user ID:', userId);
           console.log('👥 Connected clients:', Array.from(this.clients.keys()));
           
-          if (userId && this.clients.has(userId)) {
+          if (userId && (this.clients.has(userId) || this.userSessions.has(userId))) {
             console.log('📤 Sending transaction notification to user:', userId);
             
-            // Send notification about the transaction
-            this.broadcastToUser(userId, {
+            // Send notification about the transaction to all sessions
+            this.broadcastToAllUserSessions(userId, {
               type: 'transaction_notification',
               transaction: {
                 id: payload.new.id,

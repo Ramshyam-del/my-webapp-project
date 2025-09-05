@@ -27,13 +27,7 @@ function extractToken(req) {
 async function authenticateUser(req, res, next) {
   // Note: Admin routes should be authenticated, not bypassed
   
-  // Optional debug logging
-  if (process.env.DEBUG_ADMIN_AUTH === '1' && !res.headersSent) {
-    console.warn('[globalAuthBlocked]', req.originalUrl);
-  }
-  
   try {
-
     // Check if Supabase is configured
     if (!serverSupabase) {
       return res.status(503).json({ 
@@ -54,17 +48,22 @@ async function authenticateUser(req, res, next) {
     }
 
     // Validate token with Supabase
+    console.log('🔍 Validating token with Supabase...');
     const { data: { user }, error: authError } = await serverSupabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.log(`❌ Token validation failed: ${authError?.message || 'No user found'}`);
       return res.status(401).json({ 
         ok: false, 
         code: 'unauthorized', 
         message: 'Invalid authentication token' 
       });
     }
+    
+    console.log(`✅ Token valid for user: ${user.email} (ID: ${user.id})`);
 
     // Get user profile from database
+    console.log(`🔍 Fetching profile for user ID: ${user.id}`);
     const { data: profile, error: profileError } = await serverSupabase
       .from('users')
       .select('id, email, role, status')
@@ -73,16 +72,19 @@ async function authenticateUser(req, res, next) {
 
     if (profileError) {
       // If table doesn't exist or RLS blocks access, return unauthorized
-      console.warn('Profile fetch error:', profileError.message);
+      console.log(`❌ Profile fetch error: ${profileError.message}`);
       return res.status(401).json({ 
         ok: false, 
         code: 'unauthorized', 
         message: 'User profile not found' 
       });
     }
+    
+    console.log(`✅ Profile found: ${profile.email} (Role: ${profile.role}, Status: ${profile.status})`);
 
     // Attach user to request
     req.user = profile;
+    console.log(`✅ Authentication successful for ${profile.email}`);
     next();
   } catch (error) {
     console.error('Authentication error:', error);
@@ -109,7 +111,7 @@ async function requireAdmin(req, res, next) {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ 
       ok: false, 
-      code: 'forbidden', 
+      code: 'access_denied', 
       message: 'Admin access required' 
     });
   }

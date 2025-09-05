@@ -39,7 +39,7 @@ app.use(cors({
   origin: config.cors.origins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-session-token']
 }));
 
 // Body parsing middleware
@@ -73,6 +73,8 @@ const adminSecurityRouter = require('./routes/adminSecurity');
 const userActivitiesRouter = require('./routes/userActivities');
 const tradesRouter = require('./routes/trades');
 const depositsRouter = require('./routes/deposits');
+const sessionsRouter = require('./routes/sessions');
+const triggerBalanceUpdateRouter = require('./routes/triggerBalanceUpdate');
 const { startSettlementWorker } = require('./worker/settleTrades');
 
 // Admin routes with Supabase authentication (for /me, /users, etc.)
@@ -96,6 +98,12 @@ app.use('/api/auth', authRouter);
 
 // Public user routes
 app.use('/api/trades', tradesRouter);
+
+// Session management routes
+app.use('/api/sessions', sessionsRouter);
+
+// Internal system routes
+app.use('/api', triggerBalanceUpdateRouter);
 
 // Start worker
 startSettlementWorker();

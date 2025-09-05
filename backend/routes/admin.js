@@ -1,8 +1,12 @@
 const express = require('express');
 const { authenticateUser, requireAdmin } = require('../middleware/requireAdmin');
 const { serverSupabase } = require('../lib/supabaseServer');
+const adminUsersRouter = require('./adminUsers');
 
 const router = express.Router();
+
+// Mount users routes
+router.use('/users', adminUsersRouter);
 
 // GET /api/admin/health - Health check endpoint
 router.get('/health', (req, res) => {

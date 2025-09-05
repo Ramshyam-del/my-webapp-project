@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { authedFetchJson } from '../../lib/authedFetch';
 import AdminLayout from '../../component/AdminLayout';
 import AdminDashboard from '../../component/AdminDashboard';
+import AdminAuthGuard from '../../component/AdminAuthGuard';
 
 export default function AdminHome() {
   const router = useRouter();
@@ -84,9 +85,11 @@ export default function AdminHome() {
   }
 
   return (
-    <AdminLayout title="Admin Dashboard">
-      <AdminDashboard />
-    </AdminLayout>
+    <AdminAuthGuard>
+      <AdminLayout title="Admin Dashboard">
+        <AdminDashboard />
+      </AdminLayout>
+    </AdminAuthGuard>
   );
 }
 

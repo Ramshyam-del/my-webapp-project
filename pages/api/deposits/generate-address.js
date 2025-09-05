@@ -35,7 +35,7 @@ export default async function handler(req, res) {
           .from('crypto_deposits')
           .select('*')
           .eq('user_id', user.id)
-          .eq('crypto_type', cryptoType)
+          .eq('currency', cryptoType)
           .in('status', ['pending', 'confirming', 'partial'])
           .single();
 
@@ -43,13 +43,13 @@ export default async function handler(req, res) {
           res.status(200).json({
             success: true,
             data: {
-              address: existingDeposit.wallet_address,
-              qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${existingDeposit.wallet_address}`,
+              address: existingDeposit.deposit_address,
+              qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${existingDeposit.deposit_address}`,
               network: getNetworkName(cryptoType),
-              amount: existingDeposit.expected_amount,
+              amount: existingDeposit.amount,
               depositId: existingDeposit.id,
               status: existingDeposit.status,
-              expiresAt: existingDeposit.expires_at
+              expiresAt: existingDeposit.created_at
             },
             message: 'Using existing active deposit'
           });
@@ -62,12 +62,12 @@ export default async function handler(req, res) {
           .from('user_wallet_addresses')
           .select('*')
           .eq('user_id', user.id)
-          .eq('crypto_type', cryptoType)
+          .eq('currency', cryptoType)
           .eq('is_active', true)
           .single();
 
         if (existingAddress) {
-          walletAddress = existingAddress.wallet_address;
+          walletAddress = existingAddress.address;
         } else {
           // Generate new wallet address
           walletAddress = generateMockAddress(cryptoType);
@@ -77,8 +77,9 @@ export default async function handler(req, res) {
             .from('user_wallet_addresses')
             .insert({
               user_id: user.id,
-              crypto_type: cryptoType,
-              wallet_address: walletAddress,
+              currency: cryptoType,
+              address: walletAddress,
+              network: getNetworkName(cryptoType).toLowerCase().replace(/\s+/g, '-'),
               is_active: true
             });
 
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
         const { data: config } = await supabaseAdmin
           .from('deposit_monitoring_config')
           .select('*')
-          .eq('crypto_type', cryptoType)
+          .eq('currency', cryptoType)
           .single();
 
         const requiredConfirmations = config?.required_confirmations || 6;
@@ -109,14 +110,13 @@ export default async function handler(req, res) {
           .insert({
             id: depositId,
             user_id: user.id,
-            crypto_type: cryptoType,
-            wallet_address: walletAddress,
-            expected_amount: amount,
-            current_balance: 0,
+            currency: cryptoType,
+            deposit_address: walletAddress,
+            amount: amount,
             status: 'pending',
             required_confirmations: requiredConfirmations,
             confirmations: 0,
-            expires_at: expiresAt.toISOString(),
+            network: getNetworkName(cryptoType).toLowerCase().replace(/\s+/g, '-'),
             created_at: new Date().toISOString()
           })
           .select()
@@ -149,13 +149,13 @@ export default async function handler(req, res) {
         res.status(200).json({
           success: true,
           data: {
-            address: deposit.wallet_address,
-            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${deposit.wallet_address}`,
+            address: deposit.deposit_address,
+            qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${deposit.deposit_address}`,
             network: getNetworkName(cryptoType),
-            amount: deposit.expected_amount,
+            amount: deposit.amount,
             depositId: deposit.id,
             status: deposit.status,
-            expiresAt: deposit.expires_at
+            expiresAt: deposit.created_at
           }
         });
         resolve();

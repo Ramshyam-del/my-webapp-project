@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { authedFetch } from '../../lib/authedFetch';
+import AdminAuthGuard from '../../component/AdminAuthGuard';
 
-export default function AdminKYC() {
+function AdminKYCContent() {
   const [kycRequests, setKycRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -15,15 +17,9 @@ export default function AdminKYC() {
       setLoading(true);
       setError('');
       
-      const response = await fetch('/api/admin/users/kyc', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
+      console.log('🔍 Fetching KYC data...');
+      const result = await authedFetch('/api/admin/users/kyc');
+      console.log('📋 KYC Result:', result);
       
       if (!result.ok) {
         throw new Error(result.message || 'Failed to fetch KYC data');
@@ -66,19 +62,13 @@ export default function AdminKYC() {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const response = await fetch(`/api/admin/users/${id}/kyc`, {
+      const result = await authedFetch(`/api/admin/users/${id}/kyc`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
         body: JSON.stringify({
           status: newStatus,
           notes: `Status changed to ${newStatus} by admin`
         })
       });
-      
-      const result = await response.json();
       
       if (!result.ok) {
         throw new Error(result.message || 'Failed to update KYC status');
@@ -306,5 +296,13 @@ export default function AdminKYC() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminKYC() {
+  return (
+    <AdminAuthGuard>
+      <AdminKYCContent />
+    </AdminAuthGuard>
   );
 }

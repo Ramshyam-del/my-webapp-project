@@ -84,6 +84,23 @@ export default async function handler(req, res) {
       // Don't fail the request if transaction logging fails
     }
 
+    // Manually trigger real-time balance update via HTTP request to backend
+    try {
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:4001';
+      await fetch(`${backendUrl}/api/trigger-balance-update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+        },
+        body: JSON.stringify({ userId })
+      });
+      console.log('Balance update triggered for user:', userId);
+    } catch (triggerError) {
+      console.error('Failed to trigger balance update:', triggerError);
+      // Don't fail the main request if trigger fails
+    }
+
     res.status(200).json({
       ok: true,
       data: {

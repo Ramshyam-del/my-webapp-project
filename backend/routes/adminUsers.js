@@ -237,8 +237,7 @@ router.get('/kyc', authenticateUser, requireAdmin, async (req, res) => {
         username,
         first_name,
         last_name,
-        document_verification_status,
-        kyc_verified_at,
+        kyc_status,
         created_at,
         updated_at
       `)
@@ -246,7 +245,7 @@ router.get('/kyc', authenticateUser, requireAdmin, async (req, res) => {
     
     // Filter by KYC status if provided
     if (status && ['pending', 'approved', 'rejected', 'not_submitted'].includes(status)) {
-      query = query.eq('document_verification_status', status);
+      query = query.eq('kyc_status', status);
     }
     
     const { data: users, error } = await query;
@@ -259,14 +258,14 @@ router.get('/kyc', authenticateUser, requireAdmin, async (req, res) => {
     const transformedUsers = users.map(user => ({
       id: user.id,
       user: user.email,
-      status: user.document_verification_status || 'not_submitted',
+      status: user.kyc_status || 'not_submitted',
       submittedAt: user.updated_at || user.created_at,
       documents: [], // We'll add document handling later if needed
-      notes: user.kyc_verified_at 
-        ? `Verified on ${new Date(user.kyc_verified_at).toLocaleDateString()}`
-        : user.document_verification_status === 'rejected'
+      notes: user.kyc_status === 'approved'
+        ? `Verified on ${new Date(user.updated_at).toLocaleDateString()}`
+        : user.kyc_status === 'rejected'
         ? 'KYC verification rejected'
-        : user.document_verification_status === 'pending'
+        : user.kyc_status === 'pending'
         ? 'KYC verification pending review'
         : 'KYC not submitted',
       username: user.username,
@@ -311,32 +310,27 @@ router.patch('/:id/kyc', authenticateUser, requireAdmin, async (req, res) => {
     }
     
     const updates = {
-      document_verification_status: status,
+      kyc_status: status,
       updated_at: new Date().toISOString()
     };
     
-    // Set kyc_verified_at timestamp for approved status
+    // Set verification level based on status
     if (status === 'approved') {
-      updates.kyc_verified_at = new Date().toISOString();
       updates.verification_level = 'kyc_verified';
     } else if (status === 'rejected') {
-      updates.kyc_verified_at = null;
       updates.verification_level = 'email_verified';
     } else {
-      updates.kyc_verified_at = null;
       updates.verification_level = 'kyc_pending';
     }
     
-    // Add admin notes if provided
-    if (notes) {
-      updates.admin_notes = notes;
-    }
+    // Note: admin_notes column doesn't exist in database
+    // Notes functionality can be added later if needed
     
     const { data: user, error } = await serverSupabase
       .from('users')
       .update(updates)
       .eq('id', id)
-      .select('id, email, document_verification_status, kyc_verified_at, verification_level')
+      .select('id, email, kyc_status, verification_level')
       .single();
     
     if (error) {
@@ -348,8 +342,7 @@ router.patch('/:id/kyc', authenticateUser, requireAdmin, async (req, res) => {
       data: {
         id: user.id,
         email: user.email,
-        status: user.document_verification_status,
-        kyc_verified_at: user.kyc_verified_at,
+        status: user.kyc_status,
         verification_level: user.verification_level
       }
     });

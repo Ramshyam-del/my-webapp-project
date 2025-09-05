@@ -370,121 +370,86 @@ export default function PortfolioPage() {
     return result;
   };
 
-  // Fetch real-time price data - LIVE DATA ONLY
+  // Fetch real-time price data from internal API
   const fetchMarketData = async () => {
     try {
       setLoading(true);
       setError('');
       
-      // Use Binance API - more reliable than CoinGecko
-      const response = await fetch('https://api.binance.com/api/v3/ticker/24hr', {
+      // Use internal API endpoint - same as market page
+      const response = await fetch('/api/crypto/top-all', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Content-Type': 'application/json',
         },
         signal: AbortSignal.timeout(10000), // 10 second timeout
       });
       
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Filter and format data for our crypto list
-      const formattedData = cryptoList.map(crypto => {
-        const symbol = crypto.symbol + 'USDT';
-        const binanceData = data.find(item => item.symbol === symbol);
+      if (response.ok) {
+        const data = await response.json();
         
-        if (!binanceData) {
-          // Fallback to other symbols if exact match not found
-          const fallbackSymbols = [crypto.symbol + 'USDT', crypto.symbol + 'USD', crypto.symbol + 'BTC'];
-          const fallbackData = data.find(item => fallbackSymbols.includes(item.symbol));
+        // Map API data to our crypto list format
+        const formattedData = cryptoList.map(crypto => {
+          // Find matching data from API
+          const apiData = data.data.find(item => 
+            item.symbol === crypto.symbol || item.id === crypto.id
+          );
           
-          if (!fallbackData) {
-            throw new Error(`No data available for ${crypto.symbol}`);
-          }
-          
-          return {
-            id: crypto.id,
-            name: `${crypto.symbol}/USDT`,
-            icon: crypto.icon,
-            price: parseFloat(fallbackData.lastPrice).toFixed(2),
-            change: parseFloat(fallbackData.priceChangePercent).toFixed(2),
-            volume: parseFloat(fallbackData.volume) || 0,
-            marketCap: 0, // Binance doesn't provide market cap in this endpoint
-          };
-        }
-        
-        return {
-          id: crypto.id,
-          name: `${crypto.symbol}/USDT`,
-          icon: crypto.icon,
-          price: parseFloat(binanceData.lastPrice).toFixed(2),
-          change: parseFloat(binanceData.priceChangePercent).toFixed(2),
-          volume: parseFloat(binanceData.volume) || 0,
-          marketCap: 0, // Binance doesn't provide market cap in this endpoint
-        };
-      });
-      
-      setMarketData(formattedData);
-      setLoading(false);
-      
-    } catch (err) {
-      console.error('Error fetching market data:', err);
-      
-      // Fallback to CoinGecko if Binance fails
-      try {
-        const cryptoIds = cryptoList.map(crypto => crypto.id).join(',');
-        const fallbackResponse = await fetch(
-          `https://api.coingecko.com/api/v3/simple/price?ids=${cryptoIds}&vs_currencies=usd&include_24hr_change=true`,
-          {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-            },
-            signal: AbortSignal.timeout(8000),
-          }
-        );
-        
-        if (fallbackResponse.ok) {
-          const fallbackData = await fallbackResponse.json();
-          
-          const formattedData = cryptoList.map(crypto => {
-            const cryptoData = fallbackData[crypto.id];
-            if (!cryptoData || !cryptoData.usd) {
-              throw new Error(`No data available for ${crypto.symbol}`);
-            }
-            
+          if (apiData) {
             return {
               id: crypto.id,
               name: `${crypto.symbol}/USDT`,
               icon: crypto.icon,
-              price: cryptoData.usd.toFixed(2),
-              change: cryptoData.usd_24h_change?.toFixed(2) || '0.00',
-              volume: 0,
-              marketCap: 0,
+              price: parseFloat(apiData.price).toFixed(2),
+              change: parseFloat(apiData.change_24h || 0).toFixed(2),
+              volume: parseFloat(apiData.volume || 0),
+              marketCap: parseFloat(apiData.market_cap || 0),
             };
-          });
+          }
           
-          setMarketData(formattedData);
-          setLoading(false);
-          return;
-        }
-      } catch (fallbackErr) {
-        console.error('Fallback API also failed:', fallbackErr);
+          // Fallback data if not found in API
+          return {
+            id: crypto.id,
+            name: `${crypto.symbol}/USDT`,
+            icon: crypto.icon,
+            price: '0.00',
+            change: '0.00',
+            volume: 0,
+            marketCap: 0,
+          };
+        });
+        
+        setMarketData(formattedData);
+        setLoading(false);
+      } else {
+        throw new Error(`API Error: ${response.status}`);
       }
       
-      // Show minimal error and retry
-      setError('Connecting to market data...');
-      setMarketData([]);
+    } catch (err) {
+      console.error('Error fetching market data:', err);
+      
+      // Show error message and provide fallback data
+      setError('Unable to load market data. Using cached data.');
+      
+      // Provide some fallback data so the page isn't completely broken
+      const fallbackData = cryptoList.slice(0, 5).map(crypto => ({
+        id: crypto.id,
+        name: `${crypto.symbol}/USDT`,
+        icon: crypto.icon,
+        price: '0.00',
+        change: '0.00',
+        volume: 0,
+        marketCap: 0,
+      }));
+      
+      setMarketData(fallbackData);
       setLoading(false);
       
-      // Retry after 5 seconds
+      // Retry after 10 seconds
       setTimeout(() => {
         fetchMarketData();
-      }, 5000);
+      }, 10000);
     }
   };
 
