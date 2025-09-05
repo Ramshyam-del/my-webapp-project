@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "echo 'No build step required for backend'",
     "dev": "npx nodemon --watch . --ext js,json --exec node server.js",
     "win-kill-4001": "powershell -ExecutionPolicy Bypass -File ./scripts/kill-4001.ps1"
   },
