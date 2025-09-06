@@ -10,13 +10,15 @@ export default function Footer() {
           {/* Company Info */}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              {config.logo && (
-                <img 
-                  src={config.logo} 
-                  alt="Logo" 
-                  className="w-8 h-8 rounded object-cover"
-                />
-              )}
+              <img 
+                src="/uploads/logo-1756662609905.png" 
+                alt="Quantex Logo" 
+                className="w-8 h-8 rounded object-cover"
+                onError={(e) => {
+                  // Fallback to hide logo if it fails to load
+                  e.target.style.display = 'none';
+                }}
+              />
               <h3 className="text-xl sm:text-2xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h3>
             </div>
             <p className="text-gray-400 text-sm sm:text-base">

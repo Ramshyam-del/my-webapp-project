@@ -68,25 +68,30 @@ export default function Navbar() {
         className="fixed w-full top-0 z-50 backdrop-blur-md bg-black/20 border-b border-white/10"
       >
         <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
-          <div className="flex items-center space-x-3">
-            {config.logo && (
-              <motion.img 
-                src={config.logo} 
-                alt="Logo" 
-                className="h-8 w-8 object-contain"
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            )}
+          <motion.div 
+            className="flex items-center space-x-3"
+            whileHover={{ scale: 1.02 }}
+          >
+            <motion.img 
+              src="/uploads/logo-1756662609905.png" 
+              alt="Quantex Logo" 
+              className="h-10 w-auto object-contain"
+              whileHover={{ scale: 1.1, rotate: 2 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              onError={(e) => {
+                // Fallback to text if logo fails to load
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
             <motion.div 
               className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+              style={{ display: 'none' }}
               whileHover={{ scale: 1.05 }}
             >
               {config.title || config.officialWebsiteName || 'Quantex'}
             </motion.div>
-          </div>
+          </motion.div>
           <div className="flex items-center space-x-4">
             <div className="animate-pulse bg-gradient-to-r from-cyan-500/20 to-purple-500/20 h-10 w-24 rounded-lg backdrop-blur-sm"></div>
             <div className="animate-pulse bg-gradient-to-r from-blue-500/20 to-cyan-500/20 h-10 w-20 rounded-lg backdrop-blur-sm"></div>
@@ -108,20 +113,21 @@ export default function Navbar() {
             className="flex items-center space-x-3"
             whileHover={{ scale: 1.02 }}
           >
-            {config.logo && (
-              <motion.img 
-                src={config.logo} 
-                alt="Logo" 
-                className="h-8 w-8 object-contain"
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                transition={{ type: "spring", stiffness: 300 }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            )}
+            <motion.img 
+              src="/uploads/logo-1756662609905.png" 
+              alt="Quantex Logo" 
+              className="h-10 w-auto object-contain"
+              whileHover={{ scale: 1.1, rotate: 2 }}
+              transition={{ type: "spring", stiffness: 300 }}
+              onError={(e) => {
+                // Fallback to text if logo fails to load
+                e.target.style.display = 'none';
+                e.target.nextElementSibling.style.display = 'block';
+              }}
+            />
             <motion.div 
               className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"
+              style={{ display: 'none' }}
               whileHover={{ scale: 1.05 }}
             >
               {config.title || config.officialWebsiteName || 'Quantex'}
@@ -238,6 +244,22 @@ export default function Navbar() {
               transition={{ duration: 0.3 }}
             >
               <div className="flex flex-col space-y-6">
+                {/* Logo in mobile menu */}
+                <motion.div 
+                  className="flex items-center justify-center pb-4 border-b border-white/10"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <motion.img 
+                    src="/uploads/logo-1756662609905.png" 
+                    alt="Quantex Logo" 
+                    className="h-12 w-auto object-contain"
+                    whileHover={{ scale: 1.1, rotate: 2 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  />
+                </motion.div>
+                
                 <div className="flex flex-col space-y-1">
                   {[
                     { href: "/", label: "HOME" },
