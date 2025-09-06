@@ -9,7 +9,7 @@ RUN npm ci --only=production
 # Copy backend source code
 COPY backend/ .
 
-# Expose the port that the backend uses
+# Expose the port that Railway will assign
 EXPOSE $PORT
 
 CMD ["npm", "start"]

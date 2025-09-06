@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 const { signUpWithSupabase, signInWithSupabase, setSupabaseTokenCookies, clearSupabaseTokenCookies, getUserFromToken, refreshSupabaseSession, signOutFromSupabase } = require('../utils/supabaseAuth');
 const { extractToken } = require('../middleware/supabaseAuth');

@@ -112,8 +112,8 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({
           email,
           password,
-          firstName: userData.first_name,
-          lastName: userData.last_name,
+          firstName: userData.firstName || userData.first_name,
+          lastName: userData.lastName || userData.last_name,
           username: userData.username,
           phone: userData.phone
         })
