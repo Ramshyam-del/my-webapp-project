@@ -83,7 +83,7 @@ class CryptoMonitoringService {
       const { data: config } = await supabase
         .from('deposit_monitoring_config')
         .select('*')
-        .eq('crypto_type', deposit.crypto_type)
+        .eq('crypto_type', deposit.currency)
         .single();
 
       const checkInterval = config?.check_interval_seconds * 1000 || 30000; // Default 30 seconds
@@ -93,7 +93,7 @@ class CryptoMonitoringService {
       }, checkInterval);
 
       this.monitoringIntervals.set(depositId, intervalId);
-      console.log(`Started monitoring deposit ${depositId} for ${deposit.crypto_type}`);
+      console.log(`Started monitoring deposit ${depositId} for ${deposit.currency}`);
     } catch (error) {
       console.error(`Error starting monitoring for deposit ${depositId}:`, error);
     }
@@ -132,7 +132,7 @@ class CryptoMonitoringService {
       let transactionHash = null;
 
       // Check balance based on crypto type
-      switch (deposit.crypto_type) {
+      switch (deposit.currency) {
         case 'BTC':
           ({ balance, confirmations, transactionHash } = await this.checkBitcoinAddress(deposit.wallet_address));
           break;
@@ -143,7 +143,7 @@ class CryptoMonitoringService {
           ({ balance, confirmations, transactionHash } = await this.checkUSDTAddress(deposit.wallet_address));
           break;
         default:
-          console.error(`Unsupported crypto type: ${deposit.crypto_type}`);
+          console.error(`Unsupported crypto type: ${deposit.currency}`);
           return;
       }
 
@@ -284,9 +284,9 @@ class CryptoMonitoringService {
           user_id: deposit.user_id,
           type: 'deposit',
           amount: amount,
-          currency: deposit.crypto_type,
+          currency: deposit.currency,
           status: 'completed',
-          description: `Crypto deposit - ${deposit.crypto_type}`,
+          description: `Crypto deposit - ${deposit.currency}`,
           reference_id: deposit.id,
           transaction_hash: deposit.transaction_hash
         });

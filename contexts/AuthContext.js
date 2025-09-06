@@ -57,13 +57,27 @@ export const AuthProvider = ({ children }) => {
           }
         }
       } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Auth initialization error:', error);
-        }
-        setError(error.message);
-        if (isMounted) {
-          setUser(null);
-          setIsAuthenticated(false);
+        // Handle authentication errors gracefully during initialization
+        if (error.code === 'unauthorized' || error.status === 401) {
+          // This is expected when user is not logged in - don't treat as error
+          if (process.env.NODE_ENV === 'development') {
+            console.log('ℹ️ [Init] No active session - user not authenticated');
+          }
+          if (isMounted) {
+            setUser(null);
+            setIsAuthenticated(false);
+            setError(null); // Don't set error for expected unauthenticated state
+          }
+        } else {
+          // Only log and set error for unexpected errors
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Auth initialization error:', error);
+          }
+          setError(error.message);
+          if (isMounted) {
+            setUser(null);
+            setIsAuthenticated(false);
+          }
         }
       } finally {
         if (isMounted) {

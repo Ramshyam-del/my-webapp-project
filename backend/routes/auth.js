@@ -221,8 +221,8 @@ router.post('/login', authLimiter, async (req, res) => {
     
     let passwordMatch = false;
     
-    // Check if password is already hashed (bcrypt hashes start with $2b$)
-    if (user.password_hash && user.password_hash.startsWith('$2b$')) {
+    // Check if password is already hashed (bcrypt hashes start with $2a$, $2b$, $2x$, $2y$)
+    if (user.password_hash && /^\$2[abxy]\$/.test(user.password_hash)) {
       // Use bcrypt for hashed passwords
       passwordMatch = await bcrypt.compare(password, user.password_hash);
       console.log('Bcrypt comparison result:', passwordMatch);
