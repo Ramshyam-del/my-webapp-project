@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { hybridFetch } from '../lib/hybridFetch';
 
 // API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4001';
@@ -152,7 +153,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Please enter a valid email address');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+        const response = await hybridFetch('/api/auth/forgot-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -160,10 +161,8 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           body: JSON.stringify({ email: forgotForm.email }),
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to send reset email');
+        if (!response.data || !response.data.ok) {
+          throw new Error(response.data?.message || 'Failed to send reset email');
         }
 
         setSuccess('Reset code sent to your email!');
@@ -173,7 +172,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Please enter the verification code');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/verify-reset-otp`, {
+        const response = await hybridFetch('/api/auth/verify-reset-otp', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -184,13 +183,11 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           }),
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Invalid verification code');
+        if (!response.data || !response.data.ok) {
+          throw new Error(response.data?.message || 'Invalid verification code');
         }
 
-        setForgotForm(prev => ({ ...prev, resetToken: data.resetToken }));
+        setForgotForm(prev => ({ ...prev, resetToken: response.data.resetToken }));
         setSuccess('Code verified! Enter your new password.');
         setForgotStep('newPassword');
       } else if (forgotStep === 'newPassword') {
@@ -198,7 +195,7 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Password must be at least 6 characters long');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+        const response = await hybridFetch('/api/auth/reset-password', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -209,10 +206,8 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           }),
         });
 
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Failed to reset password');
+        if (!response.data || !response.data.ok) {
+          throw new Error(response.data?.message || 'Failed to reset password');
         }
 
         setSuccess('Password reset successful! You can now log in.');

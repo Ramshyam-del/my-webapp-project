@@ -31,46 +31,29 @@ export const AuthProvider = ({ children }) => {
         
         // Check if user is authenticated by calling /me endpoint
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [Init] Checking auth with:', `${API_BASE_URL}/api/auth/me`);
+          console.log('🔍 [Init] Checking auth with hybridFetch:', '/api/auth/me');
         }
-        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-          method: 'GET',
-          credentials: 'include', // Include cookies
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        const response = await hybridFetch('/api/auth/me', {
+          method: 'GET'
         });
 
         if (!isMounted) return;
         
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [Init] Auth response status:', response.status);
+          console.log('🔍 [Init] Auth response:', response.data);
         }
         
-        if (response.ok) {
-          const data = await response.json();
+        if (response.data && response.data.ok && response.data.user) {
+          setUser(response.data.user);
+          setIsAuthenticated(true);
           if (process.env.NODE_ENV === 'development') {
-            console.log('🔍 [Init] Auth response data:', data);
-          }
-          if (data.ok && data.user) {
-            setUser(data.user);
-            setIsAuthenticated(true);
-            if (process.env.NODE_ENV === 'development') {
-              console.log('✅ [Init] Auth successful, user:', data.user.email);
-            }
-          } else {
-            setUser(null);
-            setIsAuthenticated(false);
-            if (process.env.NODE_ENV === 'development') {
-              console.log('❌ [Init] Auth failed - no user in response');
-            }
+            console.log('✅ [Init] Auth successful, user:', response.data.user.email);
           }
         } else {
-          // No valid token or user not found
           setUser(null);
           setIsAuthenticated(false);
           if (process.env.NODE_ENV === 'development') {
-            console.log('❌ [Init] Auth failed with status:', response.status);
+            console.log('❌ [Init] Auth failed - no user in response');
           }
         }
       } catch (error) {
