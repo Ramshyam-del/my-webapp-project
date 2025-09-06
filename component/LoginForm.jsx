@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { safeWindow, getSafeLocation } from '../utils/safeStorage';
 
 function Toast({ message, onClose }) {
@@ -24,6 +24,7 @@ export const LoginForm = () => {
   const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'otp' | 'reset' | 'done'
   const [forgotForm, setForgotForm] = useState({ email: '', otp: '', newPassword: '' });
   const router = useRouter();
+  const { signIn } = useAuth();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -31,18 +32,15 @@ export const LoginForm = () => {
     setToast('');
     setLoading(true);
     try {
-      // Use Supabase authentication directly
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password
-      });
+      // Use AuthContext signIn method for JWT backend authentication
+      const result = await signIn(email, password);
 
-      if (error) {
-        setError(error.message || 'Login failed');
-        setToast(error.message || 'Login failed');
+      if (!result.success) {
+        setError(result.error?.message || 'Login failed');
+        setToast(result.error?.message || 'Login failed');
       } else {
         setToast('Login successful!');
-        // Session is handled by Supabase; optional local hint
+        // Redirect to exchange page after successful login
         router.push('/exchange');
       }
     } catch (err) {
