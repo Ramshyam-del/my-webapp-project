@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { hybridFetch } from '../lib/hybridFetch';
+import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 
 const Portfolio = () => {
@@ -19,10 +19,20 @@ const Portfolio = () => {
   // Fetch portfolio data
   const fetchPortfolio = async () => {
     try {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !user?.id) return;
       
-      const response = await hybridFetch('/api/portfolio/balance');
-      setPortfolio(response.data);
+      const { data, error } = await supabase
+        .from('portfolios')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching portfolio:', error);
+        return;
+      }
+      
+      setPortfolio(data || { balance: 0, locked_balance: 0 });
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching portfolio:', error);
@@ -33,10 +43,20 @@ const Portfolio = () => {
   // Fetch open trades
   const fetchOpenTrades = async () => {
     try {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !user?.id) return;
       
-      const response = await hybridFetch('/api/trades/open');
-      setOpenTrades(response.data.trades || []);
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'open');
+      
+      if (error) {
+        console.error('Error fetching open trades:', error);
+        return;
+      }
+      
+      setOpenTrades(data || []);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching open trades:', error);
@@ -47,10 +67,32 @@ const Portfolio = () => {
   // Fetch trading statistics
   const fetchStats = async () => {
     try {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || !user?.id) return;
       
-      const response = await hybridFetch('/api/portfolio/stats');
-      setStats(response.data);
+      const { data: trades, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'closed');
+      
+      if (error) {
+        console.error('Error fetching stats:', error);
+        return;
+      }
+      
+      // Calculate statistics from trades
+      const totalTrades = trades?.length || 0;
+      const profitableTrades = trades?.filter(t => (t.pnl || 0) > 0).length || 0;
+      const totalPnL = trades?.reduce((sum, t) => sum + (t.pnl || 0), 0) || 0;
+      const winRate = totalTrades > 0 ? (profitableTrades / totalTrades) * 100 : 0;
+      const avgPnL = totalTrades > 0 ? totalPnL / totalTrades : 0;
+      
+      setStats({
+        totalPnL,
+        totalTrades,
+        winRate,
+        avgPnL
+      });
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching stats:', error);
@@ -199,58 +241,21 @@ const Portfolio = () => {
           </div>
         </div>
 
-        {/* Unrealized P&L */}
-        <div className="bg-white p-6 rounded-lg shadow-lg border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Unrealized P&L</p>
-              <p className={`text-2xl font-bold ${
-                unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {unrealizedPnL >= 0 ? '+' : ''}{formatCurrency(unrealizedPnL)}
-              </p>
-            </div>
-            <div className={`p-3 rounded-full ${
-              unrealizedPnL >= 0 ? 'bg-green-100' : 'bg-red-100'
-            }`}>
-              <svg className={`w-6 h-6 ${
-                unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'
-              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Trading Statistics */}
       <div className="bg-white p-6 rounded-lg shadow-lg">
         <h2 className="text-xl font-bold mb-4">Trading Statistics</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="text-center">
             <p className="text-sm text-gray-600">Total Trades</p>
             <p className="text-2xl font-bold text-gray-900">{stats.totalTrades}</p>
           </div>
           <div className="text-center">
-            <p className="text-sm text-gray-600">Total P&L</p>
-            <p className={`text-2xl font-bold ${
-              stats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {stats.totalPnL >= 0 ? '+' : ''}{formatCurrency(stats.totalPnL)}
-            </p>
-          </div>
-          <div className="text-center">
             <p className="text-sm text-gray-600">Win Rate</p>
             <p className="text-2xl font-bold text-blue-600">
               {formatPercentage(stats.winRate)}
-            </p>
-          </div>
-          <div className="text-center">
-            <p className="text-sm text-gray-600">Avg P&L</p>
-            <p className={`text-2xl font-bold ${
-              stats.avgPnL >= 0 ? 'text-green-600' : 'text-red-600'
-            }`}>
-              {stats.avgPnL >= 0 ? '+' : ''}{formatCurrency(stats.avgPnL)}
             </p>
           </div>
         </div>
@@ -293,9 +298,7 @@ const Portfolio = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Margin
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    P&L
-                  </th>
+
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -329,11 +332,6 @@ const Portfolio = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatCurrency(margin)}
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                        pnl >= 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {pnl >= 0 ? '+' : ''}{formatCurrency(pnl)}
                       </td>
                     </tr>
                   );

@@ -7,6 +7,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: '/api/admin/:path*',
+        destination: '/api/admin/:path*', // Keep admin routes local for proxy handling
+      },
+      {
         source: '/api/:path*',
         destination: `${BACKEND_URL}/api/:path*`,
       },

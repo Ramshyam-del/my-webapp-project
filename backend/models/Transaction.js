@@ -227,7 +227,10 @@ module.exports = {
           };
         }
 
-        if (tx.type === 'deposit' || tx.type === 'recharge' || tx.type === 'RECHARGE') {
+        // Normalize transaction type to lowercase for consistent processing
+        const normalizedType = tx.type ? tx.type.toLowerCase() : '';
+        
+        if (normalizedType === 'deposit' || normalizedType === 'recharge') {
           summary.total_deposits += amount;
           summary.by_currency[tx.currency].deposits += amount;
           
@@ -237,7 +240,7 @@ module.exports = {
           } else if (tx.status === 'completed') {
             summary.completed_deposits += amount;
           }
-        } else if (tx.type === 'withdraw' || tx.type === 'WITHDRAW') {
+        } else if (normalizedType === 'withdraw') {
           summary.total_withdrawals += amount;
           summary.by_currency[tx.currency].withdrawals += amount;
           

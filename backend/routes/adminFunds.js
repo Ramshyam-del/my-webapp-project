@@ -16,7 +16,7 @@ router.post('/recharge', async (req, res) => {
     if (rpcErr) throw rpcErr;
 
     await supabaseAdmin.from('fund_transactions').insert([{
-      user_id: String(userId), currency: String(currency), amount: amt, type: 'RECHARGE', created_by: adminId || null
+      user_id: String(userId), currency: String(currency), amount: amt, type: 'recharge', created_by: adminId || null
     }]);
 
     res.json({ ok:true, portfolio: pf && pf[0] ? pf[0] : null });
@@ -44,7 +44,7 @@ router.post('/withdraw', async (req, res) => {
     }
 
     await supabaseAdmin.from('fund_transactions').insert([{
-      user_id: String(userId), currency: String(currency), amount: -amt, type: 'WITHDRAW', created_by: adminId || null
+      user_id: String(userId), currency: String(currency), amount: -amt, type: 'withdraw', created_by: adminId || null
     }]);
 
     res.json({ ok:true, portfolio: pf && pf[0] ? pf[0] : null });

@@ -49,10 +49,25 @@ export default async function handler(req, res) {
     const pageSize = parseInt(req.query.page_size) || 10
     const offset = (page - 1) * pageSize
 
-    // Fetch withdrawals from database
+    // Fetch withdrawals from withdrawals table
     const { data: withdrawals, error: withdrawalsError, count } = await server
       .from('withdrawals')
-      .select('*', { count: 'exact' })
+      .select(`
+        id,
+        user_id,
+        currency,
+        amount,
+        fee,
+        net_amount,
+        wallet_address,
+        tx_hash,
+        status,
+        admin_notes,
+        created_at,
+        updated_at,
+        processed_at,
+        users!inner(email, username)
+      `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1)
 

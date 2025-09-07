@@ -53,12 +53,12 @@ export default function MarketPage() {
         const formattedData = data.data.map(crypto => ({
           id: crypto.symbol.toLowerCase(),
           name: `${crypto.symbol}/USDT`,
-          icon: cryptoList.find(c => c.symbol === crypto.symbol)?.icon || '₿',
+          icon: crypto.icon || '₿',
           price: parseFloat(crypto.price).toFixed(2),
-          change: parseFloat(crypto.change || 0).toFixed(2),
-          volume: parseFloat(crypto.volume_24h || 0).toFixed(0),
+          change: parseFloat(crypto.change_24h || 0).toFixed(2),
+          volume: parseFloat(crypto.volume || 0).toFixed(0),
           marketCap: parseFloat(crypto.market_cap || 0).toFixed(0),
-          isPositive: parseFloat(crypto.change || 0) >= 0,
+          isPositive: parseFloat(crypto.change_24h || 0) >= 0,
         }));
         
         setMarketData(formattedData);
@@ -92,53 +92,19 @@ export default function MarketPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white flex flex-col">
-      {/* Enhanced Header with Glassmorphism */}
-      <header className="flex items-center justify-between px-4 py-3 bg-black/20 backdrop-blur-xl border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <span className="text-white font-bold text-lg">Q</span>
-          </div>
-          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Quantex</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-green-500/20 rounded-full">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span className="text-xs text-green-400 font-medium">Live</span>
-          </div>
-          <button className="relative p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-300">
-            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path d="M15 17h5l-5 5-5-5h5v-5a7.5 7.5 0 0 1 15 0v5z"/>
-            </svg>
-          </button>
-        </div>
-      </header>
-      
       {/* Enhanced Banner with Animation */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
-        <div className="relative bg-gradient-to-r from-blue-900/80 via-purple-900/80 to-pink-900/80 backdrop-blur-sm p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center animate-bounce">
-                <span className="text-2xl sm:text-3xl">📊</span>
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-                  Live Market Data
-                </h1>
-                <p className="text-sm text-blue-200/80">Real-time cryptocurrency prices and market insights</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-blue-200/60">
-              <div className="w-1 h-1 bg-blue-400 rounded-full animate-ping"></div>
-              <span>Updated every 2 minutes</span>
-            </div>
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-900/30 via-purple-900/30 to-pink-900/30 backdrop-blur-xl border-b border-white/10">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse"></div>
+        <div className="relative px-4 py-6 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+               Live Market Data
+             </h1>
           </div>
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
       </div>
-      
 
-      
       {/* Main Content */}
       <div className="flex-1 bg-black p-2 sm:p-4">
         {/* Enhanced Error Message */}
@@ -191,14 +157,14 @@ export default function MarketPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {marketData.map((crypto, index) => {
+                  {marketData.slice(0, 10).map((crypto, index) => {
                     const cryptoInfo = cryptoList.find(c => c.symbol === crypto.id.toUpperCase()) || cryptoList[0];
                     return (
                       <tr key={crypto.id} className="hover:bg-white/5 transition-all duration-300 group cursor-pointer">
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${cryptoInfo.color} flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300`}>
-                              <span className="text-white font-bold text-lg">{crypto.icon}</span>
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform duration-300">
+                              <img src={crypto.icon} alt={crypto.name} className="w-6 h-6" />
                             </div>
                             <div>
                               <div className="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors">{crypto.name}</div>
@@ -235,14 +201,14 @@ export default function MarketPage() {
             {/* Enhanced Mobile Cards */}
             <div className="lg:hidden">
               <div className="p-4 space-y-4">
-                {marketData.map((crypto, index) => {
+                {marketData.slice(0, 10).map((crypto, index) => {
                   const cryptoInfo = cryptoList.find(c => c.symbol === crypto.id.toUpperCase()) || cryptoList[0];
                   return (
                     <div key={crypto.id} className="bg-gradient-to-r from-gray-800/50 to-gray-700/30 backdrop-blur-sm rounded-2xl p-4 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center">
-                          <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${cryptoInfo.color} flex items-center justify-center mr-3 shadow-lg`}>
-                            <span className="text-white font-bold text-lg">{crypto.icon}</span>
+                          <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mr-3 shadow-lg">
+                            <img src={crypto.icon} alt={crypto.name} className="w-8 h-8" />
                           </div>
                           <div>
                             <div className="text-sm font-semibold text-white">{crypto.name}</div>

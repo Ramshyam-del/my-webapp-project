@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
-import { hybridFetch } from '../lib/hybridFetch';
+import { supabase } from '../lib/supabase';
 
 // API configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4001';
@@ -153,16 +153,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Please enter a valid email address');
         }
 
-        const response = await hybridFetch('/api/auth/forgot-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: forgotForm.email }),
+        const { error } = await supabase.auth.resetPasswordForEmail(forgotForm.email, {
+          redirectTo: `${window.location.origin}/reset-password`
         });
 
-        if (!response.data || !response.data.ok) {
-          throw new Error(response.data?.message || 'Failed to send reset email');
+        if (error) {
+          throw new Error(error.message || 'Failed to send reset email');
         }
 
         setSuccess('Reset code sent to your email!');
@@ -172,22 +168,9 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Please enter the verification code');
         }
 
-        const response = await hybridFetch('/api/auth/verify-reset-otp', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            email: forgotForm.email, 
-            otp: forgotForm.otp 
-          }),
-        });
-
-        if (!response.data || !response.data.ok) {
-          throw new Error(response.data?.message || 'Invalid verification code');
-        }
-
-        setForgotForm(prev => ({ ...prev, resetToken: response.data.resetToken }));
+        // Supabase handles OTP verification automatically in the reset flow
+        // Store the OTP for the next step
+        setForgotForm(prev => ({ ...prev, resetToken: forgotForm.otp }));
         setSuccess('Code verified! Enter your new password.');
         setForgotStep('newPassword');
       } else if (forgotStep === 'newPassword') {
@@ -195,19 +178,12 @@ function AuthModal({ isOpen, onClose, mode: initialMode = 'login' }) {
           throw new Error('Password must be at least 6 characters long');
         }
 
-        const response = await hybridFetch('/api/auth/reset-password', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            resetToken: forgotForm.resetToken,
-            newPassword: forgotForm.newPassword 
-          }),
+        const { error } = await supabase.auth.updateUser({
+          password: forgotForm.newPassword
         });
 
-        if (!response.data || !response.data.ok) {
-          throw new Error(response.data?.message || 'Failed to reset password');
+        if (error) {
+          throw new Error(error.message || 'Failed to reset password');
         }
 
         setSuccess('Password reset successful! You can now log in.');

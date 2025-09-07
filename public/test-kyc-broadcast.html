@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test KYC Broadcast</title>
+</head>
+<body>
+    <h1>KYC Broadcast Test</h1>
+    <button onclick="sendKycUpdate()">Send KYC Update for deep99@gmail.com</button>
+    <div id="status"></div>
+
+    <script>
+        function sendKycUpdate() {
+            try {
+                const channel = new BroadcastChannel('kyc-status-updates');
+                const message = {
+                    type: 'KYC_STATUS_UPDATED',
+                    userId: '304f0a68-b009-4199-80bc-6ba99dc7ffc7',
+                    status: 'approved',
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.log('Sending KYC update:', message);
+                channel.postMessage(message);
+                channel.close();
+                
+                document.getElementById('status').innerHTML = '<p style="color: green;">KYC update sent successfully!</p>';
+            } catch (error) {
+                console.error('Error sending KYC update:', error);
+                document.getElementById('status').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

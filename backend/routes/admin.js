@@ -155,10 +155,18 @@ router.get('/withdrawals', authenticateUser, requireAdmin, async (req, res) => {
       .select(`
         id, 
         user_id, 
-        amount, 
-        status, 
+        currency,
+        amount,
+        fee,
+        net_amount,
+        wallet_address,
+        tx_hash,
+        status,
+        admin_notes,
         created_at,
-        users!inner(email)
+        updated_at,
+        processed_at,
+        users!inner(email, username)
       `)
       .order('created_at', { ascending: false });
     
@@ -193,15 +201,18 @@ router.get('/withdrawals', authenticateUser, requireAdmin, async (req, res) => {
 router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const { admin_note } = req.body;
     
     const { data: withdrawal, error } = await serverSupabase
       .from('withdrawals')
       .update({ 
         status: 'approved',
+        admin_notes: admin_note || null,
+        processed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'locked'])
       .select('*')
       .single();
     
@@ -209,7 +220,7 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
       return res.status(400).json({
         ok: false,
         code: 'invalid_request',
-        message: 'Withdrawal not found or not pending'
+        message: 'Withdrawal not found or cannot be approved'
       });
     }
     
@@ -231,15 +242,18 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
 router.post('/withdrawals/:id/reject', authenticateUser, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
+    const { admin_note } = req.body;
     
     const { data: withdrawal, error } = await serverSupabase
       .from('withdrawals')
       .update({ 
         status: 'rejected',
+        admin_notes: admin_note || null,
+        processed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'locked'])
       .select('*')
       .single();
     
@@ -247,7 +261,7 @@ router.post('/withdrawals/:id/reject', authenticateUser, requireAdmin, async (re
       return res.status(400).json({
         ok: false,
         code: 'invalid_request',
-        message: 'Withdrawal not found or not pending'
+        message: 'Withdrawal not found or cannot be rejected'
       });
     }
     
@@ -261,6 +275,44 @@ router.post('/withdrawals/:id/reject', authenticateUser, requireAdmin, async (re
       ok: false,
       code: 'server_error',
       message: 'Failed to reject withdrawal'
+    });
+  }
+});
+
+// POST /api/admin/withdrawals/:id/lock - Lock withdrawal for processing
+router.post('/withdrawals/:id/lock', authenticateUser, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { data: withdrawal, error } = await serverSupabase
+      .from('withdrawals')
+      .update({ 
+        status: 'locked',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('*')
+      .single();
+    
+    if (error || !withdrawal) {
+      return res.status(400).json({
+        ok: false,
+        code: 'invalid_request',
+        message: 'Withdrawal not found or already processed'
+      });
+    }
+    
+    res.json({
+      ok: true,
+      data: withdrawal
+    });
+  } catch (error) {
+    console.error('Admin lock withdrawal error:', error);
+    res.status(500).json({
+      ok: false,
+      code: 'server_error',
+      message: 'Failed to lock withdrawal'
     });
   }
 });

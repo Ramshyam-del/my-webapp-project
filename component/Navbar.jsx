@@ -65,7 +65,7 @@ export default function Navbar() {
       <motion.nav 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="fixed w-full top-0 z-50 backdrop-blur-md bg-black/20 border-b border-white/10"
+        className="fixed w-full top-0 z-50 backdrop-blur-md bg-gray-900/95 border-b border-gray-700/50"
       >
         <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-4">
           <motion.div 
@@ -237,7 +237,7 @@ export default function Navbar() {
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div 
-              className="md:hidden mt-4 backdrop-blur-md bg-black/40 rounded-xl p-6 border border-white/10"
+              className="md:hidden mt-4 backdrop-blur-md bg-gray-800/95 rounded-xl p-6 border border-gray-600/50"
               initial={{ opacity: 0, height: 0, y: -20 }}
               animate={{ opacity: 1, height: 'auto', y: 0 }}
               exit={{ opacity: 0, height: 0, y: -20 }}

@@ -62,35 +62,35 @@ export default async function handler(req, res) {
       return res.status(404).json({ ok: false, code: 'trade_not_found', message: 'Trade not found' })
     }
 
-    if (trade.status === 'closed') {
+    if (trade.status === 'closed' || trade.status === 'CLOSED' || trade.status === 'completed') {
       return res.status(400).json({ ok: false, code: 'trade_already_closed', message: 'Trade is already closed' })
     }
 
     // Calculate PnL
-    const entryPrice = parseFloat(trade.entry_price)
+    const entryPrice = parseFloat(trade.entry_price) || parseFloat(exitPrice); // Use exit price as fallback
     const exitPriceNum = parseFloat(exitPrice)
-    const quantity = parseFloat(trade.quantity || 1)
+    const quantity = parseFloat(trade.amount || 1) // Use amount instead of quantity
+    const side = trade.side || 'buy'; // Default to buy if side is null
     
     let pnl = 0
-    if (trade.side === 'buy' || trade.side === 'long') {
+    if (side === 'buy' || side === 'long') {
       pnl = (exitPriceNum - entryPrice) * quantity
-    } else if (trade.side === 'sell' || trade.side === 'short') {
+    } else if (side === 'sell' || side === 'short') {
       pnl = (entryPrice - exitPriceNum) * quantity
     }
 
     // Update the trade
-    const { data: updatedTrade, error: updateError } = await server
+    const { data: updatedTrade, error: updateError } = await supabaseAdmin
       .from('trades')
       .update({
-        status: 'closed',
-        exit_price: exitPriceNum,
+        status: 'completed',
         pnl: pnl,
         closed_at: new Date().toISOString(),
-        closed_by: adminId
+        exit_price: exitPriceNum
       })
       .eq('id', tradeId)
       .select()
-      .single()
+      .single();
 
     if (updateError) {
       console.error('Error closing trade:', updateError)
@@ -98,22 +98,27 @@ export default async function handler(req, res) {
     }
 
     // Log the admin action
-    await server
-      .from('admin_actions')
-      .insert({
-        admin_id: adminId,
-        action_type: 'close_trade',
-        target_user_id: trade.user_id,
-        details: {
-          trade_id: tradeId,
-          symbol: trade.symbol,
-          entry_price: entryPrice,
-          exit_price: exitPriceNum,
-          pnl: pnl,
-          quantity: quantity
-        },
-        created_at: new Date().toISOString()
-      })
+    // Log the admin action (if admin_actions table exists)
+    try {
+      await server
+        .from('admin_actions')
+        .insert({
+          admin_id: adminId,
+          action_type: 'close_trade',
+          target_user_id: trade.user_id,
+          details: {
+            trade_id: tradeId,
+            pair: trade.currency_pair || trade.pair,
+            entry_price: entryPrice,
+            exit_price: exitPriceNum,
+            pnl: pnl,
+            amount: quantity
+          },
+          created_at: new Date().toISOString()
+        })
+    } catch (adminActionError) {
+      console.log('Admin action logging failed (table may not exist):', adminActionError)
+    }
 
     return res.status(200).json({
       ok: true,

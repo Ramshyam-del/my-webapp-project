@@ -22,39 +22,12 @@ export default function ExchangePage() {
   const [notifications, setNotifications] = useState([
     {
       id: 1,
-      type: 'trade',
-      title: 'Trade Completed',
-      message: 'Your BTC/USDT trade has been completed successfully!',
-      time: '2 minutes ago',
-      isRead: false,
-      icon: '💰'
-    },
-    {
-      id: 2,
       type: 'system',
-      title: 'System Update',
-      message: 'New trading features have been added to the platform.',
-      time: '1 hour ago',
+      title: 'Welcome to Quantex',
+      message: 'Welcome to the ultimate cryptocurrency trading platform. Start exploring our features!',
+      time: 'Just now',
       isRead: false,
-      icon: '⚙️'
-    },
-    {
-      id: 3,
-      type: 'alert',
-      title: 'Price Alert',
-      message: 'BTC has reached your target price of $45,000!',
-      time: '3 hours ago',
-      isRead: true,
-      icon: '📈'
-    },
-    {
-      id: 4,
-      type: 'bonus',
-      title: 'Welcome Bonus',
-      message: 'You have received a $50 welcome bonus!',
-      time: '1 day ago',
-      isRead: true,
-      icon: '🎁'
+      icon: '👋'
     }
   ]);
 
@@ -131,26 +104,7 @@ export default function ExchangePage() {
     };
   }, [showNotifications]);
 
-  // Simulate real-time notifications
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Random chance to add a new notification
-      if (Math.random() < 0.1) { // 10% chance every 30 seconds
-        const newNotification = {
-          id: Date.now(),
-          type: ['trade', 'system', 'alert', 'bonus'][Math.floor(Math.random() * 4)],
-          title: 'New Update',
-          message: 'You have a new notification from the system.',
-          time: 'Just now',
-          isRead: false,
-          icon: '🔔'
-        };
-        setNotifications(prev => [newNotification, ...prev.slice(0, 9)]); // Keep max 10 notifications
-      }
-    }, 30000); // Check every 30 seconds
 
-    return () => clearInterval(interval);
-  }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -337,10 +291,13 @@ export default function ExchangePage() {
           {/* Hero Section */}
           <div className="text-center mb-12">
             <h1 className="text-4xl sm:text-6xl font-bold text-white mb-6">
-              Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Quantex</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">Quantex</span> : Elite Access, Global Reach
             </h1>
             <p className="text-xl sm:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              The ultimate cryptocurrency trading platform with advanced features and real-time market data
+              Engineered for traders. Trusted by professionals.<br/>
+              Secure your assets with intuitive access and precision in every transaction.<br/>
+              Elite Protection for Digital Wealth.<br/>
+              Grow Smarter. Trade Better.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button 

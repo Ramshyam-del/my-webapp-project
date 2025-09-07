@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     // Get the withdrawal details
     const { data: withdrawal, error: withdrawalError } = await server
-      .from('withdrawals')
+      .from('fund_transactions')
       .select('*')
       .eq('id', withdrawalId)
       .single()
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
 
     // Update the withdrawal status to rejected
     const { data: updatedWithdrawal, error: updateError } = await server
-      .from('withdrawals')
+      .from('fund_transactions')
       .update({
         status: 'rejected',
         rejected_at: new Date().toISOString(),

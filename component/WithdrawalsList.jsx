@@ -155,6 +155,37 @@ const WithdrawalsList = () => {
     }
   };
 
+  const handleApproval = async (id) => {
+    const rollbackWithdrawals = snapshotWithdrawals();
+    
+    try {
+      // Optimistic update
+      setWithdrawals(prev => prev.map(item => 
+        item.id === id ? { ...item, status: 'approved' } : item
+      ));
+
+      const response = await authedFetchJson(`/api/admin/withdrawals/${id}/approve`, {
+        method: 'POST'
+      });
+
+      if (!response?.ok) {
+        throw new Error('Failed to approve withdrawal');
+      }
+
+      // Update with server response
+      if (response?.data) {
+        setWithdrawals(prev => prev.map(item => 
+          item.id === id ? { ...item, ...response.data } : item
+        ));
+      }
+    } catch (err) {
+      console.error('Failed to approve withdrawal:', err);
+      // Rollback
+      setWithdrawals(rollbackWithdrawals);
+      setError(err.message || 'Failed to approve withdrawal');
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '—';
     try {
@@ -426,17 +457,24 @@ const WithdrawalsList = () => {
                     <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium space-x-1 sm:space-x-2">
                       <button
                         onClick={() => handleLockOrder(withdrawal.id)}
-                        disabled={withdrawal.status === 'locked'}
+                        disabled={withdrawal.status === 'locked' || withdrawal.status === 'approved' || withdrawal.status === 'rejected'}
                         className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation transition-colors"
                       >
-                        Lock order
+                        Lock
+                      </button>
+                      <button
+                        onClick={() => handleApproval(withdrawal.id)}
+                        disabled={withdrawal.status === 'approved' || withdrawal.status === 'rejected'}
+                        className="text-green-600 hover:text-green-900 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation transition-colors"
+                      >
+                        Approve
                       </button>
                       <button
                         onClick={() => handleRejection(withdrawal.id)}
-                        disabled={withdrawal.status === 'rejected'}
+                        disabled={withdrawal.status === 'rejected' || withdrawal.status === 'approved'}
                         className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation transition-colors"
                       >
-                        rejection
+                        Reject
                       </button>
                     </td>
                   </tr>

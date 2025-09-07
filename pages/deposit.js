@@ -43,7 +43,7 @@ export default function DepositPage() {
       id: 'usdt',
       name: 'USDT',
       symbol: 'USDT',
-      network: 'Trinity Tech 20',
+      network: 'TRON (TRC 20)',
       icon: 'T',
       color: 'bg-green-500',
       address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',

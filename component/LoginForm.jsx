@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import { safeWindow, getSafeLocation } from '../utils/safeStorage';
 
 function Toast({ message, onClose }) {
@@ -21,8 +22,8 @@ export const LoginForm = () => {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
   const [showForgot, setShowForgot] = useState(false);
-  const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'otp' | 'reset' | 'done'
-  const [forgotForm, setForgotForm] = useState({ email: '', otp: '', newPassword: '' });
+  const [forgotStep, setForgotStep] = useState('email'); // 'email' | 'done'
+  const [forgotForm, setForgotForm] = useState({ email: '' });
   const router = useRouter();
   const { signIn } = useAuth();
 
@@ -160,39 +161,8 @@ export const LoginForm = () => {
               />
             </div>
           )}
-          {forgotStep === 'otp' && (
-            <div>
-              <label className="text-sm" htmlFor="forgot-otp">Enter OTP sent to your email</label>
-              <input
-                id="forgot-otp"
-                type="text"
-                name="otp"
-                className="w-full bg-gray-800 text-white p-3 mt-1 rounded focus:outline-none text-center tracking-widest text-lg"
-                placeholder="Enter OTP"
-                value={forgotForm.otp}
-                onChange={handleForgotChange}
-                required
-                maxLength={6}
-              />
-            </div>
-          )}
-          {forgotStep === 'reset' && (
-            <div>
-              <label className="text-sm" htmlFor="forgot-new-password">Enter new password</label>
-              <input
-                id="forgot-new-password"
-                type="password"
-                name="newPassword"
-                className="w-full bg-gray-800 text-white p-3 mt-1 rounded focus:outline-none"
-                placeholder="Enter new password"
-                value={forgotForm.newPassword}
-                onChange={handleForgotChange}
-                required
-              />
-            </div>
-          )}
           {forgotStep === 'done' && (
-            <div className="text-green-500 text-center font-bold">Password reset successful! You can now log in.</div>
+            <div className="text-green-500 text-center font-bold">Password reset email sent! Check your email for the reset link.</div>
           )}
           {error && <div className="text-red-500 text-sm" role="alert">{error}</div>}
           {forgotStep !== 'done' && (
@@ -202,14 +172,14 @@ export const LoginForm = () => {
               disabled={loading}
               aria-busy={loading}
             >
-              {loading ? 'Processing...' : forgotStep === 'email' ? 'Send OTP' : forgotStep === 'otp' ? 'Verify OTP' : 'Reset Password'}
+              {loading ? 'Processing...' : 'Send Reset Email'}
             </button>
           )}
           <div className="text-right mt-2">
             <button
               type="button"
               className="text-cyan-400 hover:underline text-sm"
-              onClick={() => { setShowForgot(false); setForgotStep('email'); setForgotForm({ email: '', otp: '', newPassword: '' }); setError(''); }}
+              onClick={() => { setShowForgot(false); setForgotStep('email'); setForgotForm({ email: '' }); setError(''); }}
             >
               Back to login
             </button>

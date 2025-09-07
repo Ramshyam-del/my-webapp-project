@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { hybridFetch, checkHybridAuth } from '../lib/hybridFetch';
+import { supabase } from '../lib/supabaseClient';
 
 const AuthContext = createContext();
 
@@ -29,31 +29,29 @@ export const AuthProvider = ({ children }) => {
         setError(null);
         setLoading(true);
         
-        // Check if user is authenticated by calling /me endpoint
+        // Check if user is authenticated using Supabase
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [Init] Checking auth with hybridFetch:', '/api/auth/me');
+          console.log('🔍 [Init] Checking auth with Supabase');
         }
-        const response = await hybridFetch('/api/auth/me', {
-          method: 'GET'
-        });
+        const { data: { user }, error } = await supabase.auth.getUser();
 
         if (!isMounted) return;
         
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 [Init] Auth response:', response.data);
+          console.log('🔍 [Init] Auth response:', { user, error });
         }
         
-        if (response.data && response.data.ok && response.data.user) {
-          setUser(response.data.user);
+        if (user && !error) {
+          setUser(user);
           setIsAuthenticated(true);
           if (process.env.NODE_ENV === 'development') {
-            console.log('✅ [Init] Auth successful, user:', response.data.user.email);
+            console.log('✅ [Init] Auth successful, user:', user.email);
           }
         } else {
           setUser(null);
           setIsAuthenticated(false);
           if (process.env.NODE_ENV === 'development') {
-            console.log('❌ [Init] Auth failed - no user in response');
+            console.log('❌ [Init] Auth failed - no user');
           }
         }
       } catch (error) {
@@ -103,26 +101,31 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext: signUp called with userData:', userData);
       }
       
-      // Use hybridFetch for consistency
-      const response = await hybridFetch('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify({
-          email,
-          password,
-          firstName: userData.firstName || userData.first_name,
-          lastName: userData.lastName || userData.last_name,
-          username: userData.username,
-          phone: userData.phone
-        })
+      // Use Supabase for registration
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: userData.firstName || userData.first_name,
+            last_name: userData.lastName || userData.last_name,
+            username: userData.username,
+            phone: userData.phone
+          }
+        }
       });
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('AuthContext: Backend signUp response:', response.data);
+        console.log('AuthContext: Supabase signUp response:', { data, error });
+      }
+      
+      if (error) {
+        throw new Error(error.message);
       }
       
       // Registration successful - user needs to verify email
       // Don't set session yet, wait for email verification
-      return { success: true, data: response.data };
+      return { success: true, data };
     } catch (error) {
       setError(error.message);
       return { success: false, error };
@@ -154,29 +157,30 @@ export const AuthProvider = ({ children }) => {
         keysToRemove.forEach(key => localStorage.removeItem(key));
       }
       
-      // Use hybridFetch for consistency
-      const response = await hybridFetch('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          email,
-          password
-        })
+      // Use Supabase for sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('AuthContext: Backend signIn response:', response.data);
+        console.log('AuthContext: Supabase signIn response:', { data, error });
       }
 
-      // Set user data from backend response (JWT tokens are in cookies)
-      if (response.data.user) {
-        setUser(response.data.user);
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      // Set user data from Supabase response
+      if (data.user) {
+        setUser(data.user);
         setIsAuthenticated(true);
         if (process.env.NODE_ENV === 'development') {
-          console.log('AuthContext: Sign in successful, user:', response.data.user);
+          console.log('AuthContext: Sign in successful, user:', data.user);
         }
       }
       
-      return { success: true, data: response.data };
+      return { success: true, data };
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('AuthContext: Sign in error:', error);
@@ -194,10 +198,12 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
-      // Use hybridFetch for consistency
-      await hybridFetch('/api/auth/logout', {
-        method: 'POST'
-      });
+      // Use Supabase for sign out
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
       
       // Clear local state
       setUser(null);
@@ -248,10 +254,10 @@ export const AuthProvider = ({ children }) => {
   // Check authentication status
   const checkAuth = useCallback(async () => {
     try {
-      const response = await hybridFetch('/api/auth/me');
+      const { data: { user }, error } = await supabase.auth.getUser();
       
-      if (response.data && response.data.ok && response.data.user) {
-        setUser(response.data.user);
+      if (user && !error) {
+        setUser(user);
         setIsAuthenticated(true);
         return true;
       }
@@ -268,25 +274,25 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Refresh user data from backend
+  // Refresh user data from Supabase
   const refreshUser = async () => {
     if (!isAuthenticated) return;
     
     try {
-      console.log('🔍 [Refresh] Checking auth with hybridFetch');
-      const response = await hybridFetch('/api/auth/me');
+      console.log('🔍 [Refresh] Checking auth with Supabase');
+      const { data: { user }, error } = await supabase.auth.getUser();
 
-      console.log('🔍 [Refresh] Auth response:', response);
+      console.log('🔍 [Refresh] Auth response:', { user, error });
       
-      if (response.data && response.data.ok && response.data.user) {
-        setUser(response.data.user);
-        console.log('✅ [Refresh] Auth successful, user:', response.data.user.email);
-        return response.data.user;
+      if (user && !error) {
+        setUser(user);
+        console.log('✅ [Refresh] Auth successful, user:', user.email);
+        return user;
       } else {
         // Token might be expired, clear auth state
         setUser(null);
         setIsAuthenticated(false);
-        console.log('❌ [Refresh] Auth failed - no user in response');
+        console.log('❌ [Refresh] Auth failed - no user');
         return null;
       }
     } catch (error) {

@@ -6,47 +6,22 @@ export default async function handler(req, res) {
   const { pair } = req.query;
 
   try {
-    // Mock price data for different pairs
-    const priceData = {
-      'BTC/USDT': {
-        price: 43250.25,
-        change_24h: 2.45,
-        volume: 28450000000,
-        high_24h: 44500,
-        low_24h: 42000
-      },
-      'ETH/USDT': {
-        price: 2650.80,
-        change_24h: 1.23,
-        volume: 15800000000,
-        high_24h: 2700,
-        low_24h: 2600
-      },
-      'BNB/USDT': {
-        price: 312.45,
-        change_24h: -0.87,
-        volume: 1200000000,
-        high_24h: 320,
-        low_24h: 310
-      },
-      'SOL/USDT': {
-        price: 98.75,
-        change_24h: 5.67,
-        volume: 2800000000,
-        high_24h: 100,
-        low_24h: 95
-      },
-      'ADA/USDT': {
-        price: 0.485,
-        change_24h: -1.23,
-        volume: 850000000,
-        high_24h: 0.50,
-        low_24h: 0.48
-      }
+    // Map trading pairs to CoinMarketCap symbols
+    const symbolMap = {
+      'BTCUSDT': 'BTC',
+      'ETHUSDT': 'ETH', 
+      'BNBUSDT': 'BNB',
+      'SOLUSDT': 'SOL',
+      'XRPUSDT': 'XRP',
+      'TRXUSDT': 'TRX',
+      'ADAUSDT': 'ADA',
+      'USDCUSDT': 'USDC',
+      'DOGEUSDT': 'DOGE',
+      'USDTUSDT': 'USDT'
     };
 
-    const data = priceData[pair];
-    if (!data) {
+    const symbol = symbolMap[pair];
+    if (!symbol) {
       return res.status(404).json({
         success: false,
         error: 'Trading pair not found',
@@ -54,11 +29,42 @@ export default async function handler(req, res) {
       });
     }
 
+    // Fetch data from CoinMarketCap API
+    const response = await fetch(
+      `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`,
+      {
+        headers: {
+          'X-CMC_PRO_API_KEY': process.env.COINMARKETCAP_API_KEY,
+          'Accept': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinMarketCap API error: ${response.status}`);
+    }
+
+    const apiData = await response.json();
+    const cryptoData = apiData.data[symbol];
+
+    if (!cryptoData) {
+      return res.status(404).json({
+        success: false,
+        error: 'Cryptocurrency not found',
+        message: `Symbol ${symbol} not found in CoinMarketCap`
+      });
+    }
+
+    const quote = cryptoData.quote.USD;
+    
     res.status(200).json({
       success: true,
       data: {
         pair,
-        ...data,
+        price: quote.price,
+        change_24h: quote.percent_change_24h,
+        volume: quote.volume_24h,
+        market_cap: quote.market_cap,
         timestamp: new Date().toISOString()
       }
     });
@@ -70,4 +76,4 @@ export default async function handler(req, res) {
       message: error.message
     });
   }
-} 
+}

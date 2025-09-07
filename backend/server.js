@@ -72,6 +72,7 @@ const adminTradesRouter = require('./routes/adminTrades');
 const adminSecurityRouter = require('./routes/adminSecurity');
 const userActivitiesRouter = require('./routes/userActivities');
 const tradesRouter = require('./routes/trades');
+const tradingRouter = require('./routes/trading');
 const depositsRouter = require('./routes/deposits');
 const sessionsRouter = require('./routes/sessions');
 const triggerBalanceUpdateRouter = require('./routes/triggerBalanceUpdate');
@@ -88,7 +89,7 @@ adminApiKeyRoutes.use('/trades', adminTradeDecisionRouter); // PATCH :id/decisio
 adminApiKeyRoutes.use('/trades', adminTradesRouter);        // GET list
 adminApiKeyRoutes.use('/security', adminSecurityRouter);    // Security monitoring
 adminApiKeyRoutes.use('/user-activities', userActivitiesRouter);
-app.use('/api/admin', adminApiKeyRoutes);
+app.use('/api/admin-api', adminApiKeyRoutes); // Changed to avoid conflict
 
 // Deposits routes (includes both admin and user endpoints)
 app.use('/api/deposits', depositsRouter);
@@ -98,6 +99,7 @@ app.use('/api/auth', authRouter);
 
 // Public user routes
 app.use('/api/trades', tradesRouter);
+app.use('/api/trading', tradingRouter);
 
 // Session management routes
 app.use('/api/sessions', sessionsRouter);

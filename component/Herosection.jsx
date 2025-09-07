@@ -50,30 +50,30 @@ export const Herosection = () => {
   return (
     <section className="relative min-h-[70vh] sm:min-h-[80vh] flex flex-col justify-center items-center text-center px-4 sm:px-6 overflow-hidden">
       {/* Animated Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-cyan-900 via-blue-900 to-purple-900">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-pulse"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800">
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-800/20 via-gray-700/20 to-gray-600/20 animate-pulse"></div>
         <div 
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-20"
           style={{
-            background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(59, 130, 246, 0.3) 0%, transparent 50%)`
+            background: `radial-gradient(circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(75, 85, 99, 0.2) 0%, transparent 50%)`
           }}
         ></div>
       </div>
 
       {/* Floating Elements */}
       <motion.div 
-        className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full opacity-20 blur-xl"
+        className="absolute top-20 left-10 w-20 h-20 bg-gradient-to-r from-gray-600 to-gray-700 rounded-full opacity-15 blur-xl"
         variants={floatingVariants}
         animate="animate"
       ></motion.div>
       <motion.div 
-        className="absolute top-40 right-20 w-32 h-32 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full opacity-15 blur-2xl"
+        className="absolute top-40 right-20 w-32 h-32 bg-gradient-to-r from-gray-700 to-gray-800 rounded-full opacity-10 blur-2xl"
         variants={floatingVariants}
         animate="animate"
         transition={{ delay: 1 }}
       ></motion.div>
       <motion.div 
-        className="absolute bottom-20 left-20 w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full opacity-25 blur-lg"
+        className="absolute bottom-20 left-20 w-16 h-16 bg-gradient-to-r from-gray-500 to-gray-600 rounded-full opacity-20 blur-lg"
         variants={floatingVariants}
         animate="animate"
         transition={{ delay: 2 }}

@@ -98,6 +98,11 @@ export default function PortfolioPage() {
   const [depositAmount, setDepositAmount] = useState('');
   const [depositAddresses, setDepositAddresses] = useState({ usdt: '', btc: '', eth: '' });
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawalAddress, setWithdrawalAddress] = useState('');
+  const [withdrawalNetwork, setWithdrawalNetwork] = useState('ethereum');
+  const [withdrawalNote, setWithdrawalNote] = useState('');
+  const [selectedCurrency, setSelectedCurrency] = useState('USDT');
+  const [withdrawalLoading, setWithdrawalLoading] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -123,9 +128,7 @@ export default function PortfolioPage() {
   const [transactions, setTransactions] = useState([]);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [transactionFilter, setTransactionFilter] = useState('all'); // 'all', 'buy', 'sell', 'deposit', 'withdraw'
-  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-  const [analyticsTimeframe, setAnalyticsTimeframe] = useState('1M'); // '1W', '1M', '3M', '6M', '1Y'
-  const [portfolioHistory, setPortfolioHistory] = useState([]);
+
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
   const [customerServiceForm, setCustomerServiceForm] = useState({
     email: '',
@@ -200,7 +203,7 @@ export default function PortfolioPage() {
       
       const { data: user, error } = await supabase
         .from('users')
-        .select('document_verification_status, kyc_verified_at, verification_level')
+        .select('kyc_status, updated_at')
         .eq('id', session.user.id)
         .single();
       
@@ -211,17 +214,17 @@ export default function PortfolioPage() {
       }
       
       let status = 'required';
-      if (user.document_verification_status === 'approved' && user.kyc_verified_at) {
+      if (user.kyc_status === 'approved') {
         status = 'approved';
-      } else if (user.document_verification_status === 'rejected') {
+      } else if (user.kyc_status === 'rejected') {
         status = 'rejected';
-      } else if (user.document_verification_status === 'pending') {
+      } else if (user.kyc_status === 'pending') {
         status = 'pending';
       }
       
       setKycStatus({
         status,
-        verifiedAt: user.kyc_verified_at,
+        verifiedAt: user.updated_at,
         loading: false
       });
     } catch (error) {
@@ -245,6 +248,75 @@ export default function PortfolioPage() {
       setDepositAddresses(next);
     } catch (_e) {
       console.error('Error loading deposit addresses:', _e);
+    }
+  };
+
+  // Handle withdrawal submission
+  const handleWithdrawalSubmit = async () => {
+    if (!withdrawAmount || !withdrawalAddress || !selectedCurrency) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    const availableBalance = realTimeBalances[selectedCurrency] || 0;
+    if (amount > availableBalance) {
+      alert(`Insufficient balance. Available: ${availableBalance} ${selectedCurrency}`);
+      return;
+    }
+
+    setWithdrawalLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Please log in to submit a withdrawal request');
+        return;
+      }
+
+      const response = await fetch('/api/withdrawals/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          currency: selectedCurrency,
+          amount: amount,
+          wallet_address: withdrawalAddress,
+          network: withdrawalNetwork,
+          user_note: withdrawalNote || null
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.ok) {
+        alert(`Withdrawal request submitted successfully! Your request is now pending admin approval.`);
+        
+        // Reset form
+        setShowWithdrawModal(false);
+        setWithdrawAmount('');
+        setWithdrawalAddress('');
+        setWithdrawalNote('');
+        setSelectedCurrency('USDT');
+        setWithdrawalNetwork('ethereum');
+        
+        // Refresh balance
+        refreshBalance();
+      } else {
+        alert(`Error: ${result.message || 'Failed to submit withdrawal request'}`);
+      }
+    } catch (error) {
+      console.error('Withdrawal submission error:', error);
+      alert('Failed to submit withdrawal request. Please try again.');
+    } finally {
+      setWithdrawalLoading(false);
     }
   };
 
@@ -471,10 +543,9 @@ export default function PortfolioPage() {
 
   // Load transactions from localStorage
   const loadTransactions = () => {
-    const saved = safeLocalStorage.getItem('transactions');
-    if (saved) {
-      setTransactions(JSON.parse(saved));
-    }
+    // Clear any existing mock transaction data
+    safeLocalStorage.removeItem('transactions');
+    setTransactions([]);
   };
 
   // Save transactions to localStorage
@@ -516,85 +587,9 @@ export default function PortfolioPage() {
     return stats;
   };
 
-  // Calculate portfolio analytics
-  const getPortfolioAnalytics = () => {
-    const holdings = getRealHoldings();
-    const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
-    const totalSpent = holdings.reduce((sum, holding) => sum + (holding.amount * holding.avgPrice), 0);
-    const totalProfit = totalValue - totalSpent;
-    const profitPercentage = totalSpent > 0 ? (totalProfit / totalSpent) * 100 : 0;
 
-    // Calculate asset allocation
-    const assetAllocation = holdings.map(holding => ({
-      name: holding.name,
-      symbol: holding.symbol,
-      value: holding.currentValue,
-      percentage: totalValue > 0 ? (holding.currentValue / totalValue) * 100 : 0,
-      profit: holding.profit || 0,
-      profitPercentage: holding.profitPercent || 0
-    }));
 
-    // Calculate performance metrics
-    const bestPerformer = holdings.length > 0 ? 
-      holdings.reduce((best, current) => 
-        (current.profitPercent || 0) > (best.profitPercent || 0) ? current : best
-      ) : null;
 
-    const worstPerformer = holdings.length > 0 ? 
-      holdings.reduce((worst, current) => 
-        (current.profitPercent || 0) < (worst.profitPercent || 0) ? current : worst
-      ) : null;
-
-    return {
-      totalValue,
-      totalSpent,
-      totalProfit,
-      profitPercentage,
-      assetAllocation,
-      bestPerformer,
-      worstPerformer,
-      holdingsCount: holdings.length
-    };
-  };
-
-  // Generate mock portfolio history for charts
-  const generatePortfolioHistory = () => {
-    const analytics = getPortfolioAnalytics();
-    const days = 30; // Last 30 days
-    const history = [];
-    
-    for (let i = days; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      
-      // Simulate daily portfolio value with some volatility
-      const baseValue = analytics.totalValue;
-      const volatility = 0.05; // 5% daily volatility
-      const randomChange = (Math.random() - 0.5) * volatility;
-      const dailyValue = baseValue * (1 + randomChange);
-      
-      history.push({
-        date: date.toISOString().split('T')[0],
-        value: Math.max(dailyValue, 0), // Ensure non-negative
-        change: randomChange * 100
-      });
-    }
-    
-    return history;
-  };
-
-  // Load portfolio history
-  const loadPortfolioHistory = () => {
-    const saved = safeLocalStorage.getItem('portfolioHistory');
-    if (saved) {
-      setPortfolioHistory(JSON.parse(saved));
-    } else {
-      // Generate mock data if no history exists
-      const mockHistory = generatePortfolioHistory();
-      setPortfolioHistory(mockHistory);
-      safeLocalStorage.setItem('portfolioHistory', JSON.stringify(mockHistory));
-    }
-  };
 
   // Add new alert
   const addAlert = (alertData) => {
@@ -750,7 +745,7 @@ export default function PortfolioPage() {
     loadDepositAddressesFromLocal();
     loadAlerts();
     loadTransactions(); // Load transactions on mount
-    loadPortfolioHistory(); // Load portfolio history
+
     
     // Always fetch portfolio balance on mount
     console.log('🔥 About to call fetchPortfolioBalance');
@@ -763,6 +758,21 @@ export default function PortfolioPage() {
     
     // Fetch KYC status on mount
     fetchKycStatus();
+    
+    // Listen for KYC status updates from admin
+    let kycChannel;
+    try {
+      kycChannel = new BroadcastChannel('kyc-status-updates');
+      kycChannel.addEventListener('message', (event) => {
+        if (event.data.type === 'KYC_STATUS_UPDATED' && event.data.userId && user?.id === event.data.userId) {
+          console.log('🔄 Received KYC status update:', event.data);
+          // Refresh KYC status immediately
+          fetchKycStatus();
+        }
+      });
+    } catch (error) {
+      console.log('BroadcastChannel not supported:', error);
+    }
     
     fetchMarketData();
     const marketInterval = setInterval(fetchMarketData, 30000);
@@ -796,6 +806,9 @@ export default function PortfolioPage() {
       if (document) {
         document.removeEventListener('webConfigUpdated', onCfg);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (kycChannel) {
+        kycChannel.close();
       }
     };
   }, [wsConnected]);
@@ -1167,13 +1180,7 @@ export default function PortfolioPage() {
             <span className={balanceLoading ? 'animate-spin' : ''}>{balanceLoading ? '⟳' : '🔄'}</span>
             <span>Refresh</span>
           </button>
-          <button 
-            onClick={() => setShowAnalyticsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
-          >
-            <span>📊</span>
-            <span>Analytics</span>
-          </button>
+
           <button 
             onClick={() => setShowTransactionsModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
@@ -1235,37 +1242,7 @@ export default function PortfolioPage() {
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-gray-700/50 rounded-lg border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200 group">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-2 h-2 bg-green-400 rounded-full"></span>
-                <span className="text-xs text-gray-400 font-medium">Invested</span>
-              </div>
-              <div className="text-lg font-bold text-white group-hover:text-green-400 transition-colors">
-                ${portfolioTotals.totalSpent.toLocaleString()}
-              </div>
-              <div className="text-xs text-gray-500">Total Capital</div>
-            </div>
 
-            <div className="p-3 bg-gray-700/50 rounded-lg border border-gray-600/30 hover:border-gray-500/50 transition-all duration-200 group">
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`w-2 h-2 rounded-full ${portfolioTotals.totalProfit >= 0 ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></span>
-                <span className="text-xs text-gray-400 font-medium">P&L</span>
-              </div>
-              <div className={`text-lg font-bold transition-colors group-hover:scale-105 transform duration-200 ${
-                portfolioTotals.totalProfit >= 0 ? 'text-green-400 group-hover:text-green-300' : 'text-red-400 group-hover:text-red-300'
-              }`}>
-                {portfolioTotals.totalProfit >= 0 ? '+' : ''}${portfolioTotals.totalProfit.toFixed(2)}
-              </div>
-              <div className="text-xs text-gray-500">
-                {portfolioTotals.totalSpent > 0 ? 
-                  `${((portfolioTotals.totalProfit / portfolioTotals.totalSpent) * 100).toFixed(1)}%` : 
-                  '0.0%'
-                } Return
-              </div>
-            </div>
-          </div>
 
           {/* Credit Score */}
           <div className="p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
@@ -1328,89 +1305,6 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Portfolio Analytics Section */}
-      <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-white">Portfolio Analytics</h2>
-          <button 
-            onClick={() => setShowAnalyticsModal(true)}
-            className="text-sm bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            View Details
-          </button>
-        </div>
-        
-        {(() => {
-          const analytics = getPortfolioAnalytics();
-          return (
-            <div className="space-y-4">
-              {/* Performance Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                  <div className="text-xs text-gray-400 font-medium mb-1">Total Return</div>
-                  <div className={`text-lg font-bold ${analytics.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {analytics.profitPercentage >= 0 ? '+' : ''}{analytics.profitPercentage.toFixed(2)}%
-                  </div>
-                </div>
-                <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                  <div className="text-xs text-gray-400 font-medium mb-1">Holdings</div>
-                  <div className="text-lg font-bold text-white">{analytics.holdingsCount}</div>
-                </div>
-              </div>
-              
-              {/* Best/Worst Performers */}
-              {analytics.bestPerformer && analytics.worstPerformer && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                    <div className="text-xs text-gray-400 font-medium mb-1">Best Performer</div>
-                    <div className="text-sm font-semibold text-white">{analytics.bestPerformer.symbol}</div>
-                    <div className="text-xs text-green-400 font-bold">
-                      +{analytics.bestPerformer.profitPercent?.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                    <div className="text-xs text-gray-400 font-medium mb-1">Worst Performer</div>
-                    <div className="text-sm font-semibold text-white">{analytics.worstPerformer.symbol}</div>
-                    <div className="text-xs text-red-400 font-bold">
-                      {analytics.worstPerformer.profitPercent?.toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Asset Allocation Preview */}
-              {analytics.assetAllocation.length > 0 && (
-                <div className="bg-gray-700 rounded-lg p-4 border border-gray-600">
-                  <div className="text-xs text-gray-400 font-medium mb-3">Asset Allocation</div>
-                  <div className="space-y-3">
-                    {analytics.assetAllocation.slice(0, 3).map((asset, index) => (
-                      <div key={index} className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${
-                            index === 0 ? 'bg-blue-500' :
-                            index === 1 ? 'bg-green-500' :
-                            index === 2 ? 'bg-yellow-500' :
-                            index === 3 ? 'bg-purple-500' :
-                            'bg-gray-500'
-                          }`}></div>
-                          <span className="text-sm font-medium text-white">{asset.symbol}</span>
-                        </div>
-                        <div className="text-sm font-bold text-white">{asset.percentage.toFixed(1)}%</div>
-                      </div>
-                    ))}
-                    {analytics.assetAllocation.length > 3 && (
-                      <div className="text-xs text-gray-400 text-center pt-2">
-                        +{analytics.assetAllocation.length - 3} more assets
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
       {/* Enhanced Holdings Section */}
       <div className="px-4 py-6 bg-gradient-to-br from-gray-800/90 to-gray-700/90 border-b border-gray-600/50">
         <div className="flex justify-between items-center mb-5">
@@ -1423,15 +1317,7 @@ export default function PortfolioPage() {
               <div className="text-xs text-gray-400">{holdingsData.length} Assets • Live Tracking</div>
             </div>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
-          >
-            <span className="flex items-center gap-2">
-              <span className="text-lg">+</span>
-              Add Asset
-            </span>
-          </button>
+
         </div>
         
         <div className="space-y-4">
@@ -1442,12 +1328,7 @@ export default function PortfolioPage() {
               </div>
               <div className="text-gray-300 text-lg font-medium mb-2">No holdings yet</div>
               <div className="text-gray-500 text-sm mb-6">Start building your crypto portfolio today</div>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105"
-              >
-                Add Your First Asset
-              </button>
+
             </div>
           ) : (
             holdingsData.map((holding, index) => (
@@ -1505,33 +1386,7 @@ export default function PortfolioPage() {
                   </div>
                   
                   {/* Action Buttons */}
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => {
-                          // Add buy more functionality
-                          setShowAddModal(true);
-                        }}
-                        className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-500 text-white text-sm rounded-lg hover:from-green-700 hover:to-green-600 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-green-500/25"
-                      >
-                        <span className="flex items-center gap-1">
-                          <span>📈</span>
-                          Buy More
-                        </span>
-                      </button>
-                      <button 
-                        onClick={() => {
-                          // Add sell functionality
-                          setShowAddModal(true);
-                        }}
-                        className="px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-500 text-white text-sm rounded-lg hover:from-orange-700 hover:to-orange-600 transition-all duration-200 transform hover:scale-105 shadow-md hover:shadow-orange-500/25"
-                      >
-                        <span className="flex items-center gap-1">
-                          <span>💰</span>
-                          Sell
-                        </span>
-                      </button>
-                    </div>
+                  <div className="flex justify-end items-center">
                     <button 
                       onClick={() => removeFromPortfolio(holding.cryptoId || holding.symbol)}
                       className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 text-sm rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
@@ -1992,52 +1847,82 @@ export default function PortfolioPage() {
             <h3 className="text-lg font-bold mb-4">Withdraw Funds</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Amount (USD)</label>
+                <label className="block text-sm font-medium mb-2">Currency</label>
+                <select 
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                >
+                  <option value="USDT">USDT</option>
+                  <option value="BTC">BTC</option>
+                  <option value="ETH">ETH</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Amount</label>
                 <input 
                   type="number" 
-                  step="0.01"
+                  step="0.00000001"
                   placeholder="0.00"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 />
+                <div className="text-xs text-gray-400 mt-1">
+                  Available: {realTimeBalances[selectedCurrency] || 0} {selectedCurrency}
+                </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Withdrawal Method</label>
-                <select className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2">
-                  <option value="bank">Bank Account</option>
-                  <option value="card">Credit/Debit Card</option>
-                  <option value="crypto">Cryptocurrency Wallet</option>
+                <label className="block text-sm font-medium mb-2">Withdrawal Address</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter wallet address"
+                  value={withdrawalAddress}
+                  onChange={(e) => setWithdrawalAddress(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Network</label>
+                <select 
+                  value={withdrawalNetwork}
+                  onChange={(e) => setWithdrawalNetwork(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
+                >
+                  <option value="ethereum">Ethereum (ERC-20)</option>
+                  <option value="tron">Tron (TRC-20)</option>
+                  <option value="bitcoin">Bitcoin</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Note (Optional)</label>
+                <textarea 
+                  placeholder="Add a note for your withdrawal"
+                  value={withdrawalNote}
+                  onChange={(e) => setWithdrawalNote(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 h-20 resize-none"
+                />
               </div>
               <div className="flex gap-2">
                 <button 
                   onClick={() => {
                     setShowWithdrawModal(false);
                     setWithdrawAmount('');
+                    setWithdrawalAddress('');
+                    setWithdrawalNote('');
+                    setSelectedCurrency('USDT');
+                    setWithdrawalNetwork('ethereum');
                   }}
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
                 >
                   Cancel
                 </button>
                 <button 
-                  onClick={() => {
-                    if (withdrawAmount && parseFloat(withdrawAmount) > 0) {
-                      // Record withdraw transaction
-                      addTransaction({
-                        type: 'withdraw',
-                        amount: parseFloat(withdrawAmount),
-                        description: `Withdrew $${withdrawAmount} USD`,
-                        totalValue: parseFloat(withdrawAmount)
-                      });
-                      alert(`Withdrawal of $${withdrawAmount} USD initiated successfully!`);
-                      setShowWithdrawModal(false);
-                      setWithdrawAmount('');
-                    }
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                  onClick={handleWithdrawalSubmit}
+                  disabled={withdrawalLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded"
                 >
-                  Withdraw
+                  {withdrawalLoading ? 'Processing...' : 'Submit Withdrawal'}
                 </button>
               </div>
             </div>
@@ -2598,192 +2483,12 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Portfolio Analytics Modal */}
-      {showAnalyticsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Portfolio Analytics</h3>
-              <button 
-                onClick={() => setShowAnalyticsModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {(() => {
-              const analytics = getPortfolioAnalytics();
-              return (
-                <div className="space-y-6">
-                  {/* Timeframe Selector */}
-                  <div className="flex gap-2 overflow-x-auto">
-                    {['1W', '1M', '3M', '6M', '1Y'].map((timeframe) => (
-                      <button
-                        key={timeframe}
-                        onClick={() => setAnalyticsTimeframe(timeframe)}
-                        className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${
-                          analyticsTimeframe === timeframe
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                        }`}
-                      >
-                        {timeframe}
-                      </button>
-                    ))}
-                  </div>
+
+
                   
-                  {/* Performance Overview */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-xs text-gray-400">Total Value</div>
-                      <div className="text-lg font-bold">${analytics.totalValue.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-xs text-gray-400">Total Invested</div>
-                      <div className="text-lg font-bold">${analytics.totalSpent.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-xs text-gray-400">Total Profit/Loss</div>
-                      <div className={`text-lg font-bold ${analytics.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {analytics.totalProfit >= 0 ? '+' : ''}${analytics.totalProfit.toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-xs text-gray-400">Return %</div>
-                      <div className={`text-lg font-bold ${analytics.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {analytics.profitPercentage >= 0 ? '+' : ''}{analytics.profitPercentage.toFixed(2)}%
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Portfolio Chart */}
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <h4 className="font-medium mb-4">Portfolio Performance ({analyticsTimeframe})</h4>
-                    <div className="h-64 bg-gray-800 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">📈</div>
-                        <div className="text-gray-400 text-sm">Portfolio Chart</div>
-                        <div className="text-gray-500 text-xs">Interactive chart coming soon</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Asset Allocation */}
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <h4 className="font-medium mb-4">Asset Allocation</h4>
-                    <div className="space-y-3">
-                      {analytics.assetAllocation.map((asset, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-4 h-4 rounded-full ${
-                              index === 0 ? 'bg-blue-500' :
-                              index === 1 ? 'bg-green-500' :
-                              index === 2 ? 'bg-yellow-500' :
-                              index === 3 ? 'bg-purple-500' :
-                              'bg-gray-500'
-                            }`}></div>
-                            <div>
-                              <div className="font-medium text-sm">{asset.name}</div>
-                              <div className="text-xs text-gray-400">{asset.symbol}</div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium text-sm">${asset.value.toLocaleString()}</div>
-                            <div className="text-xs text-gray-400">{asset.percentage.toFixed(1)}%</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Performance Metrics */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <h4 className="font-medium mb-4">Best Performer</h4>
-                      {analytics.bestPerformer ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                              {analytics.bestPerformer.icon}
-                            </div>
-                            <div>
-                              <div className="font-medium">{analytics.bestPerformer.name}</div>
-                              <div className="text-sm text-gray-400">{analytics.bestPerformer.symbol}</div>
-                            </div>
-                          </div>
-                          <div className="text-green-400 font-bold">
-                            +{analytics.bestPerformer.profitPercent?.toFixed(2)}%
-                          </div>
-                          <div className="text-sm text-gray-400">
-                            ${analytics.bestPerformer.currentValue?.toLocaleString()}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-gray-400 text-sm">No holdings yet</div>
-                      )}
-                    </div>
-                    
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <h4 className="font-medium mb-4">Worst Performer</h4>
-                      {analytics.worstPerformer ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
-                              {analytics.worstPerformer.icon}
-                            </div>
-                            <div>
-                              <div className="font-medium">{analytics.worstPerformer.name}</div>
-                              <div className="text-sm text-gray-400">{analytics.worstPerformer.symbol}</div>
-                            </div>
-                          </div>
-                          <div className="text-red-400 font-bold">
-                            {analytics.worstPerformer.profitPercent?.toFixed(2)}%
-                          </div>
-                          <div className="text-sm text-gray-400">
-                            ${analytics.worstPerformer.currentValue?.toLocaleString()}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-gray-400 text-sm">No holdings yet</div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Risk Metrics */}
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <h4 className="font-medium mb-4">Risk Metrics</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <div className="text-xs text-gray-400">Diversification</div>
-                        <div className="text-lg font-bold">
-                          {analytics.holdingsCount > 1 ? 'Good' : 'Poor'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Holdings</div>
-                        <div className="text-lg font-bold">{analytics.holdingsCount}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Avg Return</div>
-                        <div className={`text-lg font-bold ${analytics.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {analytics.profitPercentage.toFixed(2)}%
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">Status</div>
-                        <div className={`text-lg font-bold ${analytics.profitPercentage >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {analytics.profitPercentage >= 0 ? 'Profitable' : 'Loss'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
+
+
+
 
       {/* Customer Service Modal */}
       {showCustomerServiceModal && (
@@ -2889,16 +2594,6 @@ export default function PortfolioPage() {
                   <p className="text-sm text-gray-500 mt-1">
                     Please enter the details of your request. A member of our support staff will respond as soon as possible.
                   </p>
-                </div>
-
-                {/* Attachments Section */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Attachments <span className="text-blue-500">(optional)</span>
-                  </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-teal-400 transition-colors cursor-pointer">
-                    <span className="text-gray-500 text-sm">Click to upload files or drag and drop</span>
-                  </div>
                 </div>
 
                 {/* Submit Button */}

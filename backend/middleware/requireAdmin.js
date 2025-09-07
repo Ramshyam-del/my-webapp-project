@@ -26,6 +26,7 @@ function extractToken(req) {
  */
 async function authenticateUser(req, res, next) {
   // Note: Admin routes should be authenticated, not bypassed
+  console.log('🔍 [AUTH] Middleware called for:', req.method, req.originalUrl);
   
   try {
     // Check if Supabase is configured
@@ -38,8 +39,10 @@ async function authenticateUser(req, res, next) {
     }
 
     const token = extractToken(req);
+    console.log('🔍 [AUTH] Token extracted:', !!token);
     
     if (!token) {
+      console.log('❌ [AUTH] No authentication token found');
       return res.status(401).json({ 
         ok: false, 
         code: 'unauthorized', 
@@ -48,17 +51,22 @@ async function authenticateUser(req, res, next) {
     }
 
     // Validate token with Supabase
+    console.log('🔍 [AUTH] Validating token for:', req.originalUrl);
     const { data: { user }, error: authError } = await serverSupabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.log('❌ [AUTH] Token validation failed:', authError?.message || 'No user');
       return res.status(401).json({ 
         ok: false, 
         code: 'unauthorized', 
         message: 'Invalid authentication token' 
       });
     }
+    
+    console.log('✅ [AUTH] Token valid for user:', user.email);
 
     // Get user profile from database
+    console.log('🔍 [AUTH] Looking up profile for user ID:', user.id);
     const { data: profile, error: profileError } = await serverSupabase
       .from('users')
       .select('id, email, role, status')
@@ -66,6 +74,7 @@ async function authenticateUser(req, res, next) {
       .single();
 
     if (profileError) {
+      console.log('❌ [AUTH] Profile lookup failed:', profileError.message);
       // If table doesn't exist or RLS blocks access, return unauthorized
       return res.status(401).json({ 
         ok: false, 
@@ -73,6 +82,8 @@ async function authenticateUser(req, res, next) {
         message: 'User profile not found' 
       });
     }
+    
+    console.log('✅ [AUTH] Profile found:', { id: profile.id, email: profile.email, role: profile.role });
 
     // Attach user to request
     req.user = profile;

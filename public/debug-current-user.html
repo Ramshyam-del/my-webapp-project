@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Current User</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Current User Debug</h1>
+    <div id="user-info"></div>
+    <button onclick="checkCurrentUser()">Check Current User</button>
+    <button onclick="logout()">Logout</button>
+
+    <script>
+        const supabaseUrl = 'https://ixqhqjqjqjqjqjqjqjqj.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4cWhxanFqcWpxanFqcWpxanFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU2MjI4NzQsImV4cCI6MjA0MTE5ODg3NH0.example';
+        
+        // Use environment variables if available, otherwise fallback
+        const actualUrl = window.location.origin.includes('localhost') ? 'https://ixqhqjqjqjqjqjqjqjqj.supabase.co' : supabaseUrl;
+        const actualKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4cWhxanFqcWpxanFqcWpxanFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU2MjI4NzQsImV4cCI6MjA0MTE5ODg3NH0.example';
+        
+        const supabase = window.supabase.createClient(actualUrl, actualKey);
+        
+        async function checkCurrentUser() {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    document.getElementById('user-info').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                    return;
+                }
+                
+                if (!session) {
+                    document.getElementById('user-info').innerHTML = '<p style="color: orange;">No active session found</p>';
+                    return;
+                }
+                
+                const userInfo = {
+                    id: session.user.id,
+                    email: session.user.email,
+                    created_at: session.user.created_at,
+                    last_sign_in_at: session.user.last_sign_in_at
+                };
+                
+                document.getElementById('user-info').innerHTML = '<pre>' + JSON.stringify(userInfo, null, 2) + '</pre>';
+                
+            } catch (error) {
+                document.getElementById('user-info').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function logout() {
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                    alert('Logout error: ' + error.message);
+                } else {
+                    alert('Logged out successfully');
+                    document.getElementById('user-info').innerHTML = '<p>Logged out</p>';
+                }
+            } catch (error) {
+                alert('Logout error: ' + error.message);
+            }
+        }
+        
+        // Auto-check on page load
+        window.onload = checkCurrentUser;
+    </script>
+</body>
+</html>

@@ -1,4 +1,10 @@
-import { supabaseAdmin } from '../../../backend/lib/supabaseAdmin';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -57,10 +63,10 @@ export default async function handler(req, res) {
     // Calculate statistics
     const stats = {
       totalRecharges: formattedTransactions
-        .filter(t => t.type === 'RECHARGE')
+        .filter(t => t.type === 'recharge')
         .reduce((sum, t) => sum + Math.abs(t.amount), 0),
       totalWithdrawals: formattedTransactions
-        .filter(t => t.type === 'WITHDRAW')
+        .filter(t => t.type === 'withdraw')
         .reduce((sum, t) => sum + Math.abs(t.amount), 0),
       pendingCount: formattedTransactions
         .filter(t => t.status === 'pending').length,

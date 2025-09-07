@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { authedFetch } from '../../lib/authedFetch';
+import { authedFetch, getSupabaseToken } from '../../lib/authedFetch';
 import AdminAuthGuard from '../../component/AdminAuthGuard';
 
 function AdminKYCContent() {
+  console.log('🏗️ [KYC] AdminKYCContent component mounting...');
   const [kycRequests, setKycRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
+    console.log('🚀 [KYC] useEffect triggered - component mounted');
     fetchKycData();
   }, []);
 
@@ -17,15 +19,53 @@ function AdminKYCContent() {
       setLoading(true);
       setError('');
       
-      console.log('🔍 Fetching KYC data...');
-      const result = await authedFetch('/api/admin/users/kyc');
-      console.log('📋 KYC Result:', result);
+      console.log('🔍 [KYC] Starting fetchKycData function...');
+      console.log('🔍 [KYC] About to call authedFetch with URL: /api/admin/users/kyc');
+      
+      // Add retry mechanism for network issues
+      let result;
+      let lastError;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔄 [KYC] Attempt ${attempt}/3`);
+          // Use frontend proxy route instead of direct backend call
+          const response = await fetch('/api/admin/users/kyc', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              // Add session token for authentication
+              'Authorization': `Bearer ${await getSupabaseToken()}`
+            }
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          result = await response.json();
+          console.log('📋 [KYC] authedFetch completed, result:', result);
+          break; // Success, exit retry loop
+        } catch (fetchError) {
+          lastError = fetchError;
+          console.error(`❌ [KYC] Attempt ${attempt} failed:`, fetchError.message);
+          
+          if (attempt === 3) {
+            throw fetchError; // Final attempt failed
+          }
+          
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+        }
+      }
       
       if (!result.ok) {
         throw new Error(result.message || 'Failed to fetch KYC data');
       }
       
       // Transform the data to match expected format
+      console.log('🔍 Raw KYC data from backend:', result.data);
+      
       const transformedData = result.data.map(user => ({
         id: user.id,
         user: user.user,
@@ -38,10 +78,34 @@ function AdminKYCContent() {
         last_name: user.last_name
       }));
       
+      console.log('🔄 Transformed KYC data:', transformedData);
+      console.log('📊 Pending requests:', transformedData.filter(req => req.status === 'pending'));
+      
       setKycRequests(transformedData);
+      console.log('📋 Final KYC data:', transformedData);
     } catch (error) {
-      console.error('Failed to fetch KYC data:', error);
-      setError(error.message || 'Failed to load KYC data');
+      console.error('❌ [KYC] Error fetching KYC data:', error);
+      console.error('❌ [KYC] Error details:', {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        stack: error.stack,
+        original: error.original
+      });
+      
+      // Provide user-friendly error messages based on error type
+      let userMessage = 'Failed to fetch KYC data';
+      if (error.code === 'auth' || error.status === 401) {
+        userMessage = 'Authentication failed. Please log in as an admin user.';
+      } else if (error.code === 'network_error' || error.message?.includes('Network error')) {
+        userMessage = 'Network connection failed. Please check if the backend server is running and try again.';
+      } else if (error.status === 403) {
+        userMessage = 'Access denied. You need admin privileges to view KYC data.';
+      } else if (error.status >= 500) {
+        userMessage = 'Server error occurred. Please try again later or contact support.';
+      }
+      
+      setError(userMessage);
     } finally {
       setLoading(false);
     }
@@ -61,18 +125,38 @@ function AdminKYCContent() {
   };
 
   const handleStatusChange = async (id, newStatus) => {
+    console.log('🔄 Starting KYC status change:', { id, newStatus });
+    alert(`Attempting to change KYC status for ID: ${id} to ${newStatus}`);
+    
     try {
-      const result = await authedFetch(`/api/admin/users/${id}/kyc`, {
+      console.log('📤 Making PATCH request to:', `/api/admin/users/${id}/kyc`);
+      console.log('📋 Request body:', { status: newStatus, notes: `Status changed to ${newStatus} by admin` });
+      
+      // Use frontend proxy route instead of direct backend call
+      const response = await fetch(`/api/admin/users/${id}/kyc`, {
         method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getSupabaseToken()}`
+        },
         body: JSON.stringify({
           status: newStatus,
           notes: `Status changed to ${newStatus} by admin`
         })
       });
       
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
       if (!result.ok) {
         throw new Error(result.message || 'Failed to update KYC status');
       }
+      
+      console.log('✅ KYC update successful:', result);
       
       // Update local state
       setKycRequests(prev => 
@@ -85,8 +169,24 @@ function AdminKYCContent() {
         )
       );
       
+      // Broadcast KYC status change to user's browser instances
+      try {
+        // Use BroadcastChannel to notify user portfolio pages
+        const channel = new BroadcastChannel('kyc-status-updates');
+        channel.postMessage({
+          type: 'KYC_STATUS_UPDATED',
+          userId: id,
+          status: newStatus,
+          timestamp: new Date().toISOString()
+        });
+        channel.close();
+      } catch (broadcastError) {
+        console.log('BroadcastChannel not supported or failed:', broadcastError);
+      }
+      
       // Show success message (you can add a toast notification here)
       console.log(`KYC status updated successfully for user ${id}`);
+      alert(`KYC status updated to ${newStatus} successfully!`);
       
     } catch (error) {
       console.error('Failed to update KYC status:', error);

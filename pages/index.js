@@ -220,7 +220,7 @@ const CryptoPrices = () => {
 
 export default function Home() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-700 via-cyan-600 to-purple-700">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-900 via-gray-800 to-black">
       <Navbar />
       <main className="flex-1 flex flex-col gap-8 sm:gap-12 md:gap-16 lg:gap-24">
         <motion.section

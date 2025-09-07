@@ -35,11 +35,8 @@ export default function FeaturesPage() {
   const [selectedDuration, setSelectedDuration] = useState(360); // Default to 360s
   
   // Enhanced UI state variables
-  const [priceDirection, setPriceDirection] = useState('neutral'); // 'up', 'down', 'neutral'
   const [lastPrice, setLastPrice] = useState('0.00');
   const [activeTrades, setActiveTrades] = useState([]);
-  const [marketSentiment, setMarketSentiment] = useState('neutral'); // 'bullish', 'bearish', 'neutral'
-  const [priceAnimation, setPriceAnimation] = useState(false);
   
   // User balance state
   const [balance, setBalance] = useState(0);
@@ -57,22 +54,7 @@ export default function FeaturesPage() {
     { seconds: 360, percentage: 100 }
   ];
   
-  // Market sentiment indicators
-  const getSentimentColor = (sentiment) => {
-    switch(sentiment) {
-      case 'bullish': return 'text-green-400';
-      case 'bearish': return 'text-red-400';
-      default: return 'text-yellow-400';
-    }
-  };
-  
-  const getSentimentIcon = (sentiment) => {
-    switch(sentiment) {
-      case 'bullish': return '📈';
-      case 'bearish': return '📉';
-      default: return '➡️';
-    }
-  };
+
   
   const getRiskColor = (risk) => {
     switch(risk) {
@@ -84,60 +66,18 @@ export default function FeaturesPage() {
     }
   };
 
-  // Enhanced trading pairs list
+  // Top 10 trading pairs from CoinMarketCap
   const tradingPairs = [
-    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', base: 'BTC', quote: 'USDT', icon: '₿' },
-    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', base: 'ETH', quote: 'USDT', icon: 'Ξ' },
-    { symbol: 'BNBUSDT', name: 'BNB/USDT', base: 'BNB', quote: 'USDT', icon: 'B' },
-    { symbol: 'SOLUSDT', name: 'Solana/USDT', base: 'SOL', quote: 'USDT', icon: 'S' },
-    { symbol: 'ADAUSDT', name: 'Cardano/USDT', base: 'ADA', quote: 'USDT', icon: 'A' },
-    { symbol: 'DOTUSDT', name: 'Polkadot/USDT', base: 'DOT', quote: 'USDT', icon: 'D' },
-    { symbol: 'DOGEUSDT', name: 'Dogecoin/USDT', base: 'DOGE', quote: 'USDT', icon: 'Ð' },
-    { symbol: 'AVAXUSDT', name: 'Avalanche/USDT', base: 'AVAX', quote: 'USDT', icon: 'A' },
-    { symbol: 'LINKUSDT', name: 'Chainlink/USDT', base: 'LINK', quote: 'USDT', icon: 'L' },
-    { symbol: 'MATICUSDT', name: 'Polygon/USDT', base: 'MATIC', quote: 'USDT', icon: 'M' },
-    { symbol: 'LTCUSDT', name: 'Litecoin/USDT', base: 'LTC', quote: 'USDT', icon: 'Ł' },
-    { symbol: 'UNIUSDT', name: 'Uniswap/USDT', base: 'UNI', quote: 'USDT', icon: 'U' },
-    { symbol: 'BCHUSDT', name: 'Bitcoin Cash/USDT', base: 'BCH', quote: 'USDT', icon: 'B' },
-    { symbol: 'XLMUSDT', name: 'Stellar/USDT', base: 'XLM', quote: 'USDT', icon: 'X' },
-    { symbol: 'VETUSDT', name: 'VeChain/USDT', base: 'VET', quote: 'USDT', icon: 'V' },
-    { symbol: 'FILUSDT', name: 'Filecoin/USDT', base: 'FIL', quote: 'USDT', icon: 'F' },
-    { symbol: 'ATOMUSDT', name: 'Cosmos/USDT', base: 'ATOM', quote: 'USDT', icon: 'A' },
-    { symbol: 'XMRUSDT', name: 'Monero/USDT', base: 'XMR', quote: 'USDT', icon: 'M' },
-    { symbol: 'ALGOUSDT', name: 'Algorand/USDT', base: 'ALGO', quote: 'USDT', icon: 'A' },
-    { symbol: 'XTZUSDT', name: 'Tezos/USDT', base: 'XTZ', quote: 'USDT', icon: 'T' },
-    { symbol: 'AAVEUSDT', name: 'Aave/USDT', base: 'AAVE', quote: 'USDT', icon: 'A' },
-    { symbol: 'COMPUSDT', name: 'Compound/USDT', base: 'COMP', quote: 'USDT', icon: 'C' },
-    { symbol: 'SNXUSDT', name: 'Synthetix/USDT', base: 'SNX', quote: 'USDT', icon: 'S' },
-    { symbol: 'YFIUSDT', name: 'Yearn Finance/USDT', base: 'YFI', quote: 'USDT', icon: 'Y' },
-    { symbol: 'MANAUSDT', name: 'Decentraland/USDT', base: 'MANA', quote: 'USDT', icon: 'M' },
-    { symbol: 'SANDUSDT', name: 'The Sandbox/USDT', base: 'SAND', quote: 'USDT', icon: 'S' },
-    { symbol: 'ENJUSDT', name: 'Enjin Coin/USDT', base: 'ENJ', quote: 'USDT', icon: 'E' },
-    { symbol: 'AXSUSDT', name: 'Axie Infinity/USDT', base: 'AXS', quote: 'USDT', icon: 'A' },
-    { symbol: 'GALAUSDT', name: 'Gala/USDT', base: 'GALA', quote: 'USDT', icon: 'G' },
-    { symbol: 'FLOWUSDT', name: 'Flow/USDT', base: 'FLOW', quote: 'USDT', icon: 'F' },
-    { symbol: 'NEARUSDT', name: 'NEAR Protocol/USDT', base: 'NEAR', quote: 'USDT', icon: 'N' },
-    { symbol: 'FTMUSDT', name: 'Fantom/USDT', base: 'FTM', quote: 'USDT', icon: 'F' },
-    { symbol: 'ONEUSDT', name: 'Harmony/USDT', base: 'ONE', quote: 'USDT', icon: 'O' },
-    { symbol: 'KSMUSDT', name: 'Kusama/USDT', base: 'KSM', quote: 'USDT', icon: 'K' },
-    { symbol: 'ZILUSDT', name: 'Zilliqa/USDT', base: 'ZIL', quote: 'USDT', icon: 'Z' },
-    { symbol: 'ICXUSDT', name: 'ICON/USDT', base: 'ICX', quote: 'USDT', icon: 'I' },
-    { symbol: 'ONTUSDT', name: 'Ontology/USDT', base: 'ONT', quote: 'USDT', icon: 'O' },
-    { symbol: 'NEOUSDT', name: 'NEO/USDT', base: 'NEO', quote: 'USDT', icon: 'N' },
-    { symbol: 'QTUMUSDT', name: 'Qtum/USDT', base: 'QTUM', quote: 'USDT', icon: 'Q' },
-    { symbol: 'XVGUSDT', name: 'Verge/USDT', base: 'XVG', quote: 'USDT', icon: 'V' },
-    { symbol: 'SCUSDT', name: 'Siacoin/USDT', base: 'SC', quote: 'USDT', icon: 'S' },
-    { symbol: 'STEEMUSDT', name: 'Steem/USDT', base: 'STEEM', quote: 'USDT', icon: 'S' },
-    { symbol: 'WAVESUSDT', name: 'Waves/USDT', base: 'WAVES', quote: 'USDT', icon: 'W' },
-    { symbol: 'NXTUSDT', name: 'NXT/USDT', base: 'NXT', quote: 'USDT', icon: 'N' },
-    { symbol: 'BCNUSDT', name: 'Bytecoin/USDT', base: 'BCN', quote: 'USDT', icon: 'B' },
-    { symbol: 'DGBUSDT', name: 'DigiByte/USDT', base: 'DGB', quote: 'USDT', icon: 'D' },
-    { symbol: 'VTCUSDT', name: 'Vertcoin/USDT', base: 'VTC', quote: 'USDT', icon: 'V' },
-    { symbol: 'FTCUSDT', name: 'Feathercoin/USDT', base: 'FTC', quote: 'USDT', icon: 'F' },
-    { symbol: 'NVCUSDT', name: 'Novacoin/USDT', base: 'NVC', quote: 'USDT', icon: 'N' },
-    { symbol: 'XPMUSDT', name: 'Primecoin/USDT', base: 'XPM', quote: 'USDT', icon: 'P' },
-    { symbol: 'PPCUSDT', name: 'Peercoin/USDT', base: 'PPC', quote: 'USDT', icon: 'P' },
-    { symbol: 'NMCUSDT', name: 'Namecoin/USDT', base: 'NMC', quote: 'USDT', icon: 'N' }
+    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', base: 'BTC', quote: 'USDT' },
+    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', base: 'ETH', quote: 'USDT' },
+    { symbol: 'XRPUSDT', name: 'XRP/USDT', base: 'XRP', quote: 'USDT' },
+    { symbol: 'USDTUSDT', name: 'Tether USDt/USDT', base: 'USDT', quote: 'USDT' },
+    { symbol: 'BNBUSDT', name: 'BNB/USDT', base: 'BNB', quote: 'USDT' },
+    { symbol: 'SOLUSDT', name: 'Solana/USDT', base: 'SOL', quote: 'USDT' },
+    { symbol: 'USDCUSDT', name: 'USDC/USDT', base: 'USDC', quote: 'USDT' },
+    { symbol: 'DOGEUSDT', name: 'Dogecoin/USDT', base: 'DOGE', quote: 'USDT' },
+    { symbol: 'TRXUSDT', name: 'TRON/USDT', base: 'TRX', quote: 'USDT' },
+    { symbol: 'ADAUSDT', name: 'Cardano/USDT', base: 'ADA', quote: 'USDT' }
   ];
 
   // Navigation tabs are already defined at the top of the component
@@ -345,34 +285,26 @@ export default function FeaturesPage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const newPrice = parseFloat(data.price).toFixed(2);
-        
-        // Track price direction for animations
-        if (lastPrice !== '0.00' && newPrice !== lastPrice) {
-          setPriceDirection(parseFloat(newPrice) > parseFloat(lastPrice) ? 'up' : 'down');
-          setPriceAnimation(true);
-          setTimeout(() => setPriceAnimation(false), 1000);
-        }
-        
-        setLastPrice(currentPrice);
-        setCurrentPrice(newPrice);
-        setPriceChange(parseFloat(data.change || 0).toFixed(2));
-        setHigh24h(parseFloat(data.highPrice || data.price).toFixed(2));
-        setLow24h(parseFloat(data.lowPrice || data.price).toFixed(2));
-        setVolume24h(parseFloat(data.volume || 0).toFixed(0));
-        
-        // Update market sentiment based on price change
-        const change = parseFloat(data.change || 0);
-        if (change > 2) {
-          setMarketSentiment('bullish');
-        } else if (change < -2) {
-          setMarketSentiment('bearish');
+        const apiResponse = await response.json();
+        if (apiResponse.success && apiResponse.data) {
+          const data = apiResponse.data;
+          const newPrice = parseFloat(data.price).toFixed(2);
+          
+
+          
+          setLastPrice(currentPrice);
+          setCurrentPrice(newPrice);
+          setPriceChange(parseFloat(data.change_24h || 0).toFixed(2));
+          setHigh24h(parseFloat(data.price * 1.02).toFixed(2)); // Approximate high
+          setLow24h(parseFloat(data.price * 0.98).toFixed(2)); // Approximate low
+          setVolume24h(parseFloat(data.volume || 0).toFixed(0));
+          
+
+          
+          setLoading(false);
         } else {
-          setMarketSentiment('neutral');
+          throw new Error('Invalid API response format');
         }
-        
-        setLoading(false);
       } else {
         console.error(`Failed to fetch ${selectedPair} from API`);
         // Use fallback data if API fails
@@ -381,7 +313,7 @@ export default function FeaturesPage() {
         setHigh24h('46000.00');
         setLow24h('44000.00');
         setVolume24h('1000000');
-        setMarketSentiment('neutral');
+
         setLoading(false);
       }
     } catch (error) {
@@ -392,7 +324,7 @@ export default function FeaturesPage() {
       setHigh24h('46000.00');
       setLow24h('44000.00');
       setVolume24h('1000000');
-      setMarketSentiment('neutral');
+
       setLoading(false);
     }
   };
@@ -447,16 +379,7 @@ export default function FeaturesPage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[#181c23]">
-        <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-2xl font-extrabold tracking-widest text-white bg-blue-900 px-2 py-1 rounded">Quantex</span>
-        </div>
-        <button className="relative">
-          <svg className="w-6 h-6 sm:w-7 sm:h-7 text-green-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4m0-4h.01" /></svg>
-          <span className="absolute top-0 right-0 w-2 h-2 bg-green-400 rounded-full border-2 border-[#181c23]" />
-        </button>
-      </header>
+
       
 
       
@@ -476,7 +399,7 @@ export default function FeaturesPage() {
               >
                 {tradingPairs.map((pair) => (
                   <option key={pair.symbol} value={pair.symbol}>
-                    {pair.icon} {pair.name}
+                    {pair.name}
                   </option>
                 ))}
               </select>
@@ -519,23 +442,7 @@ export default function FeaturesPage() {
           </div>
         </div>
 
-        {/* Market Sentiment Indicator */}
-        <div className="bg-gray-900 rounded-lg p-3 mb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Market Sentiment:</span>
-              <span className={`font-bold text-sm ${getSentimentColor(marketSentiment)}`}>
-                {getSentimentIcon(marketSentiment)} {marketSentiment.toUpperCase()}
-              </span>
-            </div>
-            <div className={`text-2xl font-bold transition-all duration-500 ${priceAnimation ? 'scale-110' : 'scale-100'} ${
-              priceDirection === 'up' ? 'text-green-400' : 
-              priceDirection === 'down' ? 'text-red-400' : 'text-white'
-            }`}>
-              ${currentPrice}
-            </div>
-          </div>
-        </div>
+
 
         {/* Enhanced Trading Buttons - Mobile Responsive */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
@@ -727,7 +634,7 @@ export default function FeaturesPage() {
               <div className="bg-gray-800 rounded-lg p-3 mb-4 border-l-4 border-blue-500">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-300">Current Price:</span>
-                  <span className={`font-bold ${priceDirection === 'up' ? 'text-green-400' : priceDirection === 'down' ? 'text-red-400' : 'text-white'}`}>
+                  <span className="font-bold text-white">
                     ${currentPrice}
                   </span>
                 </div>

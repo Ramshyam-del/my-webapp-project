@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { hybridFetch } from '../lib/hybridFetch';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
 const TradingInterface = () => {
@@ -70,8 +70,15 @@ const TradingInterface = () => {
     try {
       if (!isAuthenticated) return;
       
-      const response = await hybridFetch('/api/portfolio/balance');
-      setBalance(response.data.balance || 0);
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/portfolio/balance', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      setBalance(data.totalBalance || 0);
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching balance:', error);
@@ -135,10 +142,16 @@ const TradingInterface = () => {
         duration: duration
       };
 
-      const result = await hybridFetch('/api/trading/order', {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch('/api/trading/order', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(orderData)
       });
+      const result = await response.json();
 
       setSuccess(`Order placed successfully! Trade ID: ${result.data.trade.id}`);
       setAmount('');

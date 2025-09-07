@@ -29,9 +29,17 @@ function extractToken(req) {
 
 // Authenticate user middleware
 async function authenticateUser(req, res, next) {
+  console.log('🔍 [AUTH] Processing request:', req.originalUrl, 'Method:', req.method);
+  
   // Bypass admin API calls
-  if (req.originalUrl && req.originalUrl.startsWith('/api/admin')) return next();
-  if (req.isAdminApi === true) return next();
+  if (req.originalUrl && req.originalUrl.startsWith('/api/admin')) {
+    console.log('🚀 [AUTH] Bypassing auth for admin API:', req.originalUrl);
+    return next();
+  }
+  if (req.isAdminApi === true) {
+    console.log('🚀 [AUTH] Bypassing auth for admin API flag');
+    return next();
+  }
   
   // Optional debug logging
   if (process.env.DEBUG_ADMIN_AUTH === '1' && !res.headersSent) {
@@ -41,6 +49,7 @@ async function authenticateUser(req, res, next) {
   try {
 
     const token = extractToken(req);
+    console.log('🔑 [AUTH] Token extracted:', token ? 'YES' : 'NO');
     
     if (!token) {
       return res.status(401).json({ 

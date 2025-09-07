@@ -9,18 +9,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <img 
-                src="/uploads/logo-1756662609905.png" 
-                alt="Quantex Logo" 
-                className="w-8 h-8 rounded object-cover"
-                onError={(e) => {
-                  // Fallback to hide logo if it fails to load
-                  e.target.style.display = 'none';
-                }}
-              />
-              <h3 className="text-xl sm:text-2xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h3>
-            </div>
+
             <p className="text-gray-400 text-sm sm:text-base">
               The ultimate cryptocurrency trading platform with real-time market data and advanced trading tools.
             </p>

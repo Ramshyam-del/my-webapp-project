@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import { supabaseAdmin } from '../../../backend/lib/supabaseAdmin';
+const { supabaseAdmin } = require('../../../backend/lib/supabaseAdmin');
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -132,18 +132,16 @@ export default async function handler(req, res) {
       user_id: user.id,
       user_name: user.user_metadata?.full_name || user.email,
       currency: 'USDT',
-      pair: pair,
+      pair: pair, // Required by database schema
+      currency_pair: pair,
       leverage: orderLeverage,
       duration: duration,
       amount: tradeAmount,
       start_ts: now.toISOString(),
       expiry_ts: expiry.toISOString(),
-      status: 'OPEN',
-      // Additional fields for order tracking
+      status: 'OPEN', // Use 'OPEN' as valid status for new trades
       entry_price: executionPrice,
-      order_type: type,
-      order_side: side,
-      original_amount: orderAmount
+      side: side
     };
 
     // Insert trade

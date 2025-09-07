@@ -36,12 +36,12 @@ export default function TradePage() {
 
   // Enhanced trading pairs list - Reduced for production stability
   const tradingPairs = [
-    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', base: 'BTC', quote: 'USDT', icon: '₿' },
-    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', base: 'ETH', quote: 'USDT', icon: 'Ξ' },
-    { symbol: 'BNBUSDT', name: 'BNB/USDT', base: 'BNB', quote: 'USDT', icon: 'B' },
-    { symbol: 'SOLUSDT', name: 'Solana/USDT', base: 'SOL', quote: 'USDT', icon: 'S' },
-    { symbol: 'XRPUSDT', name: 'Ripple/USDT', base: 'XRP', quote: 'USDT', icon: 'X' },
-    { symbol: 'TRXUSDT', name: 'TRON/USDT', base: 'TRX', quote: 'USDT', icon: 'T' },
+    { symbol: 'BTCUSDT', name: 'Bitcoin/USDT', base: 'BTC', quote: 'USDT' },
+    { symbol: 'ETHUSDT', name: 'Ethereum/USDT', base: 'ETH', quote: 'USDT' },
+    { symbol: 'BNBUSDT', name: 'BNB/USDT', base: 'BNB', quote: 'USDT' },
+    { symbol: 'SOLUSDT', name: 'Solana/USDT', base: 'SOL', quote: 'USDT' },
+    { symbol: 'XRPUSDT', name: 'Ripple/USDT', base: 'XRP', quote: 'USDT' },
+    { symbol: 'TRXUSDT', name: 'TRON/USDT', base: 'TRX', quote: 'USDT' },
   ];
 
   // Fetch user orders
@@ -313,7 +313,7 @@ export default function TradePage() {
           >
             {tradingPairs.map((pair) => (
               <option key={pair.symbol} value={pair.symbol}>
-                {pair.icon} {pair.name}
+                {pair.name}
               </option>
             ))}
           </select>
