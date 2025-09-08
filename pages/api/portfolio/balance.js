@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../../../backend/lib/supabaseAdmin';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,6 +6,19 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Debug supabaseAdmin initialization
+    console.log('🔍 [API] supabaseAdmin status:', supabaseAdmin ? 'initialized' : 'null');
+    console.log('🔍 [API] Environment check:', {
+      SUPABASE_URL: process.env.SUPABASE_URL ? 'set' : 'missing',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'set' : 'missing',
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? 'set' : 'missing'
+    });
+    
+    if (!supabaseAdmin) {
+      console.error('❌ [API] supabaseAdmin is null - missing environment variables');
+      return res.status(500).json({ error: 'Database configuration error' });
+    }
+    
     // Get user ID from query params or headers (you may need to adjust this based on your auth setup)
     const userId = req.query.userId || req.headers['x-user-id'];
     

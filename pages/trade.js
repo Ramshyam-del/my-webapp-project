@@ -337,7 +337,7 @@ export default function TradePage() {
                   src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_trade&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ftrade`}
                   style={{ width: '100%', height: '100%' }}
                   frameBorder="0"
-                  allowTransparency={true}
+                  allowtransparency="true"
                   allowFullScreen={true}
                   title="TradingView Chart"
                 />
