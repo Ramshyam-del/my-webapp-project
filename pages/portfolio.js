@@ -950,7 +950,7 @@ export default function PortfolioPage() {
     vipLevel: userProfile.vipLevel,
     totalBalance: portfolioTotals.totalValue || 0,
     totalWithdrawn: 0,
-    creditScore: 100
+    creditScore: 0
   };
 
   // Handle Telegram click
@@ -1343,11 +1343,6 @@ export default function PortfolioPage() {
                         <div className="w-14 h-14 bg-gradient-to-r from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
                           {holding.icon}
                         </div>
-                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
-                          holding.profitPercent >= 0 ? 'bg-green-500' : 'bg-red-500'
-                        }`}>
-                          {holding.profitPercent >= 0 ? '↗' : '↘'}
-                        </div>
                       </div>
                       <div>
                         <div className="font-bold text-white text-lg">{holding.name}</div>
@@ -1360,43 +1355,11 @@ export default function PortfolioPage() {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-white">${holding.currentValue?.toLocaleString() || '0.00'}</div>
-                      <div className={`text-sm font-bold flex items-center gap-1 justify-end ${
-                        holding.profitPercent >= 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        <span>{holding.profitPercent >= 0 ? '📈' : '📉'}</span>
-                        {holding.profitPercent >= 0 ? '+' : ''}{holding.profitPercent?.toFixed(2) || '0.00'}%
-                      </div>
                     </div>
                   </div>
+
                   
-                  {/* Performance Bar */}
-                  <div className="mb-4">
-                    <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-500 ${
-                          holding.profitPercent >= 0 
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-400' 
-                            : 'bg-gradient-to-r from-red-500 to-red-400'
-                        }`}
-                        style={{ 
-                          width: `${Math.min(Math.abs(holding.profitPercent || 0), 100)}%` 
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex justify-end items-center">
-                    <button 
-                      onClick={() => removeFromPortfolio(holding.cryptoId || holding.symbol)}
-                      className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 text-sm rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
-                    >
-                      <span className="flex items-center gap-1">
-                        <span>🗑️</span>
-                        Remove
-                      </span>
-                    </button>
-                  </div>
+
                 </div>
               </div>
             ))
@@ -2233,28 +2196,12 @@ export default function PortfolioPage() {
                 />
               </div>
               
-              <div className="flex justify-center gap-3">
+              <div className="flex justify-center">
                 <button 
                   onClick={() => setShowProfileModal(false)}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
                 >
                   Close
-                </button>
-                <button 
-                  onClick={async () => {
-                    try {
-                      await signOut();
-                      setShowProfileModal(false);
-                      // Force page reload to clear all cached data
-                      window.location.reload();
-                    } catch (error) {
-                      console.error('Logout error:', error);
-                      alert('Error logging out. Please try again.');
-                    }
-                  }}
-                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded"
-                >
-                  Logout
                 </button>
               </div>
             </div>

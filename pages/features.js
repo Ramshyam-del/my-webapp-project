@@ -453,7 +453,6 @@ export default function FeaturesPage() {
             <div className="flex flex-col items-center">
               <span className="text-2xl mb-1">📈</span>
               <span>BUY UP</span>
-              <span className="text-xs opacity-75 mt-1">Predict Price Rise</span>
             </div>
             <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
           </button>
@@ -464,7 +463,6 @@ export default function FeaturesPage() {
             <div className="flex flex-col items-center">
               <span className="text-2xl mb-1">📉</span>
               <span>BUY FALL</span>
-              <span className="text-xs opacity-75 mt-1">Predict Price Drop</span>
             </div>
             <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
           </button>
