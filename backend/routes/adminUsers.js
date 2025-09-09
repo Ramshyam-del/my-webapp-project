@@ -100,11 +100,11 @@ router.patch('/:id', authenticateUser, requireAdmin, async (req, res) => {
   }
 });
 
-// PATCH /api/admin/users/:id/edit - Edit user details (password, withdrawal password, wallet addresses)
+// PATCH /api/admin/users/:id/edit - Edit user details (password, withdrawal password, wallet addresses, credit score, VIP level)
 router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { password, withdraw_password, wallets } = req.body;
+    const { password, withdraw_password, wallets, credit_score, vip_level } = req.body;
     
     if (!id) {
       return res.status(400).json({
@@ -117,7 +117,7 @@ router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
     // Get current user data
     const { data: currentUser, error: fetchError } = await serverSupabase
       .from('users')
-      .select('id, email, usdt_withdraw_address, btc_withdraw_address, eth_withdraw_address, trx_withdraw_address, xrp_withdraw_address')
+      .select('id, email, usdt_withdraw_address, btc_withdraw_address, eth_withdraw_address, trx_withdraw_address, xrp_withdraw_address, credit_score, vip_level')
       .eq('id', id)
       .single();
 
@@ -163,6 +163,19 @@ router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
       if (wallets.xrp) updates.xrp_withdraw_address = wallets.xrp.trim();
     }
 
+    // Update credit score if provided
+    if (credit_score !== undefined && credit_score !== null && credit_score !== '') {
+      const creditScoreNum = parseInt(credit_score);
+      if (!isNaN(creditScoreNum) && creditScoreNum >= 0 && creditScoreNum <= 1000) {
+        updates.credit_score = creditScoreNum;
+      }
+    }
+
+    // Update VIP level if provided
+    if (vip_level && vip_level.trim()) {
+      updates.vip_level = vip_level.trim();
+    }
+
     // Only update database if there are changes
     if (Object.keys(updates).length > 0) {
       updates.updated_at = new Date().toISOString();
@@ -171,7 +184,7 @@ router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
         .from('users')
         .update(updates)
         .eq('id', id)
-        .select('id, email, usdt_withdraw_address, btc_withdraw_address, eth_withdraw_address, trx_withdraw_address, xrp_withdraw_address')
+        .select('id, email, usdt_withdraw_address, btc_withdraw_address, eth_withdraw_address, trx_withdraw_address, xrp_withdraw_address, credit_score, vip_level')
         .single();
 
       if (updateError) {
@@ -190,6 +203,10 @@ router.patch('/:id/edit', authenticateUser, requireAdmin, async (req, res) => {
       if (updatedUser.eth_withdraw_address !== undefined) responseData.eth_withdraw_address = updatedUser.eth_withdraw_address;
       if (updatedUser.trx_withdraw_address !== undefined) responseData.trx_withdraw_address = updatedUser.trx_withdraw_address;
       if (updatedUser.xrp_withdraw_address !== undefined) responseData.xrp_withdraw_address = updatedUser.xrp_withdraw_address;
+      
+      // Include credit score and VIP level if they are defined
+      if (updatedUser.credit_score !== undefined) responseData.credit_score = updatedUser.credit_score;
+      if (updatedUser.vip_level !== undefined) responseData.vip_level = updatedUser.vip_level;
       
       res.json({
         ok: true,

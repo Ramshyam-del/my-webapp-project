@@ -323,7 +323,7 @@ router.get('/trades', authenticateUser, requireAdmin, async (req, res) => {
     const { status = 'all', page = 1, pageSize = 20, limit } = req.query;
     
     let query = serverSupabase
-      .from('trading_orders')
+      .from('trades')
       .select(`
         id, 
         user_id, 
@@ -401,10 +401,10 @@ router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) =
     
     // Find latest pending trade for this user
     const { data: trade, error: tradeError } = await serverSupabase
-      .from('trading_orders')
+      .from('trades')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'pending')
+      .eq('trade_result', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -422,11 +422,12 @@ router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) =
     
     // Update trade
     const { data: updatedTrade, error: updateError } = await serverSupabase
-      .from('trading_orders')
+      .from('trades')
       .update({
-        status: 'closed',
-        result: outcome,
-        profit_loss: pnl,
+        status: 'completed',
+        trade_result: outcome,
+        final_pnl: pnl,
+        result_determined_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', trade.id)

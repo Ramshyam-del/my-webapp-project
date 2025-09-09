@@ -24,7 +24,8 @@ async function settleBatch() {
         let pnl = 0;
         let delta = 0; // Balance adjustment needed
 
-        if (t.admin_decision === 'WIN') {
+        // Use admin_action if available, otherwise default to LOSS
+        if (t.admin_action === 'win') {
           pnl = computeProfit({ amount: t.amount, leverage: t.leverage, duration: t.duration });
           outcome = 'WIN';
           // For wins: return original amount + profit
@@ -46,6 +47,9 @@ async function settleBatch() {
           settled: true,
           settled_at: new Date().toISOString(),
           status: 'SETTLED',
+          trade_result: outcome.toLowerCase(), // Set final trade result
+          result_determined_at: new Date().toISOString(), // Mark when result was finalized
+          final_pnl: pnl, // Set final P&L
           updated_at: new Date().toISOString()
         }).eq('id', t.id);
         if (updErr) throw updErr;

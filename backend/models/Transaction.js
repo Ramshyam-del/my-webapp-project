@@ -287,8 +287,7 @@ module.exports = {
       let query = supabase
         .from('fund_transactions')
         .select(`
-          *,
-          users!fund_transactions_user_id_fkey(id, email, username, first_name, last_name)
+          *
         `)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -314,4 +313,4 @@ module.exports = {
       return [];
     }
   }
-}; 
+};
