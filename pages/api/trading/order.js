@@ -97,12 +97,25 @@ export default async function handler(req, res) {
     const totalValue = orderAmount * executionPrice;
     const requiredMargin = totalValue / orderLeverage;
 
-    // Check user balance (simplified - assumes USDT balance)
+    // Parse the trading pair to get base and quote currencies
+    const pairParts = pair.replace('/', '').match(/^([A-Z]+)(USDT|BTC|ETH|BNB)$/);
+    if (!pairParts) {
+      return res.status(400).json({ error: 'Invalid trading pair format' });
+    }
+    
+    const baseCurrency = pairParts[1];
+    const quoteCurrency = pairParts[2];
+    
+    // For trading, users need the quote currency (e.g., USDT) to place orders
+    // This represents the currency they're spending to buy/sell
+    const requiredCurrency = quoteCurrency;
+    
+    // Check user balance for the required currency
     const { data: portfolio, error: portfolioError } = await supabaseAdmin
       .from('portfolios')
       .select('balance')
       .eq('user_id', user.id)
-      .eq('currency', 'USDT')
+      .eq('currency', requiredCurrency)
       .single();
 
     if (portfolioError && portfolioError.code !== 'PGRST116') {
@@ -118,30 +131,41 @@ export default async function handler(req, res) {
     
     if (currentBalance < tradeAmount) {
       return res.status(400).json({ 
-        error: 'Insufficient balance', 
+        error: `Insufficient ${requiredCurrency} balance`, 
         required: tradeAmount,
-        available: currentBalance
+        available: currentBalance,
+        currency: requiredCurrency
       });
     }
 
     // Create the trade record
     const now = new Date();
-    const expiry = new Date(now.getTime() + parseDurationToMs(duration));
+    const durationMs = parseDurationToMs(duration);
+    const expiry = new Date(now.getTime() + durationMs);
+    const durationSeconds = Math.floor(durationMs / 1000);
 
     const tradeData = {
       user_id: user.id,
-      user_name: user.user_metadata?.full_name || user.email,
+      user_name: user.email,
       currency: 'USDT',
       pair: pair, // Required by database schema
       currency_pair: pair,
       leverage: orderLeverage,
       duration: duration,
+      duration_seconds: durationSeconds,
       amount: tradeAmount,
       start_ts: now.toISOString(),
       expiry_ts: expiry.toISOString(),
       status: 'OPEN', // Use 'OPEN' as valid status for new trades
       entry_price: executionPrice,
-      side: side
+      side: side,
+      trade_type: side === 'buy' ? 'BUY UP' : 'BUY FALL', // Map side to trade_type
+      // New fields for admin trade management
+      admin_action: 'pending',
+      trade_result: 'pending',
+      auto_expired: false,
+      created_at: now.toISOString(),
+      updated_at: now.toISOString()
     };
 
     // Insert trade
@@ -165,7 +189,7 @@ export default async function handler(req, res) {
       .from('portfolios')
       .upsert({
         user_id: user.id,
-        currency: 'USDT',
+        currency: requiredCurrency, // Use the required currency instead of hardcoded USDT
         balance: newBalance,
         updated_at: now.toISOString()
       }, {

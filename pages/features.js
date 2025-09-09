@@ -37,10 +37,17 @@ export default function FeaturesPage() {
   // Enhanced UI state variables
   const [lastPrice, setLastPrice] = useState('0.00');
   const [activeTrades, setActiveTrades] = useState([]);
+  const [activeTradesLoading, setActiveTradesLoading] = useState(false);
+  const [tradeHistory, setTradeHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   
   // User balance state
   const [balance, setBalance] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [userBalances, setUserBalances] = useState({});
+  
+  // Modal trading pair selection
+  const [modalSelectedPair, setModalSelectedPair] = useState('BTCUSDT');
   
   // Modal state for notifications
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -85,6 +92,7 @@ export default function FeaturesPage() {
   // Handle order button clicks
   const handleOrderClick = (type) => {
     setOrderSide(type === 'BUY' ? 'buy' : 'sell');
+    setModalSelectedPair(selectedPair); // Initialize modal pair with current selection
     setShowOrderModal(true);
   };
 
@@ -94,8 +102,123 @@ export default function FeaturesPage() {
     setShowNotificationModal(true);
   };
 
+  // Get available balance for selected trading pair
+  const getAvailableBalance = (pairSymbol) => {
+    const pair = tradingPairs.find(p => p.symbol === pairSymbol);
+    if (!pair) return 0;
+    
+    // For trading, users need the quote currency (USDT) to buy any pair
+    // This represents the amount they can spend
+    return userBalances[pair.quote] || 0;
+  };
+
+  // Get pair info for modal
+  const getModalPair = () => {
+    return tradingPairs.find(pair => pair.symbol === modalSelectedPair) || tradingPairs[0];
+  };
+
   // Calculate projected profit based on amount, duration percentage, and leverage
   // Test balance functionality removed - using only real user data
+
+  // Fetch trade history from database
+  const fetchTradeHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No session found for trade history');
+        setTradeHistory([]);
+        return;
+      }
+
+      const response = await fetch('/api/trading/trade-history?limit=5', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Trade history fetched:', data.trades);
+        setTradeHistory(data.trades || []);
+      } else {
+        console.error('Failed to fetch trade history:', response.status);
+        setTradeHistory([]);
+      }
+    } catch (error) {
+      console.error('Error fetching trade history:', error);
+      setTradeHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Fetch active trades from database
+  const fetchActiveTrades = async () => {
+    try {
+      setActiveTradesLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No session found for active trades');
+        setActiveTrades([]);
+        return;
+      }
+
+      const response = await fetch('/api/trading/active-trades', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      console.log('Fetching active trades - Response status:', response.status);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Active trades API response:', data);
+        console.log('Number of trades:', data.trades?.length || 0);
+        
+        // Add current price to each trade for P&L calculation
+        const tradesWithCurrentPrice = data.trades.map(trade => ({
+          ...trade,
+          currentPrice: parseFloat(currentPrice) || trade.entryPrice
+        }));
+        
+        console.log('Setting active trades:', tradesWithCurrentPrice);
+        setActiveTrades(tradesWithCurrentPrice);
+      } else {
+        console.error('Failed to fetch active trades:', response.status);
+        setActiveTrades([]);
+      }
+    } catch (error) {
+      console.error('Error fetching active trades:', error);
+      setActiveTrades([]);
+    } finally {
+      setActiveTradesLoading(false);
+    }
+  };
+
+  // Update countdown timers for active trades
+  const updateTradeTimers = () => {
+    setActiveTrades(prevTrades => 
+      prevTrades.map(trade => {
+        const now = new Date();
+        const expiryTime = new Date(trade.expiresAt);
+        const timeRemaining = Math.max(0, Math.floor((expiryTime - now) / 1000));
+        
+        return {
+          ...trade,
+          timeRemaining,
+          isExpired: timeRemaining <= 0,
+          currentPrice: parseFloat(currentPrice) || trade.entryPrice
+        };
+      })
+    );
+  };
 
   // Fetch user balance
   const fetchBalance = async () => {
@@ -132,7 +255,17 @@ export default function FeaturesPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('🔍 [Balance] API response data:', data);
-        // Get USDT balance specifically
+        
+        // Store all currency balances
+        const balances = {};
+        if (data.currencies && Array.isArray(data.currencies)) {
+          data.currencies.forEach(currency => {
+            balances[currency.currency] = currency.balance || 0;
+          });
+        }
+        setUserBalances(balances);
+        
+        // Get USDT balance specifically for backward compatibility
         const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
         console.log('🔍 [Balance] USDT balance found:', usdtBalance);
         setBalance(usdtBalance);
@@ -173,15 +306,18 @@ export default function FeaturesPage() {
       return;
     }
 
-    // Check if user has sufficient balance
+    // Check if user has sufficient balance for selected trading pair
     const tradeAmount = parseFloat(orderAmount);
-    console.log('Balance check - Available:', balance, 'Required:', tradeAmount);
+    const availableBalance = getAvailableBalance(modalSelectedPair);
+    const modalPair = getModalPair();
     
-    if (balance < tradeAmount) {
-      console.log('Insufficient balance detected - Available:', balance, 'Required:', tradeAmount);
+    console.log('Balance check - Available:', availableBalance, 'Required:', tradeAmount, 'Pair:', modalSelectedPair);
+    
+    if (availableBalance < tradeAmount) {
+      console.log('Insufficient balance detected - Available:', availableBalance, 'Required:', tradeAmount);
       showNotification(
         'Insufficient Balance', 
-        `Required: $${tradeAmount.toFixed(2)}\nAvailable: $${balance.toFixed(2)}`, 
+        `Required: $${tradeAmount.toFixed(2)} ${modalPair.quote}\nAvailable: $${availableBalance.toFixed(2)} ${modalPair.quote}`, 
         'error'
       );
       return;
@@ -216,7 +352,7 @@ export default function FeaturesPage() {
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          pair: selectedPair,
+          pair: modalSelectedPair,
           side: orderSide, // 'buy' or 'sell'
           type: 'market',
           amount: parseFloat(orderAmount),
@@ -235,7 +371,7 @@ export default function FeaturesPage() {
       const order = {
         id: result.data.trade.id.toString(),
         type: orderSide === 'buy' ? 'BUY UP' : 'BUY FALL',
-        pair: selectedPair,
+        pair: modalSelectedPair,
         leverage: selectedLeverage,
         duration: selectedDuration,
         durationPercentage: durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage,
@@ -249,8 +385,9 @@ export default function FeaturesPage() {
         pnl: 0
       };
 
-      // Add order to active trades
-      setActiveTrades(prev => [...prev, order]);
+      // Refresh active trades and history to show the new trade
+      await fetchActiveTrades();
+      await fetchTradeHistory();
       
       // Show success message
       showNotification(
@@ -258,6 +395,9 @@ export default function FeaturesPage() {
         `Type: ${order.type}\nDuration: ${order.duration}s (${order.durationPercentage}%)\nAmount: $${order.amount}\nLeverage: ${order.leverage}\nEntry Price: $${result.data.execution.price}`,
         'success'
       );
+      
+      // Refresh balance after trade
+      await fetchBalance();
       
       // Close modal and reset form
       setShowOrderModal(false);
@@ -356,6 +496,8 @@ export default function FeaturesPage() {
       setLoading(true); // Set loading when fetching data
       fetchCryptoData();
       fetchBalance(); // Fetch user balance
+      fetchActiveTrades(); // Fetch active trades
+      fetchTradeHistory(); // Fetch trade history
       const interval = setInterval(fetchCryptoData, 10000);
       return () => clearInterval(interval);
     }
@@ -364,6 +506,68 @@ export default function FeaturesPage() {
   // Fetch balance when user authentication changes
   useEffect(() => {
     fetchBalance();
+    fetchActiveTrades();
+    fetchTradeHistory();
+  }, []);
+
+  // Set up real-time countdown timer for active trades
+  useEffect(() => {
+    if (activeTrades.length > 0) {
+      const timerInterval = setInterval(() => {
+        updateTradeTimers();
+      }, 1000); // Update every second
+      
+      return () => clearInterval(timerInterval);
+    }
+  }, [activeTrades.length, currentPrice]);
+
+  // Refresh active trades periodically
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchActiveTrades();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Auto-expire trades scheduler - runs every 5 minutes
+  useEffect(() => {
+    const runScheduler = async () => {
+      try {
+        console.log('🕐 Running auto-expire scheduler...');
+        const response = await fetch('/api/trading/auto-expire-trades', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Auto-expire scheduler completed:', result);
+          
+          // If trades were expired, refresh the active trades and balance
+          if (result.processed > 0) {
+            console.log(`🔄 ${result.processed} trades were auto-expired, refreshing data...`);
+            fetchActiveTrades();
+            fetchBalance();
+            fetchTradeHistory();
+          }
+        } else {
+          console.error('❌ Auto-expire scheduler failed:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Auto-expire scheduler error:', error);
+      }
+    };
+
+    // Run immediately on mount
+    runScheduler();
+    
+    // Then run every 5 minutes (300000 ms)
+    const schedulerInterval = setInterval(runScheduler, 300000);
+    
+    return () => clearInterval(schedulerInterval);
   }, []);
 
   if (!mounted) {
@@ -478,7 +682,12 @@ export default function FeaturesPage() {
             </div>
           </div>
           <div className="space-y-3">
-            {activeTrades.length === 0 ? (
+            {activeTradesLoading ? (
+              <div className="text-center py-8 text-gray-400">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-sm">Loading active trades...</p>
+              </div>
+            ) : activeTrades.length === 0 ? (
               <div className="text-center py-8 text-gray-400">
                 <div className="text-4xl mb-2">📊</div>
                 <p className="text-sm">No active trades</p>
@@ -522,8 +731,20 @@ export default function FeaturesPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="bg-orange-900/30 px-2 py-1 rounded-lg border border-orange-700/50 mb-1">
-                          <span className="text-orange-300 text-xs font-bold">⏰ {formatTime(trade.timeLeft)}</span>
+                        <div className={`px-2 py-1 rounded-lg border mb-1 ${
+                          trade.isExpired ? 'bg-red-900/30 border-red-700/50' :
+                          trade.timeRemaining < 60 ? 'bg-red-900/30 border-red-700/50' :
+                          trade.timeRemaining < 180 ? 'bg-orange-900/30 border-orange-700/50' :
+                          'bg-green-900/30 border-green-700/50'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            trade.isExpired ? 'text-red-300' :
+                            trade.timeRemaining < 60 ? 'text-red-300' :
+                            trade.timeRemaining < 180 ? 'text-orange-300' :
+                            'text-green-300'
+                          }`}>
+                            {trade.isExpired ? '⏰ EXPIRED' : `⏰ ${formatTime(trade.timeRemaining)}`}
+                          </span>
                         </div>
                         <div className="font-medium text-sm sm:text-base">${trade.amount.toFixed(2)}</div>
                         <div className={`text-xs sm:text-sm ${isProfit ? 'text-green-500' : 'text-red-500'} animate-pulse`}>
@@ -534,19 +755,94 @@ export default function FeaturesPage() {
                     <div className="flex justify-between items-center pt-2 border-t border-gray-700">
                       <span className="text-xs text-gray-400">Entry: ${trade.entryPrice.toFixed(2)}</span>
                       <span className="text-xs text-gray-400">Current: ${trade.currentPrice.toFixed(2)}</span>
-                      <button 
-                        onClick={() => {
-                          setActiveTrades(prev => prev.filter(t => t.id !== trade.id));
-                          showNotification(
-                            'Trade Closed Early',
-                            `P&L: ${isProfit ? '+' : ''}$${pnl.toFixed(2)}`,
-                            isProfit ? 'success' : 'error'
-                          );
-                        }}
-                        className="text-red-400 hover:text-red-300 text-xs font-medium px-2 py-1 rounded hover:bg-red-900/20 transition-colors"
-                      >
-                        Close Early
-                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Trade History Section */}
+        <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-4 border border-gray-700 shadow-xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+            <h3 className="text-base sm:text-lg font-bold text-purple-400">📈 Recent Results</h3>
+            <div className="ml-auto bg-purple-900/30 px-2 py-1 rounded-full">
+              <span className="text-purple-300 text-xs font-medium">History ({tradeHistory.length})</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {historyLoading ? (
+              <div className="text-center py-8 text-gray-400">
+                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-sm">Loading trade history...</p>
+              </div>
+            ) : tradeHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <div className="text-4xl mb-2">📈</div>
+                <p className="text-sm">No completed trades</p>
+                <p className="text-xs mt-1">Your trading results will appear here</p>
+              </div>
+            ) : (
+              tradeHistory.map((trade) => {
+                const formatDate = (dateString) => {
+                  const date = new Date(dateString);
+                  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                };
+                
+                return (
+                  <div key={trade.id} className="bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl p-3 border border-gray-600 hover:border-gray-500 transition-all duration-300">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full ${
+                          trade.resultStatus === 'win' ? 'bg-green-500' :
+                          trade.resultStatus === 'loss' ? 'bg-red-500' :
+                          trade.resultStatus === 'expired' ? 'bg-orange-500' :
+                          'bg-gray-500'
+                        }`}></div>
+                        <div>
+                          <div className={`font-medium text-sm sm:text-base flex items-center gap-1 ${
+                            trade.type === 'BUY UP' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {trade.type === 'BUY UP' ? '📈' : '📉'} {trade.pair}
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-400">{trade.type} • {trade.leverage}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`px-2 py-1 rounded-lg border mb-1 ${
+                          trade.resultStatus === 'win' ? 'bg-green-900/30 border-green-700/50' :
+                          trade.resultStatus === 'loss' ? 'bg-red-900/30 border-red-700/50' :
+                          trade.resultStatus === 'expired' ? 'bg-orange-900/30 border-orange-700/50' :
+                          'bg-gray-900/30 border-gray-700/50'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            trade.resultStatus === 'win' ? 'text-green-300' :
+                            trade.resultStatus === 'loss' ? 'text-red-300' :
+                            trade.resultStatus === 'expired' ? 'text-orange-300' :
+                            'text-gray-300'
+                          }`}>
+                            {trade.resultStatus === 'win' ? '✅ WON' :
+                             trade.resultStatus === 'loss' ? '❌ LOST' :
+                             trade.resultStatus === 'expired' ? '⏰ EXPIRED' :
+                             '✅ COMPLETED'}
+                          </span>
+                        </div>
+                        <div className="font-medium text-sm sm:text-base">${trade.amount.toFixed(2)}</div>
+                        <div className={`text-xs sm:text-sm font-bold ${
+                          trade.isProfit ? 'text-green-500' : 'text-red-500'
+                        }`}>
+                          {trade.isProfit ? '+' : ''}${trade.finalPnl.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+                      <span className="text-xs text-gray-400">Entry: ${trade.entryPrice.toFixed(2)}</span>
+                      {trade.exitPrice && (
+                        <span className="text-xs text-gray-400">Exit: ${trade.exitPrice.toFixed(2)}</span>
+                      )}
+                      <span className="text-xs text-gray-400">{formatDate(trade.completedAt)}</span>
                     </div>
                   </div>
                 );
@@ -653,7 +949,7 @@ export default function FeaturesPage() {
                   </span>
                   <div className="flex items-center gap-2">
                     <span className={`font-bold ${balanceLoading ? 'text-gray-400' : 'text-green-400'}`}>
-                      {balanceLoading ? 'Loading...' : `$${balance.toFixed(2)} USDT`}
+                      {balanceLoading ? 'Loading...' : `$${getAvailableBalance(modalSelectedPair).toFixed(2)} ${getModalPair().quote}`}
                     </span>
                     <button
                       onClick={fetchBalance}
@@ -669,14 +965,33 @@ export default function FeaturesPage() {
                 {orderAmount && (
                   <div className="flex items-center justify-between text-sm mt-1">
                     <span className="text-gray-300">Can Afford:</span>
-                    <span className={`font-bold ${balance >= parseFloat(orderAmount || 0) ? 'text-green-400' : 'text-red-400'}`}>
-                      {balance >= parseFloat(orderAmount || 0) ? '✅ Yes' : '❌ Insufficient'}
+                    <span className={`font-bold ${getAvailableBalance(modalSelectedPair) >= parseFloat(orderAmount || 0) ? 'text-green-400' : 'text-red-400'}`}>
+                      {getAvailableBalance(modalSelectedPair) >= parseFloat(orderAmount || 0) ? '✅ Yes' : '❌ Insufficient'}
                     </span>
                   </div>
                 )}
               </div>
               
               <form onSubmit={handleOrderConfirm} className="space-y-4">
+                {/* Trading Pair Selection */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+                    <span className="text-yellow-400">🔄</span>
+                    Trading Pair
+                  </label>
+                  <select
+                    value={modalSelectedPair}
+                    onChange={(e) => setModalSelectedPair(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
+                  >
+                    {tradingPairs.map((pair) => (
+                      <option key={pair.symbol} value={pair.symbol}>
+                        {pair.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
                  <div>
                    <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
                      <span className="text-blue-400">⚡</span>
@@ -722,7 +1037,7 @@ export default function FeaturesPage() {
                 <div>
                   <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
                     <span className="text-green-400">💰</span>
-                    Amount (USDT)
+                    Amount ({getModalPair().quote})
                   </label>
                   <div className="relative">
                     <input

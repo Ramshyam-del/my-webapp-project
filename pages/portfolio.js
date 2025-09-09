@@ -152,6 +152,45 @@ export default function PortfolioPage() {
     summary: { totalCurrencies: 0, totalBalance: 0, lastUpdated: null }
   });
   const [balanceLoading, setBalanceLoading] = useState(true);
+  
+  // Active trades state
+  const [activeTrades, setActiveTrades] = useState([]);
+  const [activeTradesLoading, setActiveTradesLoading] = useState(false);
+
+  // Fetch active trades from database
+  const fetchActiveTrades = async () => {
+    try {
+      setActiveTradesLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        console.log('No session found for active trades');
+        setActiveTrades([]);
+        return;
+      }
+
+      const response = await fetch('/api/trading/active-trades', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Active trades fetched:', data.trades);
+        setActiveTrades(data.trades || []);
+      } else {
+        console.error('Failed to fetch active trades:', response.status);
+        setActiveTrades([]);
+      }
+    } catch (error) {
+      console.error('Error fetching active trades:', error);
+      setActiveTrades([]);
+    } finally {
+      setActiveTradesLoading(false);
+    }
+  };
 
   // Fetch contact configuration (API first, then localStorage fallback)
   const fetchContactConfig = async () => {
@@ -755,6 +794,9 @@ export default function PortfolioPage() {
     } catch (error) {
       console.error('❌ Error calling fetchPortfolioBalance:', error);
     }
+    
+    // Fetch active trades on mount
+    fetchActiveTrades();
     
     // Fetch KYC status on mount
     fetchKycStatus();

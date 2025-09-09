@@ -52,7 +52,18 @@ export default async function handler(req, res) {
     // Fetch trades from database
     const { data: trades, error: tradesError, count } = await server
       .from('trades')
-      .select('*', { count: 'exact' })
+      .select(`
+        id, 
+        user_id, 
+        currency_pair, 
+        trade_type, 
+        amount, 
+        leverage, 
+        duration_seconds, 
+        status, 
+        pnl, 
+        created_at
+      `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 

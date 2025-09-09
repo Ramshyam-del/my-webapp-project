@@ -53,11 +53,11 @@ export default async function handler(req, res) {
 
     // Apply filters
     if (status && status !== 'all') {
-      query = query.eq('status', status.toUpperCase());
+      query = query.eq('status', status.toLowerCase());
     }
 
     if (search) {
-      query = query.or(`pair.ilike.%${search}%,id.eq.${search}`);
+      query = query.or(`symbol.ilike.%${search}%,id.eq.${search}`);
     }
 
     // Apply sorting

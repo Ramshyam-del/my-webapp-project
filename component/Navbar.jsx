@@ -55,8 +55,20 @@ export default function Navbar() {
     const confirmLogout = document?.confirm?.('Are you sure you want to log out?') || true;
     
     if (confirmLogout) {
-      await supabase.auth.signOut();
-      router.push('/');
+      try {
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error('Logout error:', error);
+        }
+        
+        // Always redirect to home page after logout attempt
+        router.push('/');
+      } catch (err) {
+        console.error('Logout error:', err);
+        // Still redirect even if there's an error
+        router.push('/');
+      }
     }
   };
 

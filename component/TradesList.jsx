@@ -52,14 +52,14 @@ const TradesList = () => {
         params.append('search', searchTerm.trim());
       }
       
-      const response = await authedFetchJson(`/api/admin/trades?${params.toString()}`);
+      const response = await authedFetchJson(`/api/admin/active-trades?${params.toString()}`);
       
-      if (response && response.ok && response.data) {
-        setTrades(response.data.items || []);
+      if (response && response.success && response.data) {
+        setTrades(response.data.trades || []);
         setTotalItems(response.data.pagination?.total || 0);
-        setTotalPages(response.data.pagination?.total_pages || 1);
+        setTotalPages(response.data.pagination?.totalPages || 1);
       } else {
-        throw new Error(response?.message || 'Failed to fetch trades');
+        throw new Error(response?.error || 'Failed to fetch trades');
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
@@ -118,16 +118,19 @@ const TradesList = () => {
       setError(null);
       setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null });
 
-      const response = await authedFetchJson(`/api/admin/trades/${tradeId}/decision`, {
-        method: 'PATCH',
-        body: JSON.stringify({ decision })
+      const response = await authedFetchJson('/api/admin/trade-action', {
+        method: 'POST',
+        body: JSON.stringify({ 
+          tradeId: tradeId, 
+          action: decision.toLowerCase() 
+        })
       });
 
-      if (response && response.ok) {
-        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully`);
+      if (response && response.success) {
+        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully. P&L: $${response.data.finalPnl.toFixed(2)}`);
         fetchTrades(); // Refresh the list
       } else {
-        throw new Error(response?.message || `Failed to mark trade as ${decision.toLowerCase()}`);
+        throw new Error(response?.error || `Failed to mark trade as ${decision.toLowerCase()}`);
       }
     } catch (error) {
       console.error('Error setting trade decision:', error);
@@ -174,8 +177,11 @@ const TradesList = () => {
   const getStatusBadge = (status) => {
     const badges = {
       'OPEN': 'bg-yellow-100 text-yellow-800',
+      'pending': 'bg-blue-100 text-blue-800',
       'WIN': 'bg-green-100 text-green-800',
-      'LOSS': 'bg-red-100 text-red-800'
+      'win': 'bg-green-100 text-green-800',
+      'LOSS': 'bg-red-100 text-red-800',
+      'loss': 'bg-red-100 text-red-800'
     };
     return badges[status] || 'bg-gray-100 text-gray-800';
   };
@@ -281,9 +287,9 @@ const TradesList = () => {
             className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="all">All Status</option>
-            <option value="OPEN">Open</option>
-            <option value="WIN">Win</option>
-            <option value="LOSS">Loss</option>
+            <option value="active">Active (Pending)</option>
+            <option value="pending">Awaiting Decision</option>
+            <option value="completed">Completed</option>
           </select>
           <button
             onClick={handleSearch}
@@ -333,6 +339,9 @@ const TradesList = () => {
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Time Remaining
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
                 </th>
@@ -344,7 +353,7 @@ const TradesList = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {trades.length === 0 ? (
                 <tr>
-                  <td colSpan="13" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="14" className="px-6 py-12 text-center text-gray-500">
                     No trades found
                   </td>
                 </tr>
@@ -387,17 +396,40 @@ const TradesList = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(trade.status)}`}>
-                        {trade.status}
-                      </span>
+                      <div className="flex flex-col items-center space-y-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(trade.trade_result || trade.status)}`}>
+                          {trade.trade_result === 'pending' ? 'OPEN' : (trade.trade_result || trade.status).toUpperCase()}
+                        </span>
+                        {trade.auto_expired && (
+                          <span className="text-xs text-orange-600">Auto-Expired</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {trade.timeRemaining !== undefined ? (
+                        <div className="text-sm">
+                          {trade.timeRemaining > 0 ? (
+                            <span className={`font-medium ${
+                              trade.timeRemaining < 300 ? 'text-red-600' : 
+                              trade.timeRemaining < 900 ? 'text-orange-600' : 'text-green-600'
+                            }`}>
+                              {Math.floor(trade.timeRemaining / 60)}m {trade.timeRemaining % 60}s
+                            </span>
+                          ) : (
+                            <span className="text-red-600 font-medium">Expired</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(trade.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {trade.status === 'OPEN' && (
+                      {trade.admin_action === 'pending' && trade.trade_result === 'pending' && trade.status === 'OPEN' && (
                         <div className="flex flex-col space-y-1 items-center">
-                          {isTradeExpired(trade) && (
+                          {trade.isExpired && (
                             <div className="text-xs text-orange-600 font-medium mb-1">
                               ⚠️ Expired - Auto Loss Soon
                             </div>
@@ -418,6 +450,17 @@ const TradesList = () => {
                               {processingTrade === trade.id ? 'Processing...' : '✗ Loss'}
                             </button>
                           </div>
+                        </div>
+                      )}
+                      {trade.admin_action !== 'pending' && trade.trade_result === 'pending' && trade.status === 'OPEN' && (
+                        <div className="text-xs text-blue-600 font-medium">
+                          📋 Decision: {trade.admin_action?.toUpperCase() || 'N/A'}<br/>
+                          <span className="text-gray-500">Running until expiry...</span>
+                        </div>
+                      )}
+                      {trade.trade_result !== 'pending' && (
+                        <div className="text-xs text-gray-500">
+                          {trade.admin_action_at ? `Decided: ${formatDate(trade.admin_action_at)}` : 'Completed'}
                         </div>
                       )}
                     </td>

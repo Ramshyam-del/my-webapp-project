@@ -49,7 +49,7 @@ const Portfolio = () => {
         .from('trades')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'open');
+        .eq('status', 'OPEN');
       
       if (error) {
         console.error('Error fetching open trades:', error);
@@ -73,7 +73,7 @@ const Portfolio = () => {
         .from('trades')
         .select('*')
         .eq('user_id', user.id)
-        .eq('status', 'closed');
+        .eq('status', 'CLOSED');
       
       if (error) {
         console.error('Error fetching stats:', error);
@@ -179,6 +179,25 @@ const Portfolio = () => {
         >
           {refreshing ? 'Refreshing...' : 'Refresh'}
         </button>
+      </div>
+
+      {/* User Profile Information */}
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <h2 className="text-xl font-bold mb-4">Account Information</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center">
+            <p className="text-sm text-gray-600">Username</p>
+            <p className="text-lg font-semibold text-gray-900">{user?.username || 'N/A'}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">Credit Score</p>
+            <p className="text-lg font-semibold text-blue-600">{user?.credit_score || 0}</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-gray-600">VIP Level</p>
+            <p className="text-lg font-semibold text-purple-600">{user?.vip_level || 'VIP0'}</p>
+          </div>
+        </div>
       </div>
 
       {/* Error Message */}

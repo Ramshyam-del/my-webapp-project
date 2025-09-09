@@ -29,6 +29,10 @@ export default function TradePage() {
   // User balance state
   const [balance, setBalance] = useState(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [userBalances, setUserBalances] = useState({});
+  
+  // Modal trading pair selection
+  const [modalSelectedPair, setModalSelectedPair] = useState('BTCUSDT');
   
   // Notification modal state
   const [showNotificationModal, setShowNotificationModal] = useState(false);
@@ -82,6 +86,7 @@ export default function TradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         setBalance(0);
+        setUserBalances({});
         return;
       }
 
@@ -95,7 +100,13 @@ export default function TradePage() {
 
       if (response.ok) {
         const data = await response.json();
-        // Get USDT balance specifically
+        // Store all currency balances
+        const balances = {};
+        data.currencies?.forEach(c => {
+          balances[c.currency] = c.balance;
+        });
+        setUserBalances(balances);
+        // Get USDT balance specifically for backward compatibility
         const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
         setBalance(usdtBalance);
       } else {
@@ -196,7 +207,7 @@ export default function TradePage() {
       }
 
       const orderData = {
-        symbol: selectedPair,
+        pair: modalSelectedPair, // Use the pair selected in the modal
         side: orderSide,
         type: orderType,
         amount: orderAmount,
@@ -271,7 +282,23 @@ export default function TradePage() {
     setOrderSide(side);
     setOrderAmount('');
     setOrderPrice(priceData?.price?.toString() || '');
+    setModalSelectedPair(selectedPair); // Initialize modal pair with current selection
     setShowOrderModal(true);
+  };
+
+  // Get available balance for selected trading pair
+  const getAvailableBalance = (pairSymbol) => {
+    const pair = tradingPairs.find(p => p.symbol === pairSymbol);
+    if (!pair) return 0;
+    
+    // For trading, users need the quote currency (USDT) to buy any pair
+    // This represents the amount they can spend
+    return userBalances[pair.quote] || 0;
+  };
+
+  // Get pair info for modal
+  const getModalPair = () => {
+    return tradingPairs.find(pair => pair.symbol === modalSelectedPair) || tradingPairs[0];
   };
 
   const getCurrentPair = () => {
@@ -465,7 +492,7 @@ export default function TradePage() {
           <div className="bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-3 sm:mb-4">
               <h3 className="text-lg sm:text-xl font-bold">
-                {orderSide.toUpperCase()} {getCurrentPair().base}
+                {orderSide.toUpperCase()} {getModalPair().base}
               </h3>
               <button 
                 onClick={() => setShowOrderModal(false)}
@@ -476,6 +503,22 @@ export default function TradePage() {
             </div>
             
             <div className="space-y-3 sm:space-y-4">
+              {/* Currency Pair Selection */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Trading Pair</label>
+                <select 
+                  value={modalSelectedPair}
+                  onChange={(e) => setModalSelectedPair(e.target.value)}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-sm focus:border-cyan-500 focus:outline-none"
+                >
+                  {tradingPairs.map((pair) => (
+                    <option key={pair.symbol} value={pair.symbol}>
+                      {pair.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               {/* Order Type */}
               <div>
                 <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Order Type</label>
@@ -506,12 +549,12 @@ export default function TradePage() {
               
               {/* Amount Input */}
               <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Amount (USDT)</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Amount ({getModalPair().quote})</label>
                 <input 
                   type="number" 
                   value={orderAmount}
                   onChange={(e) => setOrderAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  placeholder={`Enter amount in ${getModalPair().quote}`}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2.5 sm:py-2 text-sm focus:border-cyan-500 focus:outline-none"
                   step="0.01"
                 />
@@ -520,18 +563,18 @@ export default function TradePage() {
               {/* Balance Display */}
               <div className="bg-gray-700 p-3 rounded border border-gray-600">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs sm:text-sm text-gray-400">Available Balance:</span>
+                  <span className="text-xs sm:text-sm text-gray-400">Available Balance ({getModalPair().quote}):</span>
                   <span className="text-xs sm:text-sm font-medium text-white">
-                    {balanceLoading ? 'Loading...' : `$${balance.toFixed(2)} USDT`}
+                    {balanceLoading ? 'Loading...' : `${getAvailableBalance(modalSelectedPair).toFixed(2)} ${getModalPair().quote}`}
                   </span>
                 </div>
                 {orderAmount && (
                   <div className="flex justify-between items-center">
                     <span className="text-xs sm:text-sm text-gray-400">Can Afford:</span>
                     <span className={`text-xs sm:text-sm font-medium ${
-                      parseFloat(orderAmount) <= balance ? 'text-green-400' : 'text-red-400'
+                      parseFloat(orderAmount) <= getAvailableBalance(modalSelectedPair) ? 'text-green-400' : 'text-red-400'
                     }`}>
-                      {parseFloat(orderAmount) <= balance ? 'Yes' : 'No'}
+                      {parseFloat(orderAmount) <= getAvailableBalance(modalSelectedPair) ? 'Yes' : 'No'}
                     </span>
                   </div>
                 )}
@@ -541,11 +584,12 @@ export default function TradePage() {
               <div className="bg-gray-700 p-3 rounded">
                 <div className="text-xs sm:text-sm text-gray-400 mb-1">Order Summary</div>
                 <div className="text-xs sm:text-sm space-y-0.5">
+                  <div>Pair: {getModalPair().name}</div>
                   <div>Type: {orderType.toUpperCase()}</div>
                   <div>Side: {orderSide.toUpperCase()}</div>
-                  <div>Amount: ${orderAmount || '0.00'}</div>
+                  <div>Amount: {orderAmount || '0.00'} {getModalPair().quote}</div>
                   {orderType === 'limit' && orderPrice && (
-                    <div>Price: ${orderPrice}</div>
+                    <div>Price: {orderPrice} {getModalPair().quote}</div>
                   )}
                 </div>
               </div>

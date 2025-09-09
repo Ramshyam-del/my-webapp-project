@@ -381,7 +381,10 @@ const UserList = () => {
               ...(payload.data?.btc_withdraw_address && { btc_withdraw_address: payload.data.btc_withdraw_address }),
               ...(payload.data?.eth_withdraw_address && { eth_withdraw_address: payload.data.eth_withdraw_address }),
               ...(payload.data?.trx_withdraw_address && { trx_withdraw_address: payload.data.trx_withdraw_address }),
-              ...(payload.data?.xrp_withdraw_address && { xrp_withdraw_address: payload.data.xrp_withdraw_address })
+              ...(payload.data?.xrp_withdraw_address && { xrp_withdraw_address: payload.data.xrp_withdraw_address }),
+              // Update credit score and VIP level if they exist in the payload
+              ...(payload.credit_score !== undefined && { credit_score: payload.credit_score }),
+              ...(payload.vip_level && { vip_level: payload.vip_level })
             }
           : user
       ));

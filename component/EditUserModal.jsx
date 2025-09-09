@@ -8,7 +8,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave }) => {
     btc_withdraw_address: '',
     eth_withdraw_address: '',
     trx_withdraw_address: '',
-    xrp_withdraw_address: ''
+    xrp_withdraw_address: '',
+    credit_score: '',
+    vip_level: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +26,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave }) => {
         btc_withdraw_address: user.btc_withdraw_address || '',
         eth_withdraw_address: user.eth_withdraw_address || '',
         trx_withdraw_address: user.trx_withdraw_address || '',
-        xrp_withdraw_address: user.xrp_withdraw_address || ''
+        xrp_withdraw_address: user.xrp_withdraw_address || '',
+        credit_score: user.creditScore || '',
+        vip_level: user.vipLevel || ''
       });
     }
   }, [user]);
@@ -97,7 +101,9 @@ const EditUserModal = ({ isOpen, onClose, user, onSave }) => {
       btc_withdraw_address: user?.btc_withdraw_address || '',
       eth_withdraw_address: user?.eth_withdraw_address || '',
       trx_withdraw_address: user?.trx_withdraw_address || '',
-      xrp_withdraw_address: user?.xrp_withdraw_address || ''
+      xrp_withdraw_address: user?.xrp_withdraw_address || '',
+      credit_score: user?.creditScore || '',
+      vip_level: user?.vipLevel || ''
     });
     setError('');
   };
@@ -128,6 +134,15 @@ const EditUserModal = ({ isOpen, onClose, user, onSave }) => {
 
       if (Object.keys(wallets).length > 0) {
         payload.wallets = wallets;
+      }
+
+      // Add credit score and VIP level if provided
+      if (formData.credit_score.trim()) {
+        payload.credit_score = parseInt(formData.credit_score.trim());
+      }
+      
+      if (formData.vip_level.trim()) {
+        payload.vip_level = formData.vip_level.trim();
       }
 
       const response = await onSave(user.id, payload);
@@ -276,6 +291,42 @@ const EditUserModal = ({ isOpen, onClose, user, onSave }) => {
               onChange={(e) => handleInputChange('xrp_withdraw_address', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
+          </div>
+
+          {/* Credit Score */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Credit Score:
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="1000"
+              value={formData.credit_score}
+              onChange={(e) => handleInputChange('credit_score', e.target.value)}
+              placeholder="Enter credit score (0-1000)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* VIP Level */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              VIP Level:
+            </label>
+            <select
+              value={formData.vip_level}
+              onChange={(e) => handleInputChange('vip_level', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select VIP Level</option>
+              <option value="VIP0">VIP0</option>
+              <option value="VIP1">VIP1</option>
+              <option value="VIP2">VIP2</option>
+              <option value="VIP3">VIP3</option>
+              <option value="VIP4">VIP4</option>
+              <option value="VIP5">VIP5</option>
+            </select>
           </div>
         </form>
 
