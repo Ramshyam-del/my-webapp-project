@@ -650,22 +650,22 @@ export default function FeaturesPage() {
 
 
         {/* Enhanced Trading Buttons - Mobile Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 px-2 sm:px-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 px-2 sm:px-0">
           <button
             onClick={() => handleOrderClick('BUY')}
-            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 active:from-green-800 active:to-green-900 text-white py-5 sm:py-6 md:py-7 px-4 sm:px-6 md:px-8 rounded-xl font-bold text-base sm:text-lg md:text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-green-500/30 touch-manipulation"
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 active:from-green-800 active:to-green-900 text-white py-3 sm:py-4 px-3 sm:px-4 rounded-xl font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-green-500/30 touch-manipulation"
           >
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-3xl sm:text-4xl">📈</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xl sm:text-2xl">📈</span>
               <span className="tracking-wide">BUY UP</span>
             </div>
           </button>
           <button
             onClick={() => handleOrderClick('SELL')}
-            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:from-red-800 active:to-red-900 text-white py-5 sm:py-6 md:py-7 px-4 sm:px-6 md:px-8 rounded-xl font-bold text-base sm:text-lg md:text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-red-500/30 touch-manipulation"
+            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:from-red-800 active:to-red-900 text-white py-3 sm:py-4 px-3 sm:px-4 rounded-xl font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-red-500/30 touch-manipulation"
           >
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-3xl sm:text-4xl">📉</span>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-xl sm:text-2xl">📉</span>
               <span className="tracking-wide">BUY FALL</span>
             </div>
           </button>
@@ -902,86 +902,33 @@ export default function FeaturesPage() {
           </div>
         )}
 
-        {/* Enhanced Order Modal - Mobile Responsive */}
+        {/* Compact Order Modal */}
         {showOrderModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-            <div className="bg-gray-900 rounded-xl p-4 sm:p-6 w-full max-w-md mx-auto shadow-2xl border border-gray-700 animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${orderSide === 'buy' ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-                  <h3 className={`text-base sm:text-lg font-bold ${orderSide === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
-                    {orderSide === 'buy' ? '📈 BUY UP' : '📉 BUY FALL'} Order
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 backdrop-blur-sm">
+            <div className="bg-gray-900 rounded-lg p-3 sm:p-4 w-full max-w-sm mx-auto shadow-xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${orderSide === 'buy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <h3 className={`text-sm font-bold ${orderSide === 'buy' ? 'text-green-400' : 'text-red-400'}`}>
+                    {orderSide === 'buy' ? '📈 BUY UP' : '📉 BUY FALL'}
                   </h3>
                 </div>
                 <button
                   onClick={() => setShowOrderModal(false)}
-                  className="text-gray-400 hover:text-white transition-colors p-1 hover:bg-gray-800 rounded"
+                  className="text-gray-400 hover:text-white p-1"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  ✕
                 </button>
               </div>
               
-              {/* Market Info Banner */}
-              <div className="bg-gray-800 rounded-lg p-3 mb-4 border-l-4 border-blue-500">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300">Current Price:</span>
-                  <span className="font-bold text-white">
-                    ${currentPrice}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm mt-1">
-                  <span className="text-gray-300">24h Change:</span>
-                  <span className={`font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
-                  </span>
-                </div>
-              </div>
-              
-              {/* Balance Display */}
-              <div className="bg-gray-800 rounded-lg p-3 mb-4 border-l-4 border-green-500">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300 flex items-center gap-2">
-                    <span className="text-green-400">💰</span>
-                    Available Balance:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-bold ${balanceLoading ? 'text-gray-400' : 'text-green-400'}`}>
-                      {balanceLoading ? 'Loading...' : `$${getAvailableBalance(modalSelectedPair).toFixed(2)} ${getModalPair().quote}`}
-                    </span>
-                    <button
-                      onClick={fetchBalance}
-                      disabled={balanceLoading}
-                      className="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors"
-                      title="Refresh Balance"
-                    >
-                      🔄
-                    </button>
-
-                  </div>
-                </div>
-                {orderAmount && (
-                  <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-gray-300">Can Afford:</span>
-                    <span className={`font-bold ${getAvailableBalance(modalSelectedPair) >= parseFloat(orderAmount || 0) ? 'text-green-400' : 'text-red-400'}`}>
-                      {getAvailableBalance(modalSelectedPair) >= parseFloat(orderAmount || 0) ? '✅ Yes' : '❌ Insufficient'}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              <form onSubmit={handleOrderConfirm} className="space-y-4">
-                {/* Trading Pair Selection */}
+              <form onSubmit={handleOrderConfirm} className="space-y-2">
+                {/* Trading Pair */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                    <span className="text-yellow-400">🔄</span>
-                    Trading Pair
-                  </label>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">🔄 Pair</label>
                   <select
                     value={modalSelectedPair}
                     onChange={(e) => setModalSelectedPair(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
+                    className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white focus:outline-none focus:border-blue-500 text-xs"
                   >
                     {tradingPairs.map((pair) => (
                       <option key={pair.symbol} value={pair.symbol}>
@@ -991,113 +938,75 @@ export default function FeaturesPage() {
                   </select>
                 </div>
                 
-                 <div>
-                   <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                     <span className="text-blue-400">⚡</span>
-                     Leverage
-                   </label>
-                   <select
-                     value={selectedLeverage}
-                     onChange={(e) => setSelectedLeverage(e.target.value)}
-                     className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
-                   >
-                     <option value="1x">1x - Conservative</option>
-                     <option value="2x">2x - Moderate</option>
-                     <option value="5x">5x - Aggressive</option>
-                     <option value="10x">10x - High Risk</option>
-                     <option value="20x">20x - Maximum Risk</option>
-                   </select>
-                 </div>
-                
+                {/* Amount */}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                    <span className="text-purple-400">⏱️</span>
-                    Duration Period
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {durationOptions.map((option) => (
-                      <button
-                        key={option.seconds}
-                        type="button"
-                        onClick={() => setSelectedDuration(option.seconds)}
-                        className={`py-3 px-2 rounded-lg transition-all duration-200 text-center border ${
-                          selectedDuration === option.seconds
-                            ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-lg shadow-blue-500/25'
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="text-xs font-bold">{option.seconds}s</div>
-                        <div className="text-xs opacity-75">{option.percentage}%</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
-                    <span className="text-green-400">💰</span>
-                    Amount ({getModalPair().quote})
-                  </label>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">💰 Amount</label>
                   <div className="relative">
                     <input
                       type="number"
                       value={orderAmount}
                       onChange={(e) => setOrderAmount(e.target.value)}
                       placeholder="100"
-                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 pl-8 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-sm sm:text-base transition-all duration-200 hover:border-gray-500"
+                      className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 pl-6 text-white focus:outline-none focus:border-blue-500 text-xs"
                       min="1"
                       required
                     />
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">$</span>
+                    <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs">$</span>
                   </div>
                 </div>
                 
-                <div className="bg-gradient-to-r from-blue-900/30 to-blue-800/30 p-4 rounded-lg border border-blue-700/50">
-                  <div className="text-xs sm:text-sm text-blue-300 flex items-center gap-2">
-                    <span className="text-blue-400">⏱️</span>
-                    Duration Period
-                  </div>
-                  <div className="font-bold text-blue-400 text-sm sm:text-base">
-                    {selectedDuration}s ({durationOptions.find(opt => opt.seconds === selectedDuration)?.percentage}%)
+                {/* Duration */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">⏱️ Duration</label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {durationOptions.map((option) => (
+                      <button
+                        key={option.seconds}
+                        type="button"
+                        onClick={() => setSelectedDuration(option.seconds)}
+                        className={`py-1.5 px-1 rounded text-center border text-xs ${
+                          selectedDuration === option.seconds
+                            ? 'bg-blue-600 text-white font-bold border-blue-500'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600'
+                        }`}
+                      >
+                        <div className="font-bold">{option.seconds}s</div>
+                        <div className="opacity-75">{option.percentage}%</div>
+                      </button>
+                    ))}
                   </div>
                 </div>
                 
-                <div className="bg-gradient-to-r from-green-900/30 to-green-800/30 p-4 rounded-lg border border-green-700/50">
-                  <div className="text-xs sm:text-sm text-green-300 flex items-center gap-2">
-                    <span className="text-green-400">💰</span>
-                    Projected Profit
+                {/* Balance Info */}
+                <div className="bg-gray-800 rounded p-2 text-xs">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-400">💰 Balance:</span>
+                    <span className="text-green-400">${getAvailableBalance(modalSelectedPair).toFixed(2)}</span>
                   </div>
-                  <div className="font-bold text-green-400 text-lg sm:text-xl animate-pulse">
-                    +${calculateProjectedProfit().toFixed(2)}
-                  </div>
-                  <div className="text-xs text-green-300 mt-1 opacity-75">
-                    Risk/Reward: 1:{orderAmount ? (calculateProjectedProfit() / parseFloat(orderAmount)).toFixed(2) : '0.00'}
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">📈 Profit:</span>
+                    <span className="text-green-400">+${calculateProjectedProfit().toFixed(2)}</span>
                   </div>
                 </div>
                 
-                <div className="flex gap-3 mt-6">
+                {/* Action Buttons */}
+                <div className="flex gap-2 mt-3">
                   <button
                     type="button"
                     onClick={() => setShowOrderModal(false)}
-                    className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white py-4 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-lg border border-gray-500"
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-3 rounded font-medium text-xs"
                   >
-                    <span className="flex items-center justify-center gap-2">
-                      <span>❌</span>
-                      Cancel
-                    </span>
+                    Cancel
                   </button>
                   <button
                     type="submit"
-                    className={`flex-1 py-4 px-4 rounded-lg font-bold text-sm sm:text-base transition-all duration-300 transform hover:scale-105 shadow-xl border ${
+                    className={`flex-1 py-2 px-3 rounded font-medium text-xs ${
                       orderSide === 'buy' 
-                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-green-500 hover:shadow-green-500/25'
-                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white border-red-500 hover:shadow-red-500/25'
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    <span className="flex items-center justify-center gap-2">
-                      <span>{orderSide === 'buy' ? '🚀' : '⚡'}</span>
-                      Confirm Order
-                    </span>
+                    Confirm
                   </button>
                 </div>
               </form>

@@ -128,14 +128,7 @@ export default function PortfolioPage() {
     email: "",
     phone: ""
   });
-  const [alerts, setAlerts] = useState([]);
-  const [showAlertsModal, setShowAlertsModal] = useState(false);
-  const [newAlert, setNewAlert] = useState({
-    cryptoId: '',
-    targetPrice: '',
-    condition: 'above', // 'above' or 'below'
-    enabled: true
-  });
+
 
 
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
@@ -626,89 +619,7 @@ export default function PortfolioPage() {
   // Note: Portfolio data is now fetched from API via fetchPortfolioBalance()
   // No longer using localStorage for portfolio data
 
-  // Load alerts from localStorage
-  const loadAlerts = () => {
-    const saved = safeLocalStorage.getItem('priceAlerts');
-    if (saved) {
-      setAlerts(JSON.parse(saved));
-    }
-  };
 
-  // Save alerts to localStorage
-  const saveAlerts = (newAlerts) => {
-    safeLocalStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
-  };
-
-
-
-
-
-
-
-  // Add new alert
-  const addAlert = (alertData) => {
-    const newAlertItem = {
-      id: Date.now().toString(),
-      ...alertData,
-      createdAt: new Date().toISOString(),
-      triggered: false
-    };
-    const updatedAlerts = [...alerts, newAlertItem];
-    setAlerts(updatedAlerts);
-    saveAlerts(updatedAlerts);
-  };
-
-  // Remove alert
-  const removeAlert = (alertId) => {
-    const updatedAlerts = alerts.filter(alert => alert.id !== alertId);
-    setAlerts(updatedAlerts);
-    saveAlerts(updatedAlerts);
-  };
-
-  // Toggle alert enabled/disabled
-  const toggleAlert = (alertId) => {
-    const updatedAlerts = alerts.map(alert => 
-      alert.id === alertId ? { ...alert, enabled: !alert.enabled } : alert
-    );
-    setAlerts(updatedAlerts);
-    saveAlerts(updatedAlerts);
-  };
-
-  // Check if alerts should be triggered
-  const checkAlerts = () => {
-    if (!marketData.length) return;
-    
-    alerts.forEach(alert => {
-      if (alert.triggered || !alert.enabled) return;
-      
-      const crypto = marketData.find(c => c.id === alert.cryptoId);
-      if (!crypto) return;
-      
-      const currentPrice = parseFloat(crypto.price);
-      const targetPrice = parseFloat(alert.targetPrice);
-      
-      let shouldTrigger = false;
-      if (alert.condition === 'above' && currentPrice >= targetPrice) {
-        shouldTrigger = true;
-      } else if (alert.condition === 'below' && currentPrice <= targetPrice) {
-        shouldTrigger = true;
-      }
-      
-      if (shouldTrigger) {
-        // Mark as triggered
-        const updatedAlerts = alerts.map(a => 
-          a.id === alert.id ? { ...a, triggered: true } : a
-        );
-        setAlerts(updatedAlerts);
-        saveAlerts(updatedAlerts);
-        
-        // Show notification
-        const cryptoName = crypto.name;
-        const message = `${cryptoName} is now ${alert.condition} $${targetPrice}! Current price: $${currentPrice.toFixed(2)}`;
-        alert(`🚨 Price Alert: ${message}`);
-      }
-    });
-  };
 
   // Add to portfolio
   const addToPortfolio = async (cryptoId, amount, price) => {
@@ -766,7 +677,7 @@ export default function PortfolioPage() {
     setMounted(true);
     fetchContactConfig(); // Fetch contact configuration
     loadDepositAddressesFromLocal();
-    loadAlerts();
+
 
 
     
@@ -855,12 +766,7 @@ export default function PortfolioPage() {
     };
   }, []);
 
-  // Check alerts when market data updates
-  useEffect(() => {
-    if (marketData.length > 0) {
-      checkAlerts();
-    }
-  }, [marketData]);
+
 
   // Get real holdings from portfolio data
   const getRealHoldings = () => {
@@ -1107,7 +1013,7 @@ export default function PortfolioPage() {
       >
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         <div className="relative flex justify-between items-start">
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center gap-8">
               <div className="group/item">
                 <div className="text-xs text-gray-400 font-medium mb-2 flex items-center gap-2">
@@ -1195,21 +1101,15 @@ export default function PortfolioPage() {
           </button>
 
 
-          <button 
-            onClick={() => setShowAlertsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
-          >
-            <span>🔔</span>
-            <span>Alerts</span>
-          </button>
+
         </div>
       </div>
 
       {/* Enhanced Financial Summary */}
-      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/80 to-gray-700/80 border-b border-gray-600/50">
-        <div className="space-y-4">
+      <div className="px-4 py-3 bg-gradient-to-br from-gray-800/80 to-gray-700/80 border-b border-gray-600/50">
+        <div className="space-y-3">
           {/* Main Balance Card */}
-          <div className="relative p-4 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl border border-blue-500/30 overflow-hidden">
+          <div className="relative p-3 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-xl border border-blue-500/30 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 animate-pulse"></div>
             <div className="relative">
               <div className="flex items-center justify-between mb-2">
@@ -1219,7 +1119,7 @@ export default function PortfolioPage() {
                 </div>
                 <span className="text-xs text-blue-400">💎</span>
               </div>
-              <div className="text-2xl font-bold text-white mb-1">
+              <div className="text-xl font-bold text-white mb-1">
                 {balanceLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
@@ -1252,14 +1152,14 @@ export default function PortfolioPage() {
 
 
           {/* Credit Score */}
-          <div className="p-3 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
+          <div className="p-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-lg border border-purple-500/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
                 <span className="text-sm text-purple-300 font-medium">Credit Score</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="text-xl font-bold text-purple-400">{userData.creditScore}</div>
+                <div className="text-lg font-bold text-purple-400">{userData.creditScore}</div>
                 <div className="flex items-center">
                   {[...Array(5)].map((_, i) => (
                     <span key={i} className={`text-xs ${i < Math.floor(userData.creditScore / 20) ? 'text-yellow-400' : 'text-gray-600'}`}>
@@ -1279,42 +1179,11 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Currency Balances */}
-      {!balanceLoading && (getEffectiveBalanceData().currencies || []).length > 0 && (
-        <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-400">Currency Balances</h3>
-            {getEffectiveBalanceData().isRealTime && (
-              <div className="flex items-center gap-1 text-xs">
-                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                <span className="text-green-400">Live Updates</span>
-              </div>
-            )}
-          </div>
-          <div className="space-y-2">
-            {(getEffectiveBalanceData().currencies || []).map((currency, index) => (
-              <div key={index} className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {currency.currency === 'USDT' ? 'T' : 
-                     currency.currency === 'BTC' ? '₿' : 
-                     currency.currency === 'ETH' ? 'Ξ' : 
-                     currency.currency.charAt(0)}
-                  </div>
-                  <span className="text-sm text-gray-300">{currency.currency}</span>
-                </div>
-                <span className="text-sm font-bold text-white">
-                  {currency.balance.toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Enhanced Holdings Section */}
-      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/90 to-gray-700/90 border-b border-gray-600/50">
-        <div className="flex justify-between items-center mb-5">
+      <div className="px-4 py-3 bg-gradient-to-br from-gray-800/90 to-gray-700/90 border-b border-gray-600/50">
+        <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
               <span className="text-white font-bold text-lg">💎</span>
@@ -1339,20 +1208,20 @@ export default function PortfolioPage() {
             </div>
           ) : (
             holdingsData.map((holding, index) => (
-              <div key={index} className="group relative bg-gradient-to-r from-gray-700/80 to-gray-600/80 rounded-xl p-5 border border-gray-600/50 hover:border-gray-500/70 transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20">
+              <div key={index} className="group relative bg-gradient-to-r from-gray-700/80 to-gray-600/80 rounded-xl p-3 border border-gray-600/50 hover:border-gray-500/70 transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20">
                 {/* Background Animation */}
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="w-14 h-14 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden">
+                        <div className="w-10 h-10 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden">
                           {holding.icon && holding.icon.startsWith('http') ? (
                             <img 
                               src={holding.icon} 
                               alt={holding.symbol} 
-                              className="w-10 h-10 object-contain"
+                              className="w-8 h-8 object-contain"
                               onError={(e) => {
                                 e.target.style.display = 'none';
                                 e.target.nextSibling.style.display = 'block';
@@ -1360,7 +1229,7 @@ export default function PortfolioPage() {
                             />
                           ) : null}
                           <span 
-                            className="text-white font-bold text-xl" 
+                            className="text-white font-bold text-lg" 
                             style={{ display: holding.icon && holding.icon.startsWith('http') ? 'none' : 'block' }}
                           >
                             {typeof holding.icon === 'string' && !holding.icon.startsWith('http') ? holding.icon : holding.symbol?.charAt(0)}
@@ -1368,7 +1237,7 @@ export default function PortfolioPage() {
                         </div>
                       </div>
                       <div>
-                        <div className="font-bold text-white text-lg">{holding.name}</div>
+                        <div className="font-bold text-white text-base">{holding.name}</div>
                         <div className="text-sm text-gray-400 flex items-center gap-2">
                           {holding.symbol}
                           <span className="w-1 h-1 bg-gray-500 rounded-full"></span>
@@ -1377,7 +1246,7 @@ export default function PortfolioPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-white">${holding.currentValue?.toLocaleString() || '0.00'}</div>
+                      <div className="text-xl font-bold text-white">${holding.currentValue?.toLocaleString() || '0.00'}</div>
                     </div>
                   </div>
 
@@ -1390,144 +1259,11 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Enhanced Price Alerts Section */}
-      <div className="px-4 py-6 bg-gradient-to-br from-gray-800/90 to-gray-700/90">
-        <div className="flex justify-between items-center mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-lg">🔔</span>
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Price Alerts</h2>
-              <div className="text-xs text-gray-400">{alerts.length} Active Alerts • Smart Notifications</div>
-            </div>
-          </div>
-          <button 
-            onClick={() => setShowAlertsModal(true)}
-            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-5 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-yellow-500/25 transform hover:scale-105"
-          >
-            <span className="flex items-center gap-2">
-              <span className="text-lg">+</span>
-              Add Alert
-            </span>
-          </button>
-        </div>
+
+
         
-        <div className="space-y-4">
-          {alerts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-20 h-20 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <div className="text-4xl animate-pulse">🔔</div>
-              </div>
-              <div className="text-gray-300 text-lg font-medium mb-2">No price alerts set</div>
-              <div className="text-gray-500 text-sm mb-6">Stay informed about price movements</div>
-              <button 
-                onClick={() => setShowAlertsModal(true)}
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105"
-              >
-                Create Your First Alert
-              </button>
-            </div>
-          ) : (
-            alerts.map((alert) => {
-              const crypto = marketData.find(c => c.id === alert.cryptoId);
-              if (!crypto) return null;
-              
-              return (
-                <div key={alert.id} className={`group relative bg-gradient-to-r from-gray-700/80 to-gray-600/80 rounded-xl p-5 border border-gray-600/50 hover:border-gray-500/70 transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20 ${
-                  alert.triggered ? 'opacity-60 border-green-500/50' : ''
-                }`}>
-                  {/* Background Animation */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  
-                  {/* Triggered Alert Indicator */}
-                  {alert.triggered && (
-                    <div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                  )}
-                  
-                  <div className="relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-12 h-12 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden">
-                            {crypto.icon && crypto.icon.startsWith('http') ? (
-                              <img 
-                                src={crypto.icon} 
-                                alt={crypto.symbol} 
-                                className="w-8 h-8 object-contain"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  e.target.nextSibling.style.display = 'block';
-                                }}
-                              />
-                            ) : null}
-                            <span 
-                              className="text-white font-bold text-lg" 
-                              style={{ display: crypto.icon && crypto.icon.startsWith('http') ? 'none' : 'block' }}
-                            >
-                              {typeof crypto.icon === 'string' && !crypto.icon.startsWith('http') ? crypto.icon : crypto.symbol?.charAt(0)}
-                            </span>
-                          </div>
-                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-                            alert.enabled ? 'bg-green-500' : 'bg-gray-500'
-                          }`}>
-                            {alert.enabled ? '✓' : '✕'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="font-bold text-white text-lg">{crypto.name}</div>
-                          <div className="text-sm text-gray-400 flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              alert.condition === 'above' 
-                                ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                            }`}>
-                              {alert.condition === 'above' ? '↗ Above' : '↘ Below'}
-                            </span>
-                            <span className="font-bold text-white">${parseFloat(alert.targetPrice).toFixed(2)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <button 
-                          onClick={() => toggleAlert(alert.id)}
-                          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105 ${
-                            alert.enabled 
-                              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white shadow-md hover:shadow-green-500/25' 
-                              : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
-                          }`}
-                        >
-                          {alert.enabled ? '🟢 ON' : '⚫ OFF'}
-                        </button>
-                        <button 
-                           onClick={() => removeAlert(alert.id)}
-                           className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 hover:text-red-300 text-sm rounded-lg transition-all duration-200 border border-red-500/30 hover:border-red-500/50"
-                         >
-                           <span className="flex items-center gap-1">
-                             <span>🗑️</span>
-                             Remove
-                           </span>
-                         </button>
-                       </div>
-                     </div>
-                     
-                     {/* Alert Status */}
-                     {alert.triggered && (
-                       <div className="mt-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-                         <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
-                           <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                           Alert triggered! Price condition met.
-                         </div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+
+
 
 
 
@@ -2073,16 +1809,7 @@ export default function PortfolioPage() {
                 </label>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                <div>
-                  <div className="font-medium">Price Alerts</div>
-                  <div className="text-sm text-gray-400">Get notified of price changes</div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" defaultChecked className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
+
               
               <button 
                 onClick={() => {
@@ -2172,107 +1899,7 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Price Alerts Modal */}
-      {showAlertsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-96 max-w-[90vw] max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Create Price Alert</h3>
-              <button 
-                onClick={() => {
-                  setShowAlertsModal(false);
-                  setNewAlert({ cryptoId: '', targetPrice: '', condition: 'above', enabled: true });
-                }}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Cryptocurrency</label>
-                <select 
-                  value={newAlert.cryptoId}
-                  onChange={(e) => setNewAlert({...newAlert, cryptoId: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                >
-                  <option value="">Select cryptocurrency...</option>
-                  {cryptoList.map(crypto => (
-                    <option key={crypto.id} value={crypto.id}>
-                      {crypto.name} ({crypto.symbol})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Target Price (USD)</label>
-                <input 
-                  type="number" 
-                  step="0.01"
-                  placeholder="0.00"
-                  value={newAlert.targetPrice}
-                  onChange={(e) => setNewAlert({...newAlert, targetPrice: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">Condition</label>
-                <select 
-                  value={newAlert.condition}
-                  onChange={(e) => setNewAlert({...newAlert, condition: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
-                >
-                  <option value="above">Above</option>
-                  <option value="below">Below</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input 
-                  type="checkbox" 
-                  id="alertEnabled"
-                  checked={newAlert.enabled}
-                  onChange={(e) => setNewAlert({...newAlert, enabled: e.target.checked})}
-                  className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
-                />
-                <label htmlFor="alertEnabled" className="text-sm text-gray-300">
-                  Enable alert immediately
-                </label>
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    setShowAlertsModal(false);
-                    setNewAlert({ cryptoId: '', targetPrice: '', condition: 'above', enabled: true });
-                  }}
-                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => {
-                    if (newAlert.cryptoId && newAlert.targetPrice) {
-                      addAlert(newAlert);
-                      setShowAlertsModal(false);
-                      setNewAlert({ cryptoId: '', targetPrice: '', condition: 'above', enabled: true });
-                      alert('Price alert created successfully!');
-                    } else {
-                      alert('Please fill in all required fields.');
-                    }
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-                >
-                  Create Alert
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
 
 

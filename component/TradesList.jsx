@@ -113,24 +113,31 @@ const TradesList = () => {
   const handleConfirmedTradeDecision = async () => {
     const { tradeId, decision } = confirmationModal;
     
+    // Find the trade in the trades array
+    const trade = trades.find(t => t.id === tradeId);
+    if (!trade) {
+      setError('Trade not found');
+      return;
+    }
+    
     try {
       setProcessingTrade(tradeId);
       setError(null);
       setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null });
 
-      const response = await authedFetchJson('/api/admin/trade-action', {
+      const response = await authedFetchJson('/api/admin/trade-outcome', {
         method: 'POST',
         body: JSON.stringify({ 
           tradeId: tradeId, 
-          action: decision.toLowerCase() 
+          outcome: decision.toLowerCase() 
         })
       });
 
-      if (response && response.success) {
-        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully. P&L: $${response.data.finalPnl.toFixed(2)}`);
+      if (response && response.ok) {
+        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully. P&L: $${response.data.final_pnl.toFixed(2)}`);
         fetchTrades(); // Refresh the list
       } else {
-        throw new Error(response?.error || `Failed to mark trade as ${decision.toLowerCase()}`);
+        throw new Error(response?.message || `Failed to mark trade as ${decision.toLowerCase()}`);
       }
     } catch (error) {
       console.error('Error setting trade decision:', error);

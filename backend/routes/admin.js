@@ -457,46 +457,29 @@ router.get('/trades', authenticateUser, requireAdmin, async (req, res) => {
 // POST /api/admin/trade-outcome - Set trade outcome
 router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) => {
   try {
-    const { userEmail, outcome } = req.body;
+    const { tradeId, outcome } = req.body;
     
-    if (!userEmail || !outcome || !['win', 'loss'].includes(outcome)) {
+    if (!tradeId || !outcome || !['win', 'loss'].includes(outcome)) {
       return res.status(400).json({
         ok: false,
         code: 'invalid_input',
-        message: 'userEmail and outcome (win/loss) required'
+        message: 'tradeId and outcome (win/loss) required'
       });
     }
     
-    // Find user by email
-    const { data: user, error: userError } = await serverSupabase
-      .from('users')
-      .select('id')
-      .eq('email', userEmail)
-      .single();
-    
-    if (userError || !user) {
-      return res.status(400).json({
-        ok: false,
-        code: 'user_not_found',
-        message: 'User not found'
-      });
-    }
-    
-    // Find latest pending trade for this user
+    // Find trade by ID
     const { data: trade, error: tradeError } = await serverSupabase
       .from('trades')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('id', tradeId)
       .eq('trade_result', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1)
       .single();
     
     if (tradeError || !trade) {
       return res.status(400).json({
         ok: false,
-        code: 'no_pending_trade',
-        message: 'No pending trade found for this user'
+        code: 'trade_not_found',
+        message: 'Trade not found or already completed'
       });
     }
     
