@@ -485,19 +485,44 @@ export default function PortfolioPage() {
     
     if (wsConnected && realTimeBalances && Object.keys(realTimeBalances).length > 0) {
       console.log('Using real-time balance data');
-      // Convert real-time balances to portfolio format
-      const currencies = Object.entries(realTimeBalances).map(([currency, balance]) => ({
-        currency: currency.toUpperCase(),
-        balance: parseFloat(balance) || 0,
-        value: parseFloat(balance) || 0 // Will be calculated with market data
-      }));
+      // Convert real-time balances to portfolio format with proper USD calculation
+      const currencies = Object.entries(realTimeBalances).map(([currency, balance]) => {
+        const currencyUpper = currency.toUpperCase();
+        const balanceAmount = parseFloat(balance) || 0;
+        
+        // Calculate USD value using market data
+        let usdValue = 0;
+        if (currencyUpper === 'USDT') {
+          // USDT is always $1
+          usdValue = balanceAmount * 1.0;
+        } else {
+          // Find matching market data for this currency
+          const marketItem = marketData.find(item => {
+            const symbol = item.name.split('/')[0];
+            return symbol === currencyUpper || item.id === currency.toLowerCase();
+          });
+          
+          if (marketItem) {
+            usdValue = balanceAmount * parseFloat(marketItem.price);
+          }
+        }
+        
+        return {
+          currency: currencyUpper,
+          balance: balanceAmount,
+          value: usdValue
+        };
+      });
+      
+      // Calculate total balance from individual currency values
+      const calculatedTotal = currencies.reduce((sum, curr) => sum + curr.value, 0);
       
       const result = {
-        totalBalance: realTimeTotalBalance || 0,
+        totalBalance: calculatedTotal,
         currencies,
         summary: {
           totalCurrencies: currencies.length,
-          totalBalance: realTimeTotalBalance || 0,
+          totalBalance: calculatedTotal,
           lastUpdated: balanceLastUpdate
         },
         isRealTime: true
