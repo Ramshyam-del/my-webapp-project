@@ -136,9 +136,7 @@ export default function PortfolioPage() {
     condition: 'above', // 'above' or 'below'
     enabled: true
   });
-  const [transactions, setTransactions] = useState([]);
-  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
-  const [transactionFilter, setTransactionFilter] = useState('all'); // 'all', 'buy', 'sell', 'deposit', 'withdraw'
+
 
   const [showCustomerServiceModal, setShowCustomerServiceModal] = useState(false);
   const [customerServiceForm, setCustomerServiceForm] = useState({
@@ -641,51 +639,7 @@ export default function PortfolioPage() {
     safeLocalStorage.setItem('priceAlerts', JSON.stringify(newAlerts));
   };
 
-  // Load transactions from localStorage
-  const loadTransactions = () => {
-    // Clear any existing mock transaction data
-    safeLocalStorage.removeItem('transactions');
-    setTransactions([]);
-  };
 
-  // Save transactions to localStorage
-  const saveTransactions = (newTransactions) => {
-    safeLocalStorage.setItem('transactions', JSON.stringify(newTransactions));
-  };
-
-  // Add transaction
-  const addTransaction = (transactionData) => {
-    const newTransaction = {
-      id: Date.now().toString(),
-      ...transactionData,
-      timestamp: new Date().toISOString(),
-      status: 'completed'
-    };
-    const updatedTransactions = [newTransaction, ...transactions];
-    setTransactions(updatedTransactions);
-    saveTransactions(updatedTransactions);
-  };
-
-  // Get filtered transactions
-  const getFilteredTransactions = () => {
-    if (transactionFilter === 'all') {
-      return transactions;
-    }
-    return transactions.filter(tx => tx.type === transactionFilter);
-  };
-
-  // Calculate transaction statistics
-  const getTransactionStats = () => {
-    const stats = {
-      total: transactions.length,
-      buy: transactions.filter(tx => tx.type === 'buy').length,
-      sell: transactions.filter(tx => tx.type === 'sell').length,
-      deposit: transactions.filter(tx => tx.type === 'deposit').length,
-      withdraw: transactions.filter(tx => tx.type === 'withdraw').length,
-      totalValue: transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0)
-    };
-    return stats;
-  };
 
 
 
@@ -759,18 +713,6 @@ export default function PortfolioPage() {
   // Add to portfolio
   const addToPortfolio = async (cryptoId, amount, price) => {
     try {
-      // Record transaction first
-      const crypto = cryptoList.find(c => c.id === cryptoId);
-      addTransaction({
-        type: 'buy',
-        cryptoId,
-        cryptoName: crypto ? crypto.name : cryptoId,
-        amount: amount,
-        price: price,
-        totalValue: amount * price,
-        description: `Bought ${amount} ${crypto ? crypto.symbol : cryptoId} at $${price}`
-      });
-      
       // Refresh portfolio data from API
       await fetchPortfolioBalance();
       
@@ -782,25 +724,6 @@ export default function PortfolioPage() {
   // Remove from portfolio - now updates via API
   const removeFromPortfolio = async (cryptoId) => {
     try {
-      const holdings = getRealHoldings();
-      const item = holdings.find(holding => holding.cryptoId === cryptoId);
-      
-      if (item) {
-        // Record sell transaction before removing
-        const crypto = cryptoList.find(c => c.id === cryptoId);
-        const currentPrice = marketData.find(c => c.id === cryptoId)?.price || item.avgPrice;
-        
-        addTransaction({
-          type: 'sell',
-          cryptoId,
-          cryptoName: crypto ? crypto.name : cryptoId,
-          amount: item.amount,
-          price: currentPrice,
-          totalValue: item.amount * currentPrice,
-          description: `Sold ${item.amount} ${crypto ? crypto.symbol : cryptoId} at $${currentPrice}`
-        });
-      }
-      
       // Refresh portfolio data from API
       await fetchPortfolioBalance();
       
@@ -844,7 +767,7 @@ export default function PortfolioPage() {
     fetchContactConfig(); // Fetch contact configuration
     loadDepositAddressesFromLocal();
     loadAlerts();
-    loadTransactions(); // Load transactions on mount
+
 
     
     // Always fetch portfolio balance on mount
@@ -916,20 +839,7 @@ export default function PortfolioPage() {
     };
   }, [wsConnected]);
 
-  // Handle real-time transaction notifications
-  useEffect(() => {
-    if (recentTransactions && recentTransactions.length > 0) {
-      // Update local transactions list with new real-time transactions
-      setTransactions(prev => {
-        const newTransactions = recentTransactions.filter(rt => 
-          !prev.some(pt => pt.id === rt.id)
-        );
-        return [...newTransactions, ...prev].slice(0, 50); // Keep last 50 transactions
-      });
-    }
-  }, [recentTransactions]);
-
-  // Setup global toast notification function for transactions
+  // Setup global toast notification function
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.showTransactionToast = (transaction) => {
@@ -1284,13 +1194,7 @@ export default function PortfolioPage() {
             <span>Refresh</span>
           </button>
 
-          <button 
-            onClick={() => setShowTransactionsModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
-          >
-            <span>📋</span>
-            <span>History</span>
-          </button>
+
           <button 
             onClick={() => setShowAlertsModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg text-xs text-gray-300 hover:text-white transition-all duration-200 border border-gray-600/30 hover:border-gray-500/50"
@@ -1625,92 +1529,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Transaction History Section */}
-      <div className="px-4 py-4">
-        <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-bold">Transaction History</h2>
-          <button 
-            onClick={() => setShowTransactionsModal(true)}
-            className="text-sm bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg transition-colors"
-          >
-            View All
-          </button>
-        </div>
-        
-        <div className="space-y-3">
-          {transactions.length === 0 ? (
-            <div className="text-center py-6">
-              <div className="text-gray-400 text-3xl mb-2">📊</div>
-              <div className="text-gray-400 text-sm mb-3">No transactions yet</div>
-              <div className="text-gray-500 text-xs">Your trading activity will appear here</div>
-            </div>
-          ) : (
-            <>
-              {/* Quick Stats */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-gray-800 rounded-lg p-2 text-center">
-                  <div className="text-xs text-gray-400">Total</div>
-                  <div className="text-sm font-medium">{getTransactionStats().total}</div>
-                </div>
-                <div className="bg-gray-800 rounded-lg p-2 text-center">
-                  <div className="text-xs text-gray-400">Buy</div>
-                  <div className="text-sm font-medium text-green-400">{getTransactionStats().buy}</div>
-                </div>
-                <div className="bg-gray-800 rounded-lg p-2 text-center">
-                  <div className="text-xs text-gray-400">Sell</div>
-                  <div className="text-sm font-medium text-red-400">{getTransactionStats().sell}</div>
-                </div>
-                <div className="bg-gray-800 rounded-lg p-2 text-center">
-                  <div className="text-xs text-gray-400">Value</div>
-                  <div className="text-sm font-medium">${getTransactionStats().totalValue.toLocaleString()}</div>
-                </div>
-              </div>
-              
-              {/* Recent Transactions */}
-              {transactions.slice(0, 3).map((tx) => (
-                <div key={tx.id} className="p-3 bg-gray-800 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                        tx.type === 'buy' ? 'bg-green-500' :
-                        tx.type === 'sell' ? 'bg-red-500' :
-                        tx.type === 'deposit' ? 'bg-blue-500' :
-                        'bg-purple-500'
-                      }`}>
-                        {tx.type === 'buy' ? '📈' :
-                         tx.type === 'sell' ? '📉' :
-                         tx.type === 'deposit' ? '💰' :
-                         '💸'}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm">{tx.description}</div>
-                        <div className="text-xs text-gray-400">
-                          {new Date(tx.timestamp).toLocaleDateString()}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium">${tx.totalValue?.toFixed(2) || '0.00'}</div>
-                      <div className={`text-xs ${tx.type === 'buy' ? 'text-green-400' : tx.type === 'sell' ? 'text-red-400' : 'text-gray-400'}`}>
-                        {tx.type.toUpperCase()}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {transactions.length > 3 && (
-                <button 
-                  onClick={() => setShowTransactionsModal(true)}
-                  className="w-full text-center text-sm text-blue-400 hover:text-blue-300 py-2"
-                >
-                  View {transactions.length - 3} more transactions
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
+
 
       {/* Account & Security Section */}
       <div className="px-4 py-4">
@@ -2455,124 +2274,8 @@ export default function PortfolioPage() {
         </div>
       )}
 
-      {/* Transaction History Modal */}
-      {showTransactionsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Transaction History</h3>
-              <button 
-                onClick={() => setShowTransactionsModal(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Filter Tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto">
-              {[
-                { key: 'all', label: 'All', count: getTransactionStats().total },
-                { key: 'buy', label: 'Buy', count: getTransactionStats().buy },
-                { key: 'sell', label: 'Sell', count: getTransactionStats().sell },
-                { key: 'deposit', label: 'Deposit', count: getTransactionStats().deposit },
-                { key: 'withdraw', label: 'Withdraw', count: getTransactionStats().withdraw }
-              ].map((filter) => (
-                <button
-                  key={filter.key}
-                  onClick={() => setTransactionFilter(filter.key)}
-                  className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${
-                    transactionFilter === filter.key
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                >
-                  {filter.label} ({filter.count})
-                </button>
-              ))}
-            </div>
-            
-            {/* Transaction List */}
-            <div className="space-y-3">
-              {getFilteredTransactions().length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-4xl mb-2">📊</div>
-                  <div className="text-gray-400 text-sm">No transactions found</div>
-                </div>
-              ) : (
-                getFilteredTransactions().map((tx) => (
-                  <div key={tx.id} className="p-4 bg-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
-                          tx.type === 'buy' ? 'bg-green-500' :
-                          tx.type === 'sell' ? 'bg-red-500' :
-                          tx.type === 'deposit' ? 'bg-blue-500' :
-                          'bg-purple-500'
-                        }`}>
-                          {tx.type === 'buy' ? '📈' :
-                           tx.type === 'sell' ? '📉' :
-                           tx.type === 'deposit' ? '💰' :
-                           '💸'}
-                        </div>
-                        <div>
-                          <div className="font-medium">{tx.description}</div>
-                          <div className="text-sm text-gray-400">
-                            {new Date(tx.timestamp).toLocaleString()}
-                          </div>
-                          {tx.cryptoName && (
-                            <div className="text-xs text-gray-500">
-                              {tx.cryptoName} • {tx.amount} {tx.cryptoId}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold">${tx.totalValue?.toFixed(2) || '0.00'}</div>
-                        <div className={`text-sm ${tx.type === 'buy' ? 'text-green-400' : tx.type === 'sell' ? 'text-red-400' : 'text-gray-400'}`}>
-                          {tx.type.toUpperCase()}
-                        </div>
-                        {tx.price && (
-                          <div className="text-xs text-gray-500">
-                            @ ${tx.price}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            
-            {/* Summary Stats */}
-            {getFilteredTransactions().length > 0 && (
-              <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-                <h4 className="font-medium mb-3">Summary</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <div className="text-xs text-gray-400">Total Transactions</div>
-                    <div className="text-lg font-bold">{getFilteredTransactions().length}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-400">Total Value</div>
-                    <div className="text-lg font-bold">${getFilteredTransactions().reduce((sum, tx) => sum + (tx.totalValue || 0), 0).toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-400">Average Value</div>
-                    <div className="text-lg font-bold">${(getFilteredTransactions().reduce((sum, tx) => sum + (tx.totalValue || 0), 0) / getFilteredTransactions().length).toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-400">Last Transaction</div>
-                    <div className="text-lg font-bold">
-                      {getFilteredTransactions().length > 0 ? new Date(getFilteredTransactions()[0].timestamp).toLocaleDateString() : 'N/A'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+
+
 
 
 
