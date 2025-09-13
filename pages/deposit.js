@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { useConfig } from '../hooks/useConfig';
 import DepositMonitor from '../components/DepositMonitor';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 export default function DepositPage() {
   const router = useRouter();
@@ -349,8 +350,19 @@ export default function DepositPage() {
               className="bg-gray-800 rounded-lg p-6 border border-gray-700 transition-all duration-200 hover:border-gray-600 cursor-pointer hover:shadow-lg hover:bg-gray-750"
             >
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 ${crypto.color} rounded-full flex items-center justify-center text-white text-xl font-bold`}>
-                  {crypto.icon}
+                <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={getCryptoImageUrl(crypto.symbol)} 
+                    alt={crypto.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className={`w-12 h-12 ${crypto.color} rounded-full hidden items-center justify-center text-white text-xl font-bold`}>
+                    {crypto.symbol?.charAt(0) || crypto.name?.charAt(0) || '?'}
+                  </div>
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">{crypto.name}</h3>

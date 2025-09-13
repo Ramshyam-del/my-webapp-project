@@ -9,6 +9,7 @@ import Footer from '../component/Footer';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 const glass = "backdrop-blur-md bg-white/20 border border-white/20 rounded-2xl shadow-xl";
 const sectionVariants = {
@@ -27,16 +28,16 @@ const sectionVariants = {
 
 // Cryptocurrency data for home page - Enhanced with colors and icons
 const homeCryptoList = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: '₿', color: 'from-orange-400 to-yellow-500', bgColor: 'from-orange-500/20 to-yellow-500/20' },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: 'Ξ', color: 'from-blue-400 to-purple-500', bgColor: 'from-blue-500/20 to-purple-500/20' },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: '🟡', color: 'from-yellow-400 to-orange-500', bgColor: 'from-yellow-500/20 to-orange-500/20' },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: '🟦', color: 'from-purple-400 to-pink-500', bgColor: 'from-purple-500/20 to-pink-500/20' },
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: getCryptoImageUrl('BTC'), color: 'from-orange-400 to-yellow-500', bgColor: 'from-orange-500/20 to-yellow-500/20' },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: getCryptoImageUrl('ETH'), color: 'from-blue-400 to-purple-500', bgColor: 'from-blue-500/20 to-purple-500/20' },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: getCryptoImageUrl('BNB'), color: 'from-yellow-400 to-orange-500', bgColor: 'from-yellow-500/20 to-orange-500/20' },
+  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: getCryptoImageUrl('SOL'), color: 'from-purple-400 to-pink-500', bgColor: 'from-purple-500/20 to-pink-500/20' },
 ];
 
 // Helper function to get crypto styling
 const getCryptoStyling = (symbol) => {
   const crypto = homeCryptoList.find(c => c.symbol === symbol);
-  return crypto || { icon: '💎', color: 'from-gray-400 to-gray-500', bgColor: 'from-gray-500/20 to-gray-600/20' };
+  return crypto || { icon: getCryptoImageUrl(symbol), color: 'from-gray-400 to-gray-500', bgColor: 'from-gray-500/20 to-gray-600/20' };
 };
 
 // Crypto Price Component
@@ -178,8 +179,8 @@ const CryptoPrices = () => {
             <div className="relative z-10">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
-                <div className={`w-10 h-10 bg-gradient-to-r ${styling.color} rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg`}>
-                  {styling.icon}
+                <div className="w-10 h-10 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white text-lg font-bold shadow-lg overflow-hidden">
+                  <img src={styling.icon} alt={crypto.symbol} className="w-6 h-6 object-contain" />
                 </div>
                 <div className="text-gray-400 text-xs font-medium uppercase tracking-wider">
                   {crypto.symbol}

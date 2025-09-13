@@ -4,62 +4,63 @@ import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStor
 import { supabase } from '../lib/supabase';
 import useRealTimeBalance from '../hooks/useRealTimeBalance';
 import { useAuth } from '../contexts/AuthContext';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
-  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: '₿' },
-  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: 'Ξ' },
-  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: 'T' },
-  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: 'B' },
-  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: 'S' },
-  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: 'A' },
-  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: 'D' },
-  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: 'Ð' },
-  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: 'A' },
-  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: 'L' },
-  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M' },
-  { id: 'litecoin', name: 'Litecoin/LTC', symbol: 'LTC', icon: 'Ł' },
-  { id: 'uniswap', name: 'Uniswap/UNI', symbol: 'UNI', icon: 'U' },
-  { id: 'bitcoin-cash', name: 'Bitcoin Cash/BCH', symbol: 'BCH', icon: 'B' },
-  { id: 'stellar', name: 'Stellar/XLM', symbol: 'XLM', icon: 'X' },
-  { id: 'vechain', name: 'VeChain/VET', symbol: 'VET', icon: 'V' },
-  { id: 'filecoin', name: 'Filecoin/FIL', symbol: 'FIL', icon: 'F' },
-  { id: 'cosmos', name: 'Cosmos/ATOM', symbol: 'ATOM', icon: 'A' },
-  { id: 'monero', name: 'Monero/XMR', symbol: 'XMR', icon: 'M' },
-  { id: 'algorand', name: 'Algorand/ALGO', symbol: 'ALGO', icon: 'A' },
-  { id: 'tezos', name: 'Tezos/XTZ', symbol: 'XTZ', icon: 'T' },
-  { id: 'aave', name: 'Aave/AAVE', symbol: 'AAVE', icon: 'A' },
-  { id: 'compound', name: 'Compound/COMP', symbol: 'COMP', icon: 'C' },
-  { id: 'synthetix-network-token', name: 'Synthetix/SNX', symbol: 'SNX', icon: 'S' },
-  { id: 'yearn-finance', name: 'Yearn Finance/YFI', symbol: 'YFI', icon: 'Y' },
-  { id: 'decentraland', name: 'Decentraland/MANA', symbol: 'MANA', icon: 'M' },
-  { id: 'the-sandbox', name: 'The Sandbox/SAND', symbol: 'SAND', icon: 'S' },
-  { id: 'enjin-coin', name: 'Enjin Coin/ENJ', symbol: 'ENJ', icon: 'E' },
-  { id: 'axie-infinity', name: 'Axie Infinity/AXS', symbol: 'AXS', icon: 'A' },
-  { id: 'gala', name: 'Gala/GALA', symbol: 'GALA', icon: 'G' },
-  { id: 'flow', name: 'Flow/FLOW', symbol: 'FLOW', icon: 'F' },
-  { id: 'near', name: 'NEAR Protocol/NEAR', symbol: 'NEAR', icon: 'N' },
-  { id: 'fantom', name: 'Fantom/FTM', symbol: 'FTM', icon: 'F' },
-  { id: 'harmony', name: 'Harmony/ONE', symbol: 'ONE', icon: 'O' },
-  { id: 'kusama', name: 'Kusama/KSM', symbol: 'KSM', icon: 'K' },
-  { id: 'zilliqa', name: 'Zilliqa/ZIL', symbol: 'ZIL', icon: 'Z' },
-  { id: 'icon', name: 'ICON/ICX', symbol: 'ICX', icon: 'I' },
-  { id: 'ontology', name: 'Ontology/ONT', symbol: 'ONT', icon: 'O' },
-  { id: 'neo', name: 'NEO/NEO', symbol: 'NEO', icon: 'N' },
-  { id: 'qtum', name: 'Qtum/QTUM', symbol: 'QTUM', icon: 'Q' },
-  { id: 'verge', name: 'Verge/XVG', symbol: 'XVG', icon: 'V' },
-  { id: 'siacoin', name: 'Siacoin/SC', symbol: 'SC', icon: 'S' },
-  { id: 'steem', name: 'Steem/STEEM', symbol: 'STEEM', icon: 'S' },
-  { id: 'waves', name: 'Waves/WAVES', symbol: 'WAVES', icon: 'W' },
-  { id: 'nxt', name: 'NXT/NXT', symbol: 'NXT', icon: 'N' },
-  { id: 'bytecoin', name: 'Bytecoin/BCN', symbol: 'BCN', icon: 'B' },
-  { id: 'digibyte', name: 'DigiByte/DGB', symbol: 'DGB', icon: 'D' },
-  { id: 'vertcoin', name: 'Vertcoin/VTC', symbol: 'VTC', icon: 'V' },
-  { id: 'feathercoin', name: 'Feathercoin/FTC', symbol: 'FTC', icon: 'F' },
-  { id: 'novacoin', name: 'Novacoin/NVC', symbol: 'NVC', icon: 'N' },
-  { id: 'primecoin', name: 'Primecoin/XPM', symbol: 'XPM', icon: 'P' },
-  { id: 'peercoin', name: 'Peercoin/PPC', symbol: 'PPC', icon: 'P' },
-  { id: 'namecoin', name: 'Namecoin/NMC', symbol: 'NMC', icon: 'N' }
+  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: getCryptoImageUrl('BTC') },
+  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: getCryptoImageUrl('ETH') },
+  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: getCryptoImageUrl('USDT') },
+  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: getCryptoImageUrl('BNB') },
+  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: getCryptoImageUrl('SOL') },
+  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: getCryptoImageUrl('ADA') },
+  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: getCryptoImageUrl('DOT') },
+  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: getCryptoImageUrl('DOGE') },
+  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: getCryptoImageUrl('AVAX') },
+  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: getCryptoImageUrl('LINK') },
+  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: getCryptoImageUrl('MATIC') },
+  { id: 'litecoin', name: 'Litecoin/LTC', symbol: 'LTC', icon: getCryptoImageUrl('LTC') },
+  { id: 'uniswap', name: 'Uniswap/UNI', symbol: 'UNI', icon: getCryptoImageUrl('UNI') },
+  { id: 'bitcoin-cash', name: 'Bitcoin Cash/BCH', symbol: 'BCH', icon: getCryptoImageUrl('BCH') },
+  { id: 'stellar', name: 'Stellar/XLM', symbol: 'XLM', icon: getCryptoImageUrl('XLM') },
+  { id: 'vechain', name: 'VeChain/VET', symbol: 'VET', icon: getCryptoImageUrl('VET') },
+  { id: 'filecoin', name: 'Filecoin/FIL', symbol: 'FIL', icon: getCryptoImageUrl('FIL') },
+  { id: 'cosmos', name: 'Cosmos/ATOM', symbol: 'ATOM', icon: getCryptoImageUrl('ATOM') },
+  { id: 'monero', name: 'Monero/XMR', symbol: 'XMR', icon: getCryptoImageUrl('XMR') },
+  { id: 'algorand', name: 'Algorand/ALGO', symbol: 'ALGO', icon: getCryptoImageUrl('ALGO') },
+  { id: 'tezos', name: 'Tezos/XTZ', symbol: 'XTZ', icon: getCryptoImageUrl('XTZ') },
+  { id: 'aave', name: 'Aave/AAVE', symbol: 'AAVE', icon: getCryptoImageUrl('AAVE') },
+  { id: 'compound', name: 'Compound/COMP', symbol: 'COMP', icon: getCryptoImageUrl('COMP') },
+  { id: 'synthetix-network-token', name: 'Synthetix/SNX', symbol: 'SNX', icon: getCryptoImageUrl('SNX') },
+  { id: 'yearn-finance', name: 'Yearn Finance/YFI', symbol: 'YFI', icon: getCryptoImageUrl('YFI') },
+  { id: 'decentraland', name: 'Decentraland/MANA', symbol: 'MANA', icon: getCryptoImageUrl('MANA') },
+  { id: 'the-sandbox', name: 'The Sandbox/SAND', symbol: 'SAND', icon: getCryptoImageUrl('SAND') },
+  { id: 'enjin-coin', name: 'Enjin Coin/ENJ', symbol: 'ENJ', icon: getCryptoImageUrl('ENJ') },
+  { id: 'axie-infinity', name: 'Axie Infinity/AXS', symbol: 'AXS', icon: getCryptoImageUrl('AXS') },
+  { id: 'gala', name: 'Gala/GALA', symbol: 'GALA', icon: getCryptoImageUrl('GALA') },
+  { id: 'flow', name: 'Flow/FLOW', symbol: 'FLOW', icon: getCryptoImageUrl('FLOW') },
+  { id: 'near', name: 'NEAR Protocol/NEAR', symbol: 'NEAR', icon: getCryptoImageUrl('NEAR') },
+  { id: 'fantom', name: 'Fantom/FTM', symbol: 'FTM', icon: getCryptoImageUrl('FTM') },
+  { id: 'harmony', name: 'Harmony/ONE', symbol: 'ONE', icon: getCryptoImageUrl('ONE') },
+  { id: 'kusama', name: 'Kusama/KSM', symbol: 'KSM', icon: getCryptoImageUrl('KSM') },
+  { id: 'zilliqa', name: 'Zilliqa/ZIL', symbol: 'ZIL', icon: getCryptoImageUrl('ZIL') },
+  { id: 'icon', name: 'ICON/ICX', symbol: 'ICX', icon: getCryptoImageUrl('ICX') },
+  { id: 'ontology', name: 'Ontology/ONT', symbol: 'ONT', icon: getCryptoImageUrl('ONT') },
+  { id: 'neo', name: 'NEO/NEO', symbol: 'NEO', icon: getCryptoImageUrl('NEO') },
+  { id: 'qtum', name: 'Qtum/QTUM', symbol: 'QTUM', icon: getCryptoImageUrl('QTUM') },
+  { id: 'verge', name: 'Verge/XVG', symbol: 'XVG', icon: getCryptoImageUrl('XVG') },
+  { id: 'siacoin', name: 'Siacoin/SC', symbol: 'SC', icon: getCryptoImageUrl('SC') },
+  { id: 'steem', name: 'Steem/STEEM', symbol: 'STEEM', icon: getCryptoImageUrl('STEEM') },
+  { id: 'waves', name: 'Waves/WAVES', symbol: 'WAVES', icon: getCryptoImageUrl('WAVES') },
+  { id: 'nxt', name: 'NXT/NXT', symbol: 'NXT', icon: getCryptoImageUrl('NXT') },
+  { id: 'bytecoin', name: 'Bytecoin/BCN', symbol: 'BCN', icon: getCryptoImageUrl('BCN') },
+  { id: 'digibyte', name: 'DigiByte/DGB', symbol: 'DGB', icon: getCryptoImageUrl('DGB') },
+  { id: 'vertcoin', name: 'Vertcoin/VTC', symbol: 'VTC', icon: getCryptoImageUrl('VTC') },
+  { id: 'feathercoin', name: 'Feathercoin/FTC', symbol: 'FTC', icon: getCryptoImageUrl('FTC') },
+  { id: 'novacoin', name: 'Novacoin/NVC', symbol: 'NVC', icon: getCryptoImageUrl('NVC') },
+  { id: 'primecoin', name: 'Primecoin/XPM', symbol: 'XPM', icon: getCryptoImageUrl('XPM') },
+  { id: 'peercoin', name: 'Peercoin/PPC', symbol: 'PPC', icon: getCryptoImageUrl('PPC') },
+  { id: 'namecoin', name: 'Namecoin/NMC', symbol: 'NMC', icon: getCryptoImageUrl('NMC') }
 ];
 
 const navTabs = [
@@ -99,9 +100,19 @@ export default function PortfolioPage() {
   const [depositAddresses, setDepositAddresses] = useState({ usdt: '', btc: '', eth: '' });
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawalAddress, setWithdrawalAddress] = useState('');
-  const [withdrawalNetwork, setWithdrawalNetwork] = useState('ethereum');
+  const [withdrawalNetwork, setWithdrawalNetwork] = useState('');
   const [withdrawalNote, setWithdrawalNote] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState('USDT');
+  const [selectedCurrency, setSelectedCurrency] = useState('');
+  const [showInitialZeroBalance, setShowInitialZeroBalance] = useState(true);
+
+  // Reset initial zero balance flag when withdraw modal opens
+  useEffect(() => {
+    if (showWithdrawModal) {
+      setShowInitialZeroBalance(true); // Show 0 until user selects currency and network
+      setSelectedCurrency(''); // Start with no currency selected
+      setWithdrawalNetwork(''); // Start with no network selected
+    }
+  }, [showWithdrawModal]);
   const [withdrawalLoading, setWithdrawalLoading] = useState(false);
   const [showKycModal, setShowKycModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -303,7 +314,11 @@ export default function PortfolioPage() {
       return;
     }
 
-    const availableBalance = realTimeBalances[selectedCurrency] || 0;
+    // Get balance from effective balance data (real-time or API fallback)
+    const effectiveBalanceData = getEffectiveBalanceData();
+    const currencyBalance = effectiveBalanceData.currencies.find(c => c.currency === selectedCurrency);
+    const availableBalance = currencyBalance ? currencyBalance.balance : 0;
+    
     if (amount > availableBalance) {
       alert(`Insufficient balance. Available: ${availableBalance} ${selectedCurrency}`);
       return;
@@ -312,9 +327,29 @@ export default function PortfolioPage() {
     setWithdrawalLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      if (!isAuthenticated || !user) {
         alert('Please log in to submit a withdrawal request');
+        return;
+      }
+
+      // Get fresh session for API call
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error('Session error:', sessionError);
+        alert('Authentication session expired. Please log in again.');
+        return;
+      }
+
+      // Verify token is valid by testing with a simple API call first
+      const testResponse = await fetch('/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+      
+      if (!testResponse.ok) {
+        alert('Authentication token is invalid. Please log in again.');
         return;
       }
 
@@ -326,10 +361,9 @@ export default function PortfolioPage() {
         },
         body: JSON.stringify({
           currency: selectedCurrency,
-          amount: amount,
+          amount: withdrawAmount,
           wallet_address: withdrawalAddress,
-          network: withdrawalNetwork,
-          user_note: withdrawalNote || null
+          network: withdrawalNetwork || 'ethereum'
         })
       });
 
@@ -475,6 +509,8 @@ export default function PortfolioPage() {
     console.log('Using API balance data');
     const result = {
       ...portfolioBalance,
+      totalBalance: portfolioBalance?.totalBalance || 0, // Safe fallback for totalBalance
+      currencies: portfolioBalance?.currencies || [], // Safe fallback for currencies array
       isRealTime: false
     };
     console.log('API balance result:', result);
@@ -908,7 +944,7 @@ export default function PortfolioPage() {
           currentValue: currency.balance * 1.00, // USDT is always $1
           profit: 0,
           profitPercent: 0,
-          icon: 'T',
+          icon: getCryptoImageUrl('USDT'),
           avgPrice: 1.00
         };
       }
@@ -992,7 +1028,7 @@ export default function PortfolioPage() {
     vipLevel: userProfile.vipLevel,
     totalBalance: portfolioTotals.totalValue || 0,
     totalWithdrawn: 0,
-    creditScore: 0
+    creditScore: userProfile.credit_score || 100
   };
 
   // Handle Telegram click
@@ -1262,7 +1298,7 @@ export default function PortfolioPage() {
                   </div>
                 ) : (
                   <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    ${getEffectiveBalanceData().totalBalance.toLocaleString()}
+                    ${(getEffectiveBalanceData().totalBalance || 0).toLocaleString()}
                   </span>
                 )}
               </div>
@@ -1315,7 +1351,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* Currency Balances */}
-      {!balanceLoading && getEffectiveBalanceData().currencies.length > 0 && (
+      {!balanceLoading && (getEffectiveBalanceData().currencies || []).length > 0 && (
         <div className="px-4 py-4 bg-gray-800 border-b border-gray-700">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-400">Currency Balances</h3>
@@ -1327,7 +1363,7 @@ export default function PortfolioPage() {
             )}
           </div>
           <div className="space-y-2">
-            {getEffectiveBalanceData().currencies.map((currency, index) => (
+            {(getEffectiveBalanceData().currencies || []).map((currency, index) => (
               <div key={index} className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
@@ -1382,8 +1418,24 @@ export default function PortfolioPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="w-14 h-14 bg-gradient-to-r from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                          {holding.icon}
+                        <div className="w-14 h-14 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg overflow-hidden">
+                          {holding.icon && holding.icon.startsWith('http') ? (
+                            <img 
+                              src={holding.icon} 
+                              alt={holding.symbol} 
+                              className="w-10 h-10 object-contain"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                          ) : null}
+                          <span 
+                            className="text-white font-bold text-xl" 
+                            style={{ display: holding.icon && holding.icon.startsWith('http') ? 'none' : 'block' }}
+                          >
+                            {typeof holding.icon === 'string' && !holding.icon.startsWith('http') ? holding.icon : holding.symbol?.charAt(0)}
+                          </span>
                         </div>
                       </div>
                       <div>
@@ -1468,12 +1520,24 @@ export default function PortfolioPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-4">
                         <div className="relative">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg ${
-                            crypto.symbol === 'BTC' ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
-                            crypto.symbol === 'ETH' ? 'bg-gradient-to-r from-blue-500 to-purple-500' :
-                            'bg-gradient-to-r from-purple-500 to-pink-500'
-                          }`}>
-                            {crypto.icon}
+                          <div className="w-12 h-12 bg-gray-700/50 border border-gray-600/30 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden">
+                            {crypto.icon && crypto.icon.startsWith('http') ? (
+                              <img 
+                                src={crypto.icon} 
+                                alt={crypto.symbol} 
+                                className="w-8 h-8 object-contain"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'block';
+                                }}
+                              />
+                            ) : null}
+                            <span 
+                              className="text-white font-bold text-lg" 
+                              style={{ display: crypto.icon && crypto.icon.startsWith('http') ? 'none' : 'block' }}
+                            >
+                              {typeof crypto.icon === 'string' && !crypto.icon.startsWith('http') ? crypto.icon : crypto.symbol?.charAt(0)}
+                            </span>
                           </div>
                           <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
                             alert.enabled ? 'bg-green-500' : 'bg-gray-500'
@@ -1855,12 +1919,16 @@ export default function PortfolioPage() {
                 <label className="block text-sm font-medium mb-2">Currency</label>
                 <select 
                   value={selectedCurrency}
-                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCurrency(e.target.value);
+                    setShowInitialZeroBalance(e.target.value === '' || withdrawalNetwork === '');
+                  }}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 >
-                  <option value="USDT">USDT</option>
-                  <option value="BTC">BTC</option>
-                  <option value="ETH">ETH</option>
+                  <option value="">Select Currency</option>
+                  <option value="USDT">USDT (Tether)</option>
+                  <option value="BTC">BTC (Bitcoin)</option>
+                  <option value="ETH">ETH (Ethereum)</option>
                 </select>
               </div>
               <div>
@@ -1874,7 +1942,12 @@ export default function PortfolioPage() {
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 />
                 <div className="text-xs text-gray-400 mt-1">
-                  Available: {realTimeBalances[selectedCurrency] || 0} {selectedCurrency}
+                  Available: {(() => {
+                    if (showInitialZeroBalance || !selectedCurrency || !withdrawalNetwork) return 0;
+                    const effectiveBalanceData = getEffectiveBalanceData();
+                    const currencyBalance = effectiveBalanceData.currencies.find(c => c.currency === selectedCurrency);
+                    return currencyBalance ? currencyBalance.balance : 0;
+                  })()} {selectedCurrency || 'Currency'}
                 </div>
               </div>
               <div>
@@ -1891,9 +1964,13 @@ export default function PortfolioPage() {
                 <label className="block text-sm font-medium mb-2">Network</label>
                 <select 
                   value={withdrawalNetwork}
-                  onChange={(e) => setWithdrawalNetwork(e.target.value)}
+                  onChange={(e) => {
+                    setWithdrawalNetwork(e.target.value);
+                    setShowInitialZeroBalance(e.target.value === '' || selectedCurrency === '');
+                  }}
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 >
+                  <option value="">Select Network</option>
                   <option value="ethereum">Ethereum (ERC-20)</option>
                   <option value="tron">Tron (TRC-20)</option>
                   <option value="bitcoin">Bitcoin</option>
@@ -1915,8 +1992,8 @@ export default function PortfolioPage() {
                     setWithdrawAmount('');
                     setWithdrawalAddress('');
                     setWithdrawalNote('');
-                    setSelectedCurrency('USDT');
-                    setWithdrawalNetwork('ethereum');
+                    setSelectedCurrency('');
+                    setWithdrawalNetwork('');
                   }}
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
                 >
