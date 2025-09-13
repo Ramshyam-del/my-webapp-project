@@ -25,8 +25,10 @@ const useRealTimeBalance = () => {
     }
 
     try {
+      // Use backend URL for WebSocket connection
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4001';
       const wsUrl = process.env.NODE_ENV === 'production' 
-        ? `wss://${window.location.host}/ws/balance`
+        ? backendUrl.replace('http://', 'ws://').replace('https://', 'wss://') + '/ws/balance'
         : 'ws://localhost:4001/ws/balance';
       
       console.log('Connecting to WebSocket:', wsUrl);
