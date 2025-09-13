@@ -1750,7 +1750,7 @@ export default function PortfolioPage() {
                 }`}>
                   {kycStatus.status === 'approved' ? 'Approved' :
                    kycStatus.status === 'rejected' ? 'Rejected' :
-                   kycStatus.status === 'pending' ? 'Pending' :
+                   kycStatus.status === 'pending' ? 'Required' :
                    'Required'}
                 </span>
               )}
@@ -2089,14 +2089,14 @@ export default function PortfolioPage() {
             ) : kycStatus.status === 'pending' ? (
               <div className="bg-yellow-900 bg-opacity-20 border border-yellow-500 rounded-lg p-6 mb-4 text-center">
                 <div className="flex items-center justify-center gap-2 mb-4">
-                  <span className="text-yellow-400 text-2xl">⏳</span>
-                  <span className="text-yellow-400 font-medium text-lg">KYC Verification Pending</span>
+                  <span className="text-yellow-400 text-2xl">⚠</span>
+                  <span className="text-yellow-400 font-medium text-lg">KYC Verification Required</span>
                 </div>
                 <p className="text-gray-300 text-base leading-relaxed">
-                  Your KYC verification is currently under review.
+                  Please contact our customer service for further details.
                 </p>
                 <p className="text-sm text-gray-400 mt-2">
-                  We'll notify you once the review is complete.
+                  Our team will assist you with the verification process.
                 </p>
               </div>
             ) : (
