@@ -48,7 +48,7 @@ export const Herosection = () => {
   };
 
   return (
-    <section className="relative min-h-[70vh] sm:min-h-[80vh] flex flex-col justify-center items-center text-center px-4 sm:px-6 overflow-hidden">
+    <section className="relative min-h-[80vh] sm:min-h-[85vh] flex flex-col justify-center items-center text-center px-4 sm:px-6 py-8 sm:py-12 overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-800">
         <div className="absolute inset-0 bg-gradient-to-r from-gray-800/20 via-gray-700/20 to-gray-600/20 animate-pulse"></div>
@@ -81,14 +81,14 @@ export const Herosection = () => {
 
       {/* Content */}
       <motion.div
-        className="relative z-10 max-w-5xl mx-auto"
+        className="relative z-10 max-w-5xl mx-auto w-full"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-        <motion.div variants={itemVariants} className="mb-6">
+        <motion.div variants={itemVariants} className="mb-8 sm:mb-10">
           <motion.h1 
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold mb-4 sm:mb-6 leading-tight"
+            className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-4 sm:mb-6 leading-normal"
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
@@ -104,7 +104,7 @@ export const Herosection = () => {
 
         <motion.p 
           variants={itemVariants}
-          className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-gray-200 max-w-4xl mb-8 sm:mb-12 leading-relaxed font-light"
+          className="text-sm sm:text-base md:text-lg lg:text-xl text-gray-200 max-w-3xl mb-6 sm:mb-8 leading-relaxed font-light"
         >
           Quantex is the <span className="text-cyan-400 font-semibold">next-gen community-powered</span> decentralized token — built for <span className="text-purple-400 font-semibold">fairness</span>, <span className="text-blue-400 font-semibold">transparency</span>, and <span className="text-pink-400 font-semibold">revolution</span>.
         </motion.p>
@@ -115,7 +115,7 @@ export const Herosection = () => {
         >
           <motion.a 
             href="#features" 
-            className="group relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 shadow-2xl shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105"
+            className="group relative bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-6 rounded-xl text-base transition-all duration-300 shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105"
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -125,7 +125,7 @@ export const Herosection = () => {
           
           <motion.a 
             href="/market" 
-            className="group relative bg-transparent border-2 border-purple-500 hover:bg-purple-500 text-purple-400 hover:text-white font-bold py-4 px-8 rounded-2xl text-lg transition-all duration-300 hover:scale-105"
+            className="group relative bg-transparent border-2 border-purple-500 hover:bg-purple-500 text-purple-400 hover:text-white font-bold py-3 px-6 rounded-xl text-base transition-all duration-300 hover:scale-105"
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.95 }}
           >
@@ -137,19 +137,19 @@ export const Herosection = () => {
         {/* Stats Preview */}
         <motion.div 
           variants={itemVariants}
-          className="mt-12 sm:mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8"
+          className="mt-8 sm:mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
         >
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">$2.4M+</div>
-            <div className="text-sm text-gray-300">Total Volume</div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+            <div className="text-xl sm:text-2xl font-bold text-cyan-400 mb-1">$2.4M+</div>
+            <div className="text-xs sm:text-sm text-gray-300">Total Volume</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold text-purple-400 mb-2">15K+</div>
-            <div className="text-sm text-gray-300">Active Users</div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+            <div className="text-xl sm:text-2xl font-bold text-purple-400 mb-1">15K+</div>
+            <div className="text-xs sm:text-sm text-gray-300">Active Users</div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-white/20">
-            <div className="text-2xl sm:text-3xl font-bold text-pink-400 mb-2">99.9%</div>
-            <div className="text-sm text-gray-300">Uptime</div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20">
+            <div className="text-xl sm:text-2xl font-bold text-pink-400 mb-1">99.9%</div>
+            <div className="text-xs sm:text-sm text-gray-300">Uptime</div>
           </div>
         </motion.div>
       </motion.div>
