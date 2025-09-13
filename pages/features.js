@@ -91,6 +91,7 @@ export default function FeaturesPage() {
 
   // Handle order button clicks
   const handleOrderClick = (type) => {
+    console.log('Button clicked:', type); // Keep one debug log
     setOrderSide(type === 'BUY' ? 'buy' : 'sell');
     setModalSelectedPair(selectedPair); // Initialize modal pair with current selection
     setShowOrderModal(true);
@@ -588,18 +589,18 @@ export default function FeaturesPage() {
 
       
       {/* Main Content */}
-      <div className="flex-1 bg-black p-2 sm:p-4">
+      <div className="flex-1 bg-black p-3 sm:p-4 md:p-6">
         {/* TradingView Chart */}
-        <div className="bg-gray-900 rounded-lg p-2 sm:p-4 mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg sm:text-xl font-bold">
+        <div className="bg-gray-900 rounded-lg p-3 sm:p-4 md:p-6 mb-4 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold">
                 {tradingPairs.find(pair => pair.symbol === selectedPair)?.name || 'BTC/USDT'}
               </h2>
               <select
                 value={selectedPair}
                 onChange={(e) => setSelectedPair(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 sm:px-3 py-1 sm:py-2 text-white text-xs sm:text-sm focus:outline-none focus:border-blue-500"
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-white text-sm sm:text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all w-full sm:w-auto"
               >
                 {tradingPairs.map((pair) => (
                   <option key={pair.symbol} value={pair.symbol}>
@@ -608,10 +609,10 @@ export default function FeaturesPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm">
+            <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 text-sm sm:text-base">
               <div className={`font-bold ${parseFloat(priceChange) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                ${currentPrice}
-                <span className="ml-1 sm:ml-2">
+                <span className="text-lg sm:text-xl">${currentPrice}</span>
+                <span className="ml-2 text-sm sm:text-base">
                   {parseFloat(priceChange) >= 0 ? '+' : ''}{priceChange}%
                 </span>
               </div>
@@ -619,7 +620,7 @@ export default function FeaturesPage() {
           </div>
           
           {/* TradingView Widget - Mobile Responsive */}
-          <div className="w-full h-64 sm:h-80 lg:h-96 bg-gray-800 rounded-lg overflow-hidden">
+          <div className="w-full h-72 sm:h-80 md:h-96 lg:h-[500px] bg-gray-800 rounded-lg overflow-hidden shadow-inner">
             <iframe
                               src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_features&symbol=CRYPTOCAP%3A${selectedPair.replace('USDT', '')}&interval=D&hidesidetoolbar=0&hidetrading=0&theme=dark&style=1&timezone=Etc%2FUTC&withdateranges=1&showpopupbutton=1&studies=%5B%5D&hide_volume=0&save_image=0&toolbarbg=f1f3f6&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=&utm_medium=widget&utm_campaign=chart&page-uri=localhost%3A3000%2Ffeatures`}
               style={{ width: '100%', height: '100%', border: 'none' }}
@@ -630,18 +631,18 @@ export default function FeaturesPage() {
           </div>
           
           {/* 24h Stats - Mobile Responsive */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-4 text-xs sm:text-sm">
-            <div className="bg-gray-800 p-2 sm:p-3 rounded">
-              <div className="text-gray-400 text-xs sm:text-sm">24h High</div>
-              <div className="font-bold text-xs sm:text-sm">${high24h}</div>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-6 text-sm sm:text-base">
+            <div className="bg-gray-800 p-3 sm:p-4 md:p-5 rounded-lg shadow-md hover:bg-gray-750 transition-colors">
+              <div className="text-gray-400 text-xs sm:text-sm md:text-base mb-1">24h High</div>
+              <div className="font-bold text-sm sm:text-base md:text-lg text-green-400">${high24h}</div>
             </div>
-            <div className="bg-gray-800 p-2 sm:p-3 rounded">
-              <div className="text-gray-400 text-xs sm:text-sm">24h Low</div>
-              <div className="font-bold text-xs sm:text-sm">${low24h}</div>
+            <div className="bg-gray-800 p-3 sm:p-4 md:p-5 rounded-lg shadow-md hover:bg-gray-750 transition-colors">
+              <div className="text-gray-400 text-xs sm:text-sm md:text-base mb-1">24h Low</div>
+              <div className="font-bold text-sm sm:text-base md:text-lg text-red-400">${low24h}</div>
             </div>
-            <div className="bg-gray-800 p-2 sm:p-3 rounded">
-              <div className="text-gray-400 text-xs sm:text-sm">24h Volume</div>
-              <div className="font-bold text-xs sm:text-sm">${(parseFloat(volume24h) / 1000000).toFixed(2)}M</div>
+            <div className="bg-gray-800 p-3 sm:p-4 md:p-5 rounded-lg shadow-md hover:bg-gray-750 transition-colors">
+              <div className="text-gray-400 text-xs sm:text-sm md:text-base mb-1">24h Volume</div>
+              <div className="font-bold text-sm sm:text-base md:text-lg text-blue-400">${(parseFloat(volume24h) / 1000000).toFixed(2)}M</div>
             </div>
           </div>
         </div>
@@ -649,36 +650,34 @@ export default function FeaturesPage() {
 
 
         {/* Enhanced Trading Buttons - Mobile Responsive */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 px-2 sm:px-0">
           <button
             onClick={() => handleOrderClick('BUY')}
-            className="relative bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-4 sm:py-5 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-green-500/25"
+            className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 active:from-green-800 active:to-green-900 text-white py-5 sm:py-6 md:py-7 px-4 sm:px-6 md:px-8 rounded-xl font-bold text-base sm:text-lg md:text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-green-500/30 touch-manipulation"
           >
-            <div className="flex flex-col items-center">
-              <span className="text-2xl mb-1">📈</span>
-              <span>BUY UP</span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-3xl sm:text-4xl">📈</span>
+              <span className="tracking-wide">BUY UP</span>
             </div>
-            <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
           </button>
           <button
             onClick={() => handleOrderClick('SELL')}
-            className="relative bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-4 sm:py-5 px-3 sm:px-6 rounded-lg font-bold text-sm sm:text-base lg:text-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-red-500/25"
+            className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 active:from-red-800 active:to-red-900 text-white py-5 sm:py-6 md:py-7 px-4 sm:px-6 md:px-8 rounded-xl font-bold text-base sm:text-lg md:text-xl transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-xl hover:shadow-red-500/30 touch-manipulation"
           >
-            <div className="flex flex-col items-center">
-              <span className="text-2xl mb-1">📉</span>
-              <span>BUY FALL</span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-3xl sm:text-4xl">📉</span>
+              <span className="tracking-wide">BUY FALL</span>
             </div>
-            <div className="absolute inset-0 bg-white opacity-0 hover:opacity-10 rounded-lg transition-opacity"></div>
           </button>
         </div>
 
         {/* Enhanced Open Orders Section - Mobile Responsive */}
-        <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-4 border border-gray-700 shadow-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            <h3 className="text-base sm:text-lg font-bold text-blue-400">📊 Open Orders</h3>
-            <div className="ml-auto bg-blue-900/30 px-2 py-1 rounded-full">
-              <span className="text-blue-300 text-xs font-medium">Live ({activeTrades.length})</span>
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-5 md:p-6 mb-6 border border-gray-700 shadow-xl">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-400">📊 Open Orders</h3>
+            <div className="ml-auto bg-blue-900/30 px-3 py-2 rounded-full">
+              <span className="text-blue-300 text-xs sm:text-sm font-medium">Live ({activeTrades.length})</span>
             </div>
           </div>
           <div className="space-y-3">
@@ -764,12 +763,12 @@ export default function FeaturesPage() {
         </div>
 
         {/* Trade History Section */}
-        <div className="bg-gray-900 rounded-xl p-3 sm:p-4 mb-4 border border-gray-700 shadow-xl">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-            <h3 className="text-base sm:text-lg font-bold text-purple-400">📈 Recent Results</h3>
-            <div className="ml-auto bg-purple-900/30 px-2 py-1 rounded-full">
-              <span className="text-purple-300 text-xs font-medium">History ({tradeHistory.length})</span>
+        <div className="bg-gray-900 rounded-xl p-4 sm:p-5 md:p-6 mb-6 border border-gray-700 shadow-xl">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-purple-400">📈 Recent Results</h3>
+            <div className="ml-auto bg-purple-900/30 px-3 py-2 rounded-full">
+              <span className="text-purple-300 text-xs sm:text-sm font-medium">History ({tradeHistory.length})</span>
             </div>
           </div>
           <div className="space-y-3">
@@ -1201,25 +1200,25 @@ export default function FeaturesPage() {
       </div>
       
       {/* Navigation - Mobile Responsive (Bottom) */}
-      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23] px-2 sm:px-4 py-2 border-t border-gray-800 overflow-x-auto z-10">
+      <nav className="fixed bottom-0 left-0 right-0 flex justify-around bg-[#181c23]/95 backdrop-blur-sm px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-800 overflow-x-auto z-10 shadow-2xl">
         {navTabs.map((tab) => (
           <button
             key={tab.label}
             onClick={() => router.push(tab.route)}
-            className={`flex flex-col items-center justify-center gap-1 px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+            className={`flex flex-col items-center justify-center gap-2 px-3 sm:px-5 py-3 sm:py-4 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 whitespace-nowrap touch-manipulation transform hover:scale-105 active:scale-95 ${
               router.pathname === tab.route
-                ? 'bg-purple-600 text-white'
-                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/25'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700/70 active:bg-gray-600'
             }`}
           >
-            <span className="text-sm sm:text-base">{tab.icon}</span>
-            <span className="text-xs">{tab.label}</span>
+            <span className="text-base sm:text-lg">{tab.icon}</span>
+            <span className="text-xs sm:text-sm font-semibold">{tab.label}</span>
           </button>
         ))}
       </nav>
       
       {/* Add padding at the bottom to prevent content from being hidden behind the navbar */}
-      <div className="pb-16"></div>
+      <div className="pb-20 sm:pb-24"></div>
     </div>
   );
 }
