@@ -114,7 +114,7 @@ const UserList = () => {
           invitationCode: 'N/A',
           vipLevel: 'VIP0',
           balanceStatus: user.status === 'active' ? 'Active' : 'Frozen',
-          creditScore: 0,
+          creditScore: user.credit_score || 100,
           realNameAuth: 'uncertified',
           totalAssets: user.totalBalance || 0,
           totalRecharge: user.balances?.USDT || 0,

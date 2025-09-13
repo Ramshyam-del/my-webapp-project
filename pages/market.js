@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 // Top 11 cryptocurrencies by market cap with enhanced icons and colors
 const cryptoList = [
-  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: '₿', color: 'from-orange-400 to-orange-600' },
-  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: 'Ξ', color: 'from-blue-400 to-blue-600' },
-  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: 'T', color: 'from-green-400 to-green-600' },
-  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: 'B', color: 'from-yellow-400 to-yellow-600' },
-  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: 'S', color: 'from-purple-400 to-purple-600' },
-  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: 'A', color: 'from-blue-500 to-indigo-600' },
-  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: 'D', color: 'from-pink-400 to-pink-600' },
-  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: 'Ð', color: 'from-yellow-300 to-orange-400' },
-  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: 'A', color: 'from-red-400 to-red-600' },
-  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: 'L', color: 'from-blue-400 to-cyan-500' },
-  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: 'M', color: 'from-purple-500 to-indigo-600' }
+  { id: 'bitcoin', name: 'Bitcoin/BTC', symbol: 'BTC', icon: getCryptoImageUrl('BTC'), color: 'from-orange-400 to-orange-600' },
+  { id: 'ethereum', name: 'Ethereum/ETH', symbol: 'ETH', icon: getCryptoImageUrl('ETH'), color: 'from-blue-400 to-blue-600' },
+  { id: 'tether', name: 'Tether/USDT', symbol: 'USDT', icon: getCryptoImageUrl('USDT'), color: 'from-green-400 to-green-600' },
+  { id: 'binancecoin', name: 'BNB/BNB', symbol: 'BNB', icon: getCryptoImageUrl('BNB'), color: 'from-yellow-400 to-yellow-600' },
+  { id: 'solana', name: 'Solana/SOL', symbol: 'SOL', icon: getCryptoImageUrl('SOL'), color: 'from-purple-400 to-purple-600' },
+  { id: 'cardano', name: 'Cardano/ADA', symbol: 'ADA', icon: getCryptoImageUrl('ADA'), color: 'from-blue-500 to-indigo-600' },
+  { id: 'polkadot', name: 'Polkadot/DOT', symbol: 'DOT', icon: getCryptoImageUrl('DOT'), color: 'from-pink-400 to-pink-600' },
+  { id: 'dogecoin', name: 'Dogecoin/DOGE', symbol: 'DOGE', icon: getCryptoImageUrl('DOGE'), color: 'from-yellow-300 to-orange-400' },
+  { id: 'avalanche-2', name: 'Avalanche/AVAX', symbol: 'AVAX', icon: getCryptoImageUrl('AVAX'), color: 'from-red-400 to-red-600' },
+  { id: 'chainlink', name: 'Chainlink/LINK', symbol: 'LINK', icon: getCryptoImageUrl('LINK'), color: 'from-blue-400 to-cyan-500' },
+  { id: 'polygon', name: 'Polygon/MATIC', symbol: 'MATIC', icon: getCryptoImageUrl('MATIC'), color: 'from-purple-500 to-indigo-600' }
 ];
 
 const navTabs = [
@@ -53,7 +54,7 @@ export default function MarketPage() {
         const formattedData = data.data.map(crypto => ({
           id: crypto.symbol.toLowerCase(),
           name: `${crypto.symbol}/USDT`,
-          icon: crypto.icon || '₿',
+          icon: crypto.icon || `https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id || '1'}.png`,
           price: parseFloat(crypto.price).toFixed(2),
           change: parseFloat(crypto.change_24h || 0).toFixed(2),
           volume: parseFloat(crypto.volume || 0).toFixed(0),

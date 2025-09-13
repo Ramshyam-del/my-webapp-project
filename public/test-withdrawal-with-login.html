@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Withdrawal Test with Login</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #28a745;
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #dc3545;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            color: #17a2b8;
+            background-color: #d1ecf1;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .logged-out {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .logged-in {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Withdrawal API Test with Authentication</h1>
+        
+        <div id="authStatus" class="status logged-out">
+            ❌ Not logged in
+        </div>
+
+        <!-- Login Section -->
+        <div class="section" id="loginSection">
+            <h3>🔐 Login</h3>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" placeholder="Enter your email">
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" placeholder="Enter your password">
+            </div>
+            <button onclick="login()">Login</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+
+        <!-- User Info Section -->
+        <div class="section" id="userInfoSection" style="display: none;">
+            <h3>👤 User Information</h3>
+            <div id="userInfo"></div>
+        </div>
+
+        <!-- Withdrawal Test Section -->
+        <div class="section" id="withdrawalSection" style="display: none;">
+            <h3>💸 Test Withdrawal</h3>
+            <div class="form-group">
+                <label for="currency">Currency:</label>
+                <select id="currency">
+                    <option value="USDT">USDT</option>
+                    <option value="BTC">BTC</option>
+                    <option value="ETH">ETH</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount:</label>
+                <input type="number" id="amount" placeholder="Enter amount" step="0.00000001" value="1">
+            </div>
+            <div class="form-group">
+                <label for="walletAddress">Wallet Address:</label>
+                <input type="text" id="walletAddress" placeholder="Enter wallet address" value="0x1234567890abcdef1234567890abcdef12345678">
+            </div>
+            <div class="form-group">
+                <label for="network">Network:</label>
+                <select id="network">
+                    <option value="ethereum">Ethereum</option>
+                    <option value="bitcoin">Bitcoin</option>
+                    <option value="tron">Tron</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="note">Note (optional):</label>
+                <textarea id="note" placeholder="Enter withdrawal note" rows="3">Test withdrawal from browser</textarea>
+            </div>
+            <button onclick="testWithdrawal()" id="withdrawalBtn">Submit Withdrawal Request</button>
+        </div>
+
+        <!-- Results Section -->
+        <div class="section">
+            <h3>📊 Test Results</h3>
+            <div id="results"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Supabase
+        const supabaseUrl = 'https://ishprhrmvubfzohvqqxz.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzaHByaHJtdnViZnpvaHZxcXh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxMjQyNzQsImV4cCI6MjA2OTcwMDI3NH0.2K80tAGXm2ElODR8_3OawJigieVY6cw77o2NVgUgh9U';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        let currentUser = null;
+        let currentSession = null;
+
+        // Check auth state on page load
+        window.addEventListener('load', async () => {
+            await checkAuthState();
+        });
+
+        // Listen for auth changes
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth state changed:', event, session);
+            currentSession = session;
+            currentUser = session?.user || null;
+            updateUI();
+        });
+
+        async function checkAuthState() {
+            const { data: { session }, error } = await supabase.auth.getSession();
+            if (error) {
+                console.error('Error getting session:', error);
+                return;
+            }
+            currentSession = session;
+            currentUser = session?.user || null;
+            updateUI();
+        }
+
+        function updateUI() {
+            const authStatus = document.getElementById('authStatus');
+            const loginSection = document.getElementById('loginSection');
+            const userInfoSection = document.getElementById('userInfoSection');
+            const withdrawalSection = document.getElementById('withdrawalSection');
+            const userInfo = document.getElementById('userInfo');
+
+            if (currentUser) {
+                authStatus.className = 'status logged-in';
+                authStatus.innerHTML = `✅ Logged in as: ${currentUser.email}`;
+                
+                userInfoSection.style.display = 'block';
+                withdrawalSection.style.display = 'block';
+                
+                userInfo.innerHTML = `
+                    <p><strong>User ID:</strong> ${currentUser.id}</p>
+                    <p><strong>Email:</strong> ${currentUser.email}</p>
+                    <p><strong>Email Verified:</strong> ${currentUser.email_confirmed_at ? 'Yes' : 'No'}</p>
+                    <p><strong>Created:</strong> ${new Date(currentUser.created_at).toLocaleString()}</p>
+                    <p><strong>Last Sign In:</strong> ${new Date(currentUser.last_sign_in_at).toLocaleString()}</p>
+                    ${currentSession ? `<p><strong>Token Expires:</strong> ${new Date(currentSession.expires_at * 1000).toLocaleString()}</p>` : ''}
+                `;
+            } else {
+                authStatus.className = 'status logged-out';
+                authStatus.innerHTML = '❌ Not logged in';
+                
+                userInfoSection.style.display = 'none';
+                withdrawalSection.style.display = 'none';
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showResult('Please enter both email and password', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    showResult(`Login failed: ${error.message}`, 'error');
+                } else {
+                    showResult('Login successful!', 'success');
+                    document.getElementById('email').value = '';
+                    document.getElementById('password').value = '';
+                }
+            } catch (error) {
+                showResult(`Login error: ${error.message}`, 'error');
+            }
+        }
+
+        async function logout() {
+            try {
+                const { error } = await supabase.auth.signOut();
+                if (error) {
+                    showResult(`Logout failed: ${error.message}`, 'error');
+                } else {
+                    showResult('Logged out successfully', 'success');
+                }
+            } catch (error) {
+                showResult(`Logout error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWithdrawal() {
+            if (!currentSession) {
+                showResult('Please log in first', 'error');
+                return;
+            }
+
+            const currency = document.getElementById('currency').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const walletAddress = document.getElementById('walletAddress').value;
+            const network = document.getElementById('network').value;
+            const note = document.getElementById('note').value;
+
+            if (!currency || !amount || !walletAddress || !network) {
+                showResult('Please fill in all required fields', 'error');
+                return;
+            }
+
+            if (amount <= 0) {
+                showResult('Amount must be greater than 0', 'error');
+                return;
+            }
+
+            const withdrawalBtn = document.getElementById('withdrawalBtn');
+            withdrawalBtn.disabled = true;
+            withdrawalBtn.textContent = 'Processing...';
+
+            try {
+                showResult('Sending withdrawal request...', 'info');
+                
+                const response = await fetch('/api/withdrawals/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentSession.access_token}`
+                    },
+                    body: JSON.stringify({
+                        currency: currency,
+                        amount: amount,
+                        wallet_address: walletAddress,
+                        network: network,
+                        user_note: note || null
+                    })
+                });
+
+                const result = await response.json();
+                
+                showResult(`
+                    <strong>API Response:</strong><br>
+                    <strong>Status:</strong> ${response.status}<br>
+                    <strong>Response:</strong><br>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `, response.ok ? 'success' : 'error');
+
+                if (response.ok) {
+                    // Reset form on success
+                    document.getElementById('amount').value = '1';
+                    document.getElementById('note').value = 'Test withdrawal from browser';
+                }
+
+            } catch (error) {
+                showResult(`Network error: ${error.message}`, 'error');
+            } finally {
+                withdrawalBtn.disabled = false;
+                withdrawalBtn.textContent = 'Submit Withdrawal Request';
+            }
+        }
+
+        function showResult(message, type) {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            results.innerHTML = `
+                <div class="${type}">
+                    <strong>[${timestamp}]</strong><br>
+                    ${message}
+                </div>
+            ` + results.innerHTML;
+        }
+    </script>
+</body>
+</html>

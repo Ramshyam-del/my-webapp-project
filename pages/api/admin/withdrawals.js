@@ -76,10 +76,33 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, code: 'database_error', message: 'Failed to fetch withdrawals' })
     }
 
+    // Transform data to match frontend expectations
+    const transformedWithdrawals = (withdrawals || []).map(withdrawal => ({
+      id: withdrawal.id,
+      order_no: withdrawal.id.slice(0, 8), // Use first 8 chars of ID as order number
+      email: withdrawal.users?.email || '—',
+      username: withdrawal.users?.username || '—',
+      currency: withdrawal.currency,
+      withdrawal_amount: withdrawal.amount,
+      actual_amount: withdrawal.net_amount || (withdrawal.amount - (withdrawal.fee || 0)),
+      status: withdrawal.status,
+      frequency: 0, // Default frequency
+      channel: withdrawal.currency, // Use currency as channel
+      address: withdrawal.wallet_address,
+      network: '—', // Network info not available in current schema
+      created_at: withdrawal.created_at,
+      operator: '—', // Default operator
+      updated_at: withdrawal.updated_at,
+      tx_hash: withdrawal.tx_hash,
+      admin_notes: withdrawal.admin_notes,
+      processed_at: withdrawal.processed_at
+    }));
+
     return res.status(200).json({
       ok: true,
       data: {
-        items: withdrawals || [],
+        items: transformedWithdrawals,
+        total: count || 0,
         pagination: {
           page,
           page_size: pageSize,

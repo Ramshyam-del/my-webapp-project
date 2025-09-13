@@ -50,9 +50,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, code: 'missing_params', message: 'Missing withdrawalId' })
     }
 
-    // Get the withdrawal details
+    // Get the withdrawal details from withdrawals table
     const { data: withdrawal, error: withdrawalError } = await server
-      .from('fund_transactions')
+      .from('withdrawals')
       .select('*')
       .eq('id', withdrawalId)
       .single()
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
 
     // Update the withdrawal status to locked
     const { data: updatedWithdrawal, error: updateError } = await server
-      .from('fund_transactions')
+      .from('withdrawals')
       .update({
         status: 'locked',
         locked_at: new Date().toISOString(),
@@ -86,25 +86,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, code: 'database_error', message: 'Failed to lock withdrawal' })
     }
 
-    // Log the admin action
-    await server
-      .from('admin_actions')
-      .insert({
-        admin_id: adminId,
-        action_type: 'lock_withdrawal',
-        target_user_id: withdrawal.user_id,
-        details: {
-          withdrawal_id: withdrawalId,
-          amount: withdrawal.amount,
-          currency: withdrawal.currency,
-          previous_status: withdrawal.status
-        },
-        created_at: new Date().toISOString()
-      })
-
     return res.status(200).json({
       ok: true,
-      data: updatedWithdrawal
+      data: updatedWithdrawal,
+      message: 'Withdrawal locked successfully'
     })
 
   } catch (e) {

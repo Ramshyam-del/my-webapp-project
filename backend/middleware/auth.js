@@ -86,6 +86,7 @@ async function authenticateUser(req, res, next) {
           email: user.email,
           role: 'user',
           status: 'active',
+          credit_score: 100, // Set default credit score to 100
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -141,4 +142,4 @@ function requireAdmin(req, res, next) {
 module.exports = {
   authenticateUser,
   requireAdmin
-}; 
+};

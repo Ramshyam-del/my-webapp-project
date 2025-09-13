@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Withdrawal API</title>
+</head>
+<body>
+    <h1>Test Withdrawal API</h1>
+    
+    <div id="withdrawalSection">
+        <h2>Withdrawal API Test</h2>
+        <select id="currency">
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+            <option value="USDT">USDT</option>
+        </select>
+        <input type="number" id="amount" placeholder="Amount" value="0.001" step="0.000001">
+        <input type="text" id="address" placeholder="Wallet Address" value="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa">
+        <select id="network">
+            <option value="bitcoin">Bitcoin</option>
+            <option value="ethereum">Ethereum</option>
+            <option value="tron">Tron</option>
+        </select>
+        <br><br>
+        <button onclick="testWithdrawalDirect()">Test Without Auth</button>
+        <button onclick="testWithMockToken()">Test With Mock Token</button>
+        <div id="withdrawalResult"></div>
+    </div>
+
+    <script>
+        // Test withdrawal without authentication first
+        async function testWithdrawalDirect() {
+            const currency = document.getElementById('currency').value;
+            const amount = document.getElementById('amount').value;
+            const address = document.getElementById('address').value;
+            const network = document.getElementById('network').value;
+            
+            try {
+                const response = await fetch('/api/withdrawals/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        currency: currency,
+                        amount: parseFloat(amount),
+                        wallet_address: address,
+                        network: network,
+                        note: 'Test withdrawal'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                document.getElementById('withdrawalResult').innerHTML = `
+                    <h3>Response Status: ${response.status}</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                
+            } catch (err) {
+                document.getElementById('withdrawalResult').innerHTML = `<p style="color: red;">Error: ${err.message}</p>`;
+            }
+        }
+        
+        // Test with mock token
+        async function testWithMockToken() {
+            const currency = document.getElementById('currency').value;
+            const amount = document.getElementById('amount').value;
+            const address = document.getElementById('address').value;
+            const network = document.getElementById('network').value;
+            
+            try {
+                const response = await fetch('/api/withdrawals/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer mock-token-123'
+                    },
+                    body: JSON.stringify({
+                        currency: currency,
+                        amount: parseFloat(amount),
+                        wallet_address: address,
+                        network: network,
+                        note: 'Test withdrawal with mock token'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                document.getElementById('withdrawalResult').innerHTML = `
+                    <h3>Response Status: ${response.status}</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+                
+            } catch (err) {
+                document.getElementById('withdrawalResult').innerHTML = `<p style="color: red;">Error: ${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

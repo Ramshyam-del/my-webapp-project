@@ -45,18 +45,70 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to fetch portfolio balances' });
     }
 
-    // Calculate total balance across all currencies
-    const totalBalance = portfolios.reduce((sum, portfolio) => sum + Number(portfolio.balance), 0);
-    console.log('🔍 [API] Calculated total balance:', totalBalance);
+    // Calculate totalBalance using current crypto prices
+    console.log('🔍 [API] Raw portfolio data:', portfolios);
+    
+    let totalBalance = 0;
+    const currenciesWithValues = [];
+    
+    // Fetch real-time prices from CoinMarketCap API
+    let cryptoPrices = {};
+    try {
+      const cryptoResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/crypto/top-all`);
+      if (cryptoResponse.ok) {
+        const cryptoData = await cryptoResponse.json();
+        if (cryptoData.success && cryptoData.data) {
+          // Create a price mapping from symbol to price
+          cryptoData.data.forEach(coin => {
+            cryptoPrices[coin.symbol] = coin.price;
+          });
+          console.log('🔍 [API] Fetched live crypto prices:', cryptoPrices);
+        }
+      }
+    } catch (error) {
+      console.error('🔍 [API] Error fetching crypto prices:', error);
+    }
+    
+    // Fallback to hardcoded prices if API fails
+    if (Object.keys(cryptoPrices).length === 0) {
+      cryptoPrices = {
+        'BTC': 43250.75,
+        'ETH': 2650.30,
+        'USDT': 1.00,
+        'BNB': 315.80,
+        'SOL': 98.45,
+        'USDC': 1.00,
+        'XRP': 0.625,
+        'ADA': 0.485,
+        'DOGE': 0.085,
+        'AVAX': 28.75
+      };
+      console.log('🔍 [API] Using fallback prices:', cryptoPrices);
+    }
+    
+    for (const portfolio of portfolios) {
+      const currency = portfolio.currency;
+      const balance = Number(portfolio.balance);
+      const price = cryptoPrices[currency] || 0;
+      const value = balance * price;
+      
+      totalBalance += value;
+      
+      currenciesWithValues.push({
+        currency,
+        balance,
+        price,
+        value,
+        updatedAt: portfolio.updated_at
+      });
+      
+      console.log(`🔍 [API] ${currency}: ${balance} × $${price} = $${value}`);
+    }
 
-    // Format the response
+    // Format the response with totalBalance
     const response = {
       totalBalance,
-      currencies: portfolios.map(p => ({
-        currency: p.currency,
-        balance: Number(p.balance),
-        updatedAt: p.updated_at
-      })),
+      currencies: currenciesWithValues,
       summary: {
         totalCurrencies: portfolios.length,
         totalBalance,

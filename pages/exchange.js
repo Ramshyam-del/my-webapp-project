@@ -161,7 +161,22 @@ export default function ExchangePage() {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#181c23]">
         <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-2xl font-extrabold tracking-widest text-white bg-blue-900 px-2 py-1 rounded">Quantex</span>
+          <img 
+            src="/uploads/logo-1756662609905.png" 
+            alt="Quantex Logo" 
+            className="h-8 sm:h-10 w-auto object-contain"
+            onError={(e) => {
+              // Fallback to text if logo fails to load
+              e.target.style.display = 'none';
+              e.target.nextElementSibling.style.display = 'block';
+            }}
+          />
+          <span 
+            className="text-lg sm:text-2xl font-extrabold tracking-widest text-white bg-blue-900 px-2 py-1 rounded" 
+            style={{ display: 'none' }}
+          >
+            Quantex
+          </span>
         </div>
         
         {/* Notification Button */}

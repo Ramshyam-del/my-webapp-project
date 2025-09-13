@@ -1,6 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {
+  console.log('=== Withdrawal API Called ===')
+  console.log('Method:', req.method)
+  console.log('Body:', req.body)
+  console.log('Headers:', req.headers)
+  
   try {
     if (req.method !== 'POST') {
       return res.status(405).json({ ok: false, code: 'method_not_allowed', message: 'Method not allowed' })
@@ -21,7 +26,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ ok: false, code: 'unauthorized', message: 'Unauthorized' })
     }
 
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env
+    const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+    const { SUPABASE_SERVICE_ROLE_KEY } = process.env
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return res.status(500).json({ ok: false, code: 'server_misconfig', message: 'Server misconfiguration' })
     }
@@ -35,16 +41,19 @@ export default async function handler(req, res) {
     }
 
     const userId = authData.user.id
-    const { currency, amount, wallet_address, network, user_note } = req.body
+    const { currency, amount, wallet_address, network } = req.body
 
-  // Validate required fields
-  if (!currency || !amount || !wallet_address || !network) {
-    return res.status(400).json({
-      ok: false,
-      code: 'missing_fields',
-      message: 'Missing required fields: currency, amount, wallet_address, network'
-    })
+    // Validate required fields
+    if (!currency || !amount || !wallet_address) {
+      return res.status(400).json({
+        ok: false,
+        code: 'missing_fields',
+        message: 'Missing required fields: currency, amount, wallet_address'
+      })
     }
+
+    // Set default network if not provided
+    const withdrawalNetwork = network || 'ethereum'
 
     // Validate amount
     const withdrawalAmount = parseFloat(amount)
@@ -98,18 +107,15 @@ export default async function handler(req, res) {
                      req.socket?.remoteAddress || 
                      'unknown'
 
-    // Create withdrawal request
+    // Create withdrawal request (using minimal existing table schema)
     const { data: withdrawal, error: withdrawalError } = await supabase
       .from('withdrawals')
       .insert({
         user_id: userId,
         currency: currency.toUpperCase(),
         amount: withdrawalAmount,
-        wallet_address,
-        network: network.toLowerCase(),
-        user_note: user_note || null,
-        ip_address: Array.isArray(clientIp) ? clientIp[0] : clientIp,
-        user_agent: req.headers['user-agent'] || null
+        wallet_address: wallet_address,
+        status: 'pending'
       })
       .select('*')
       .single()
@@ -130,7 +136,6 @@ export default async function handler(req, res) {
         currency: withdrawal.currency,
         amount: withdrawal.amount,
         wallet_address: withdrawal.wallet_address,
-        network: withdrawal.network,
         status: withdrawal.status,
         created_at: withdrawal.created_at
       },
@@ -139,10 +144,13 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Create withdrawal API error:', error)
+    console.error('Error stack:', error.stack)
+    console.error('Request body:', req.body)
+    console.error('Request headers:', req.headers)
     return res.status(500).json({ 
       ok: false, 
       code: 'internal_error', 
-      message: 'Internal server error' 
+      message: 'Internal server error: ' + error.message 
     })
   }
 }

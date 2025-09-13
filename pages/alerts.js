@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 // Cryptocurrency list for alerts
 const cryptoList = [
-  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: '₿' },
-  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: 'Ξ' },
-  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: '🟡' },
-  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: '🟦' },
-  { id: 'cardano', symbol: 'ADA', name: 'Cardano', icon: '🟦' },
-  { id: 'polkadot', symbol: 'DOT', name: 'Polkadot', icon: '🟣' },
-  { id: 'matic-network', symbol: 'MATIC', name: 'Polygon', icon: '🟣' },
-  { id: 'chainlink', symbol: 'LINK', name: 'Chainlink', icon: '🔗' },
+  { id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', icon: getCryptoImageUrl('BTC') },
+  { id: 'ethereum', symbol: 'ETH', name: 'Ethereum', icon: getCryptoImageUrl('ETH') },
+  { id: 'binancecoin', symbol: 'BNB', name: 'BNB', icon: getCryptoImageUrl('BNB') },
+  { id: 'solana', symbol: 'SOL', name: 'Solana', icon: getCryptoImageUrl('SOL') },
+  { id: 'cardano', symbol: 'ADA', name: 'Cardano', icon: getCryptoImageUrl('ADA') },
+  { id: 'polkadot', symbol: 'DOT', name: 'Polkadot', icon: getCryptoImageUrl('DOT') },
+  { id: 'matic-network', symbol: 'MATIC', name: 'Polygon', icon: getCryptoImageUrl('MATIC') },
+  { id: 'chainlink', symbol: 'LINK', name: 'Chainlink', icon: getCryptoImageUrl('LINK') },
 ];
 
 const navTabs = [
@@ -344,7 +345,7 @@ export default function AlertsPage() {
                     }`}>
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                          <span className="text-2xl">{crypto.icon}</span>
+                          <img src={crypto.icon} alt={crypto.name} className="w-8 h-8 rounded-full" />
                           <div>
                             <div className="font-semibold">{crypto.name}</div>
                             <div className="text-sm text-gray-400">
@@ -450,4 +451,4 @@ export default function AlertsPage() {
       )}
     </div>
   );
-} 
+}

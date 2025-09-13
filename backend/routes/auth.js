@@ -132,6 +132,7 @@ router.post('/register', authLimiter, async (req, res) => {
         phone: phone || null,
         role: 'user',
         status: 'active',
+        credit_score: 100, // Set default credit score to 100
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -626,7 +627,7 @@ router.get('/me', async (req, res) => {
     // Get additional user data from database
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, role, status, first_name, last_name, username, phone, created_at, last_login')
+      .select('id, email, role, status, first_name, last_name, username, phone, created_at, last_login, credit_score')
       .eq('email', supabaseUser.email)
       .single();
 
@@ -659,7 +660,8 @@ router.get('/me', async (req, res) => {
         role: user.role,
         status: user.status,
         created_at: user.created_at,
-        last_login: user.last_login
+        last_login: user.last_login,
+        credit_score: user.credit_score
       }
     });
 

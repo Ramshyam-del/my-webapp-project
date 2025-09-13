@@ -203,7 +203,66 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
     const { id } = req.params;
     const { admin_note } = req.body;
     
-    const { data: withdrawal, error } = await serverSupabase
+    // First, get the withdrawal details
+    const { data: withdrawal, error: withdrawalError } = await serverSupabase
+      .from('withdrawals')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (withdrawalError || !withdrawal) {
+      return res.status(404).json({
+        ok: false,
+        code: 'withdrawal_not_found',
+        message: 'Withdrawal not found'
+      });
+    }
+    
+    if (withdrawal.status === 'approved') {
+      return res.status(400).json({
+        ok: false,
+        code: 'already_approved',
+        message: 'Withdrawal is already approved'
+      });
+    }
+    
+    if (!['pending', 'locked'].includes(withdrawal.status)) {
+      return res.status(400).json({
+        ok: false,
+        code: 'invalid_status',
+        message: 'Can only approve pending or locked withdrawals'
+      });
+    }
+    
+    // Check user's current balance
+    const { data: portfolio, error: portfolioError } = await serverSupabase
+      .from('portfolios')
+      .select('balance')
+      .eq('user_id', withdrawal.user_id)
+      .eq('currency', withdrawal.currency)
+      .single();
+    
+    if (portfolioError || !portfolio) {
+      return res.status(400).json({
+        ok: false,
+        code: 'insufficient_balance',
+        message: 'User portfolio not found or insufficient balance'
+      });
+    }
+    
+    const currentBalance = parseFloat(portfolio.balance);
+    const withdrawalAmount = parseFloat(withdrawal.amount);
+    
+    if (currentBalance < withdrawalAmount) {
+      return res.status(400).json({
+        ok: false,
+        code: 'insufficient_balance',
+        message: `Insufficient balance. Available: ${currentBalance} ${withdrawal.currency}, Required: ${withdrawalAmount} ${withdrawal.currency}`
+      });
+    }
+    
+    // Update withdrawal status
+    const { data: updatedWithdrawal, error: updateError } = await serverSupabase
       .from('withdrawals')
       .update({ 
         status: 'approved',
@@ -212,21 +271,45 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .in('status', ['pending', 'locked'])
       .select('*')
       .single();
     
-    if (error || !withdrawal) {
-      return res.status(400).json({
+    if (updateError) {
+      console.error('Error approving withdrawal:', updateError);
+      return res.status(500).json({
         ok: false,
-        code: 'invalid_request',
-        message: 'Withdrawal not found or cannot be approved'
+        code: 'database_error',
+        message: 'Failed to approve withdrawal'
+      });
+    }
+    
+    // Deduct balance from user's portfolio
+    const newBalance = currentBalance - withdrawalAmount;
+    const { error: balanceUpdateError } = await serverSupabase
+      .from('portfolios')
+      .update({ balance: newBalance })
+      .eq('user_id', withdrawal.user_id)
+      .eq('currency', withdrawal.currency);
+    
+    if (balanceUpdateError) {
+      console.error('Error updating balance:', balanceUpdateError);
+      // Rollback withdrawal status
+      await serverSupabase
+        .from('withdrawals')
+        .update({ status: withdrawal.status })
+        .eq('id', id);
+      
+      return res.status(500).json({
+        ok: false,
+        code: 'balance_update_failed',
+        message: 'Failed to update user balance'
       });
     }
     
     res.json({
       ok: true,
-      data: withdrawal
+      data: updatedWithdrawal,
+      message: 'Withdrawal approved successfully and balance deducted'
     });
   } catch (error) {
     console.error('Admin approve withdrawal error:', error);

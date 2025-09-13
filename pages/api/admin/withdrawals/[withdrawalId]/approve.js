@@ -45,14 +45,10 @@ export default async function handler(req, res) {
     }
 
     const { withdrawalId } = req.query
-    const { reason } = req.body
+    const { admin_note } = req.body
 
     if (!withdrawalId) {
       return res.status(400).json({ ok: false, code: 'missing_params', message: 'Missing withdrawalId' })
-    }
-
-    if (!reason || reason.trim() === '') {
-      return res.status(400).json({ ok: false, code: 'missing_reason', message: 'Rejection reason is required' })
     }
 
     // Get the withdrawal details from withdrawals table
@@ -66,63 +62,86 @@ export default async function handler(req, res) {
       return res.status(404).json({ ok: false, code: 'withdrawal_not_found', message: 'Withdrawal not found' })
     }
 
-    if (withdrawal.status === 'rejected') {
-      return res.status(400).json({ ok: false, code: 'already_rejected', message: 'Withdrawal is already rejected' })
+    if (withdrawal.status === 'approved') {
+      return res.status(400).json({ ok: false, code: 'already_approved', message: 'Withdrawal is already approved' })
     }
 
-    if (withdrawal.status === 'approved' || withdrawal.status === 'processing') {
-      return res.status(400).json({ ok: false, code: 'invalid_status', message: 'Cannot reject approved or processing withdrawals' })
+    if (!['pending', 'locked'].includes(withdrawal.status)) {
+      return res.status(400).json({ ok: false, code: 'invalid_status', message: 'Can only approve pending or locked withdrawals' })
     }
 
-    // Update the withdrawal status to rejected
+    // Check user's current balance
+    const { data: portfolio, error: portfolioError } = await server
+      .from('portfolios')
+      .select('balance')
+      .eq('user_id', withdrawal.user_id)
+      .eq('currency', withdrawal.currency)
+      .single()
+
+    if (portfolioError || !portfolio) {
+      return res.status(400).json({ 
+        ok: false, 
+        code: 'insufficient_balance', 
+        message: 'User portfolio not found or insufficient balance' 
+      })
+    }
+
+    const currentBalance = parseFloat(portfolio.balance)
+    const withdrawalAmount = parseFloat(withdrawal.amount)
+
+    if (currentBalance < withdrawalAmount) {
+      return res.status(400).json({ 
+        ok: false, 
+        code: 'insufficient_balance', 
+        message: `Insufficient balance. Available: ${currentBalance} ${withdrawal.currency}, Required: ${withdrawalAmount} ${withdrawal.currency}` 
+      })
+    }
+
+    // Start transaction: Update withdrawal status and deduct balance
     const { data: updatedWithdrawal, error: updateError } = await server
       .from('withdrawals')
       .update({
-        status: 'rejected',
-        admin_note: reason,
+        status: 'approved',
+        admin_note: admin_note || null,
         processed_at: new Date().toISOString(),
-        processed_by: adminId,
-        failure_reason: reason
+        processed_by: adminId
       })
       .eq('id', withdrawalId)
       .select()
       .single()
 
     if (updateError) {
-      console.error('Error rejecting withdrawal:', updateError)
-      return res.status(500).json({ ok: false, code: 'database_error', message: 'Failed to reject withdrawal' })
+      console.error('Error approving withdrawal:', updateError)
+      return res.status(500).json({ ok: false, code: 'database_error', message: 'Failed to approve withdrawal' })
     }
 
-    // Create notification for the user
-    try {
+    // Deduct balance from user's portfolio
+    const newBalance = currentBalance - withdrawalAmount
+    const { error: balanceUpdateError } = await server
+      .from('portfolios')
+      .update({ balance: newBalance })
+      .eq('user_id', withdrawal.user_id)
+      .eq('currency', withdrawal.currency)
+
+    if (balanceUpdateError) {
+      console.error('Error updating balance:', balanceUpdateError)
+      // Rollback withdrawal status
       await server
-        .from('notifications')
-        .insert({
-          user_id: withdrawal.user_id,
-          type: 'withdrawal_rejected',
-          title: 'Withdrawal Request Rejected',
-          message: `Your withdrawal request for ${withdrawal.amount} ${withdrawal.currency} has been rejected. Reason: ${reason}`,
-          data: {
-            withdrawal_id: withdrawalId,
-            amount: withdrawal.amount,
-            currency: withdrawal.currency,
-            reason: reason
-          },
-          created_at: new Date().toISOString()
-        })
-    } catch (notificationError) {
-      console.error('Error creating notification:', notificationError)
-      // Don't fail the request if notification creation fails
+        .from('withdrawals')
+        .update({ status: withdrawal.status })
+        .eq('id', withdrawalId)
+      
+      return res.status(500).json({ ok: false, code: 'balance_update_failed', message: 'Failed to update user balance' })
     }
 
     return res.status(200).json({
       ok: true,
       data: updatedWithdrawal,
-      message: 'Withdrawal rejected successfully and user notified'
+      message: 'Withdrawal approved successfully and balance deducted'
     })
 
   } catch (e) {
-    console.error('Reject withdrawal API error:', e)
+    console.error('Approve withdrawal API error:', e)
     return res.status(500).json({ ok: false, code: 'internal_error', message: 'Internal error' })
   }
 }

@@ -15,6 +15,7 @@ BEGIN
         phone,
         role,
         status,
+        credit_score,
         created_at,
         updated_at
     )
@@ -28,6 +29,7 @@ BEGIN
         COALESCE(NEW.raw_user_meta_data->>'phone', ''),
         COALESCE(NEW.raw_user_meta_data->>'role', 'user'), -- Default role
         'active', -- Default status for new users
+        100, -- Default credit score
         NOW(),
         NOW()
     )

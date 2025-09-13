@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { safeWindow, getSafeDocument } from '../utils/safeStorage';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
@@ -16,9 +17,9 @@ function DepositModal({ open, onClose, walletAddresses }) {
   if (!open) return null;
 
   const cryptoOptions = [
-    { value: 'usdt', label: 'USDT', icon: '💚', network: 'ERC-20 Token' },
-    { value: 'btc', label: 'BTC', icon: '₿', network: 'Bitcoin Network' },
-    { value: 'eth', label: 'ETH', icon: 'Ξ', network: 'Ethereum Network' }
+    { value: 'usdt', label: 'USDT', icon: getCryptoImageUrl('USDT'), network: 'ERC-20 Token' },
+    { value: 'btc', label: 'BTC', icon: getCryptoImageUrl('BTC'), network: 'Bitcoin Network' },
+    { value: 'eth', label: 'ETH', icon: getCryptoImageUrl('ETH'), network: 'Ethereum Network' }
   ];
 
   const currentAddress = walletAddresses[selectedCrypto];
@@ -43,7 +44,9 @@ function DepositModal({ open, onClose, walletAddresses }) {
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
-                <div className="text-lg mb-1">{crypto.icon}</div>
+                <div className="text-lg mb-1">
+                  <img src={crypto.icon} alt={crypto.label} className="w-6 h-6 mx-auto" />
+                </div>
                 <div className="text-xs font-medium">{crypto.label}</div>
               </button>
             ))}
@@ -253,4 +256,4 @@ function NavButton({ icon, label, active, onClick }) {
       <span className="text-xs font-semibold">{label}</span>
     </button>
   );
-} 
+}

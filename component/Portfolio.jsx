@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
+import { getCryptoImageUrl } from '../utils/cryptoIcons';
 
 const Portfolio = () => {
   const { user, isAuthenticated } = useAuth();
   const [portfolio, setPortfolio] = useState(null);
+  const [portfolioBalances, setPortfolioBalances] = useState({ currencies: [], totalBalance: 0 });
+  const [cryptoPrices, setCryptoPrices] = useState({});
+  const [calculatedTotalValue, setCalculatedTotalValue] = useState(0);
   const [openTrades, setOpenTrades] = useState([]);
   const [stats, setStats] = useState({
     totalPnL: 0,
@@ -16,27 +20,73 @@ const Portfolio = () => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch portfolio data
+  // Fetch crypto prices for USD conversion
+  const fetchCryptoPrices = async () => {
+    try {
+      const response = await fetch(`/api/crypto/prices?t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
+        if (response.ok) {
+          const data = await response.json();
+          console.log('🔍 [Portfolio] Crypto prices received:', data);
+          setCryptoPrices(data);
+        } else {
+          console.log('❌ [Portfolio] Failed to fetch crypto prices');
+          setCryptoPrices({});
+        }
+      } catch (error) {
+        console.error('❌ [Portfolio] Error fetching crypto prices:', error);
+        setCryptoPrices({});
+      }
+    };
+
+  // Fetch portfolio data using multi-currency API
   const fetchPortfolio = async () => {
     try {
       if (!isAuthenticated || !user?.id) return;
       
-      const { data, error } = await supabase
-        .from('portfolios')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      console.log('🔍 [Portfolio] Fetching portfolio data for user:', session.user.id);
+      const response = await fetch(`/api/portfolio/balance?t=${Date.now()}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'x-user-id': session.user.id,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching portfolio:', error);
-        return;
+      console.log('🔍 [Portfolio] API Response status:', response.status, response.statusText);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('🔍 [Portfolio] Raw API response:', JSON.stringify(data, null, 2));
+        console.log('🔍 [Portfolio] Portfolio data received:', data);
+        console.log('🔍 [Portfolio] Raw currencies before cleanup:', data.currencies);
+        
+        console.log('🔍 [Portfolio] Setting portfolio data:', data);
+        setPortfolioBalances(data);
+        
+        // For backward compatibility, set the old portfolio structure
+        const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
+        console.log('🔍 [Portfolio] USDT balance found:', usdtBalance);
+        setPortfolio({ balance: usdtBalance, locked_balance: 0 });
+      } else {
+        console.log('❌ [Portfolio] Failed to fetch portfolio data, status:', response.status);
+        setPortfolioBalances({ currencies: [] });
+        setPortfolio({ balance: 0, locked_balance: 0 });
       }
-      
-      setPortfolio(data || { balance: 0, locked_balance: 0 });
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching portfolio:', error);
       }
+      setPortfolioBalances({ currencies: [] });
+      setPortfolio({ balance: 0, locked_balance: 0 });
     }
   };
 
@@ -52,7 +102,6 @@ const Portfolio = () => {
         .eq('status', 'OPEN');
       
       if (error) {
-        console.error('Error fetching open trades:', error);
         return;
       }
       
@@ -76,7 +125,6 @@ const Portfolio = () => {
         .eq('status', 'CLOSED');
       
       if (error) {
-        console.error('Error fetching stats:', error);
         return;
       }
       
@@ -100,10 +148,40 @@ const Portfolio = () => {
     }
   };
 
+  // Calculate total portfolio value in USD
+  const calculateTotalPortfolioValue = () => {
+    if (!portfolioBalances?.currencies || !cryptoPrices) {
+      console.log('🔍 [Portfolio] Missing data for calculation:', {
+        hasPortfolioBalances: !!portfolioBalances?.currencies,
+        hasCryptoPrices: !!cryptoPrices,
+        portfolioCurrencies: portfolioBalances?.currencies,
+        cryptoPrices
+      });
+      return 0;
+    }
+    
+    console.log('🔍 [Portfolio] Calculating total with:', {
+      currencies: portfolioBalances.currencies,
+      prices: cryptoPrices
+    });
+    
+    const total = portfolioBalances.currencies.reduce((sum, currency) => {
+      const balance = currency.balance || 0;
+      const price = cryptoPrices[currency.currency] || 0;
+      const value = balance * price;
+      console.log(`🔍 [Portfolio] ${currency.currency}: ${balance} × ${price} = ${value}`);
+      return sum + value;
+    }, 0);
+    
+    console.log('🔍 [Portfolio] Total calculated:', total);
+    return total;
+  };
+
   // Refresh all data
   const refreshData = async () => {
     setRefreshing(true);
     await Promise.all([
+      fetchCryptoPrices(),
       fetchPortfolio(),
       fetchOpenTrades(),
       fetchStats()
@@ -154,6 +232,23 @@ const Portfolio = () => {
     }
   }, [isAuthenticated, user]);
 
+  // Calculate total portfolio value whenever balances or prices change
+  useEffect(() => {
+    if (portfolioBalances.currencies && portfolioBalances.currencies.length > 0 && Object.keys(cryptoPrices).length > 0) {
+      // Calculate total by summing up individual USD values (same logic as displayed)
+      const total = portfolioBalances.currencies.reduce((sum, currency) => {
+        const balance = parseFloat(currency.balance) || 0;
+        const price = cryptoPrices[currency.currency] || 0;
+        const usdValue = balance * price;
+        // Calculate USD value for each currency
+        return sum + usdValue;
+      }, 0);
+      setCalculatedTotalValue(total);
+    } else {
+      setCalculatedTotalValue(0);
+    }
+  }, [portfolioBalances, cryptoPrices]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -164,14 +259,45 @@ const Portfolio = () => {
 
   const totalMargin = calculateTotalMargin();
   const unrealizedPnL = calculateUnrealizedPnL();
+  // Use our calculated total value instead of the API's incorrect totalBalance
+  // Fallback calculation if state isn't updated yet
+  // FORCE IMMEDIATE CALCULATION - bypass state completely
+  const immediateTotal = portfolioBalances.currencies && portfolioBalances.currencies.length > 0 && Object.keys(cryptoPrices).length > 0 
+    ? portfolioBalances.currencies.reduce((sum, currency) => {
+        const balance = parseFloat(currency.balance) || 0;
+        const price = cryptoPrices[currency.currency] || 0;
+        console.log(`🔍 [Portfolio] IMMEDIATE: ${currency.currency}: balance=${balance}, price=${price}, value=${balance * price}`);
+        return sum + (balance * price);
+      }, 0)
+    : 0;
+  
+  console.log('🔍 [Portfolio] IMMEDIATE TOTAL:', immediateTotal);
+  console.log('🔍 [Portfolio] Available currencies:', portfolioBalances?.currencies?.map(c => c.currency));
+  console.log('🔍 [Portfolio] Available prices:', Object.keys(cryptoPrices || {}));
+  
+  // Force recalculation every time - no caching
+  const totalPortfolioValue = immediateTotal || 0;
   const availableBalance = (portfolio?.balance || 0) - totalMargin;
-  const totalEquity = (portfolio?.balance || 0) + unrealizedPnL;
+  const totalEquity = totalPortfolioValue + unrealizedPnL;
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Portfolio</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Portfolio</h1>
+          <div className="flex items-center mt-2 space-x-2">
+            <div className="flex items-center">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+              <span className="text-sm text-gray-600">Live prices from CoinMarketCap</span>
+            </div>
+            {Object.keys(cryptoPrices).length > 0 && (
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                {Object.keys(cryptoPrices).length} currencies tracked
+              </span>
+            )}
+          </div>
+        </div>
         <button
           onClick={refreshData}
           disabled={refreshing}
@@ -206,6 +332,8 @@ const Portfolio = () => {
           {error}
         </div>
       )}
+      
+
 
       {/* Portfolio Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -213,9 +341,12 @@ const Portfolio = () => {
         <div className="bg-white p-6 rounded-lg shadow-lg border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Balance</p>
+              <p className="text-sm font-medium text-gray-600">Total Portfolio Value</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(portfolio?.balance || 0)}
+                {formatCurrency(totalPortfolioValue)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Includes all cryptocurrencies
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-full">
@@ -277,6 +408,75 @@ const Portfolio = () => {
               {formatPercentage(stats.winRate)}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Cryptocurrency Balances */}
+      <div className="bg-white p-6 rounded-lg shadow-lg">
+        <h2 className="text-xl font-bold mb-4">Cryptocurrency Balances</h2>
+        <div className="space-y-4">
+          {portfolioBalances.currencies && portfolioBalances.currencies.length > 0 ? (
+            portfolioBalances.currencies.map((currency) => {
+              const balance = parseFloat(currency.balance) || 0;
+              // Use live prices from CoinMarketCap API
+              const price = cryptoPrices[currency.currency] || 0;
+              const usdValue = balance * price;
+              
+              const displayCurrency = currency.currency;
+                
+                return (
+                  <div key={`${currency.id || Math.random()}-${displayCurrency}`} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 flex items-center justify-center">
+                        <img 
+                          src={getCryptoImageUrl(displayCurrency)} 
+                          alt={displayCurrency}
+                          className="w-10 h-10 rounded-full"
+                          onLoad={(e) => {
+                            console.log('Image loaded successfully:', e.target.src);
+                          }}
+                          onError={(e) => {
+                            console.log('Image failed to load:', e.target.src);
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center" style={{display: 'none'}}>
+                          <span className="text-blue-600 font-bold text-sm">{displayCurrency}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {displayCurrency}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {balance.toFixed(8)} {displayCurrency}
+                        </p>
+                      </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-gray-900">
+                      {formatCurrency(usdValue)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      @ {formatCurrency(price)}
+                    </p>
+                    <button
+                      onClick={() => window.location.href = '/withdraw'}
+                      className="mt-2 px-3 py-1 bg-yellow-500 hover:bg-yellow-600 text-black text-xs font-medium rounded transition-colors"
+                    >
+                      Withdraw
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <p>No cryptocurrency balances found</p>
+              <p className="text-sm mt-1">Deposit funds to start trading</p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -11,6 +11,14 @@ const nextConfig = {
         destination: '/api/admin/:path*', // Keep admin routes local for proxy handling
       },
       {
+        source: '/api/portfolio/:path*',
+        destination: '/api/portfolio/:path*', // Keep portfolio routes local
+      },
+      {
+        source: '/api/crypto/:path*',
+        destination: '/api/crypto/:path*', // Keep crypto routes local
+      },
+      {
         source: '/api/:path*',
         destination: `${BACKEND_URL}/api/:path*`,
       },

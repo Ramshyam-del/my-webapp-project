@@ -5,7 +5,7 @@ BEGIN;
 
 -- Add credit_score column (0-1000 range)
 ALTER TABLE public.users 
-ADD COLUMN IF NOT EXISTS credit_score INTEGER DEFAULT 0 CHECK (credit_score >= 0 AND credit_score <= 1000);
+ADD COLUMN IF NOT EXISTS credit_score INTEGER DEFAULT 100 CHECK (credit_score >= 0 AND credit_score <= 1000);
 
 -- Add vip_level column
 ALTER TABLE public.users 
@@ -17,7 +17,7 @@ COMMENT ON COLUMN public.users.vip_level IS 'User VIP level (VIP0-VIP5), configu
 
 -- Update existing users to have default values
 UPDATE public.users 
-SET credit_score = 0, vip_level = 'VIP0' 
+SET credit_score = 100, vip_level = 'VIP0' 
 WHERE credit_score IS NULL OR vip_level IS NULL;
 
 COMMIT;
