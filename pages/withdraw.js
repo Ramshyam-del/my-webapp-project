@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useConfig } from '../hooks/useConfig';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function WithdrawPage() {
   const router = useRouter();
   const { config, loading: configLoading } = useConfig();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [userBalances, setUserBalances] = useState({});
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [address, setAddress] = useState('');
@@ -263,26 +263,12 @@ export default function WithdrawPage() {
     }
   };
 
-  // Check authentication and load user
+  // Redirect if not authenticated
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        } else {
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-        router.push('/login');
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
+    if (!authLoading && !isAuthenticated) {
+      router.push('/login');
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   // Fetch balance when user is loaded
   useEffect(() => {
@@ -314,7 +300,7 @@ export default function WithdrawPage() {
     );
   }
 
-  if (!user) {
+  if (!isAuthenticated || !user) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
