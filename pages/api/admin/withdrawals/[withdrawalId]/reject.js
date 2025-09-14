@@ -79,10 +79,7 @@ export default async function handler(req, res) {
       .from('withdrawals')
       .update({
         status: 'rejected',
-        admin_note: reason,
-        processed_at: new Date().toISOString(),
-        processed_by: adminId,
-        failure_reason: reason
+        admin_notes: reason
       })
       .eq('id', withdrawalId)
       .select()
@@ -90,26 +87,34 @@ export default async function handler(req, res) {
 
     if (updateError) {
       console.error('Error rejecting withdrawal:', updateError)
-      return res.status(500).json({ ok: false, code: 'database_error', message: 'Failed to reject withdrawal' })
+      console.error('Update error details:', JSON.stringify(updateError, null, 2))
+      return res.status(500).json({ 
+        ok: false, 
+        code: 'database_error', 
+        message: 'Failed to reject withdrawal',
+        error: updateError.message || updateError
+      })
     }
 
     // Create notification for the user
     try {
-      await server
+      const { error: notificationError } = await server
         .from('notifications')
         .insert({
           user_id: withdrawal.user_id,
-          type: 'withdrawal_rejected',
+          type: 'warning',
+          category: 'withdrawal',
           title: 'Withdrawal Request Rejected',
           message: `Your withdrawal request for ${withdrawal.amount} ${withdrawal.currency} has been rejected. Reason: ${reason}`,
-          data: {
-            withdrawal_id: withdrawalId,
-            amount: withdrawal.amount,
-            currency: withdrawal.currency,
-            reason: reason
-          },
-          created_at: new Date().toISOString()
+          related_entity_type: 'withdrawal',
+          related_entity_id: withdrawalId
         })
+      
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError)
+      } else {
+        console.log('✅ Notification created successfully for withdrawal rejection')
+      }
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError)
       // Don't fail the request if notification creation fails

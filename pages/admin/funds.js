@@ -410,7 +410,7 @@ export default function AdminFunds() {
             
             <form onSubmit={handleOperationSubmit} className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Operation type:</label>
+                <label className="block text-sm font-medium text-black">Operation type:</label>
                 <select
                   value={operation.type}
                   onChange={(e) => setOperation({...operation, type: e.target.value})}
@@ -422,7 +422,7 @@ export default function AdminFunds() {
               </div>
               
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">User account:</label>
+                <label className="block text-sm font-medium text-black">User account:</label>
                 <input
                   type="text"
                   required
@@ -434,7 +434,7 @@ export default function AdminFunds() {
               </div>
               
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Currency:</label>
+                <label className="block text-sm font-medium text-black">Currency:</label>
                 <select
                   value={operation.currency}
                   onChange={(e) => setOperation({...operation, currency: e.target.value})}
@@ -447,7 +447,7 @@ export default function AdminFunds() {
               </div>
               
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Change amount:</label>
+                <label className="block text-sm font-medium text-black">Change amount:</label>
                 <input
                   type="number"
                   step="any"
@@ -460,7 +460,7 @@ export default function AdminFunds() {
               </div>
               
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Remark:</label>
+                <label className="block text-sm font-medium text-black">Remark:</label>
                 <textarea
                   value={operation.remark}
                   onChange={(e) => setOperation({...operation, remark: e.target.value})}
@@ -525,7 +525,7 @@ export default function AdminFunds() {
                 {notificationData.type === 'success' ? 'Success' : 'Error'}
               </h3>
             </div>
-            <p className="text-gray-700 mb-6">{notificationData.message}</p>
+            <p className="text-black mb-6">{notificationData.message}</p>
             <button
               onClick={() => setShowNotificationModal(false)}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

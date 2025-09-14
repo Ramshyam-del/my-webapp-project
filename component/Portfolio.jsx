@@ -76,16 +76,31 @@ const Portfolio = () => {
         const usdtBalance = data.currencies?.find(c => c.currency === 'USDT')?.balance || 0;
         console.log('🔍 [Portfolio] USDT balance found:', usdtBalance);
         setPortfolio({ balance: usdtBalance, locked_balance: 0 });
+        
+        // Clear any previous errors
+        setError(null);
       } else {
-        console.log('❌ [Portfolio] Failed to fetch portfolio data, status:', response.status);
-        setPortfolioBalances({ currencies: [] });
+        const errorText = await response.text();
+        console.log('❌ [Portfolio] Failed to fetch portfolio data, status:', response.status, 'Error:', errorText);
+        
+        // Set appropriate error message based on status
+        if (response.status === 400) {
+          setError('Authentication required. Please log in to view your portfolio.');
+        } else if (response.status === 500) {
+          setError('Server error. Please try refreshing the page.');
+        } else {
+          setError(`Failed to load portfolio data (${response.status}). Please try again.`);
+        }
+        
+        setPortfolioBalances({ currencies: [], totalBalance: 0 });
         setPortfolio({ balance: 0, locked_balance: 0 });
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Error fetching portfolio:', error);
       }
-      setPortfolioBalances({ currencies: [] });
+      setError('Network error. Please check your connection and try again.');
+      setPortfolioBalances({ currencies: [], totalBalance: 0 });
       setPortfolio({ balance: 0, locked_balance: 0 });
     }
   };

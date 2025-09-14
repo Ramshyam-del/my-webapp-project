@@ -683,12 +683,15 @@ export default function PortfolioPage() {
     
     // Always fetch portfolio balance on mount
     console.log('🔥 About to call fetchPortfolioBalance');
-    try {
-      fetchPortfolioBalance(); // Fetch portfolio balance from database
-      console.log('✅ fetchPortfolioBalance called successfully');
-    } catch (error) {
-      console.error('❌ Error calling fetchPortfolioBalance:', error);
-    }
+    const loadPortfolioBalance = async () => {
+      try {
+        await fetchPortfolioBalance(); // Fetch portfolio balance from database
+        console.log('✅ fetchPortfolioBalance called successfully');
+      } catch (error) {
+        console.error('❌ Error calling fetchPortfolioBalance:', error);
+      }
+    };
+    loadPortfolioBalance();
     
     // Fetch active trades on mount
     fetchActiveTrades();
@@ -715,9 +718,13 @@ export default function PortfolioPage() {
     const marketInterval = setInterval(fetchMarketData, 30000);
     
     // Set up automatic balance refresh every 30 seconds
-    const balanceInterval = setInterval(() => {
+    const balanceInterval = setInterval(async () => {
       if (!wsConnected) {
-        fetchPortfolioBalance();
+        try {
+          await fetchPortfolioBalance();
+        } catch (error) {
+          console.error('Error in balance interval:', error);
+        }
       }
     }, 30000);
     
@@ -730,9 +737,13 @@ export default function PortfolioPage() {
     if (document) document.addEventListener('webConfigUpdated', onCfg);
     
     // Listen for page visibility changes to refresh balance when user returns
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = async () => {
       if (!document.hidden && !wsConnected) {
-        fetchPortfolioBalance();
+        try {
+          await fetchPortfolioBalance();
+        } catch (error) {
+          console.error('Error in visibility change handler:', error);
+        }
       }
     };
     if (document) document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1086,11 +1097,15 @@ export default function PortfolioPage() {
         {/* Quick Actions */}
         <div className="mt-4 flex justify-center gap-4">
           <button 
-            onClick={() => {
+            onClick={async () => {
               if (wsConnected) {
                 refreshBalance();
               } else {
-                fetchPortfolioBalance();
+                try {
+                  await fetchPortfolioBalance();
+                } catch (error) {
+                  console.error('Error in refresh button:', error);
+                }
               }
             }}
             className="flex items-center gap-2 px-4 py-2 bg-blue-700/50 hover:bg-blue-600/50 rounded-lg text-xs text-blue-300 hover:text-white transition-all duration-200 border border-blue-600/30 hover:border-blue-500/50"

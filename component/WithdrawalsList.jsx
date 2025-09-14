@@ -12,6 +12,11 @@ const WithdrawalsList = () => {
   const [total, setTotal] = useState(0);
   const [totalWithdrawUsdt, setTotalWithdrawUsdt] = useState('0.00000000');
   
+  // Rejection modal state
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectWithdrawalId, setRejectWithdrawalId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  
   // Search filters
   const [filters, setFilters] = useState({
     orderNo: '',
@@ -124,17 +129,30 @@ const WithdrawalsList = () => {
     }
   };
 
-  const handleRejection = async (id) => {
+  const handleRejection = (id) => {
+    setRejectWithdrawalId(id);
+    setRejectionReason('');
+    setError(null); // Clear any existing errors
+    setShowRejectModal(true);
+  };
+
+  const confirmRejection = async () => {
+    if (!rejectWithdrawalId || !rejectionReason.trim()) {
+      setError('Please provide a rejection reason');
+      return;
+    }
+
     const rollbackWithdrawals = snapshotWithdrawals();
     
     try {
       // Optimistic update
       setWithdrawals(prev => prev.map(item => 
-        item.id === id ? { ...item, status: 'rejected' } : item
+        item.id === rejectWithdrawalId ? { ...item, status: 'rejected' } : item
       ));
 
-      const response = await authedFetchJson(`/api/admin/withdrawals/${id}/reject`, {
-        method: 'POST'
+      const response = await authedFetchJson(`/api/admin/withdrawals/${rejectWithdrawalId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: rejectionReason.trim() })
       });
 
       if (!response?.ok) {
@@ -144,15 +162,26 @@ const WithdrawalsList = () => {
       // Update with server response
       if (response?.data) {
         setWithdrawals(prev => prev.map(item => 
-          item.id === id ? { ...item, ...response.data } : item
+          item.id === rejectWithdrawalId ? { ...item, ...response.data } : item
         ));
       }
+
+      // Close modal and reset state
+      setShowRejectModal(false);
+      setRejectWithdrawalId(null);
+      setRejectionReason('');
     } catch (err) {
       console.error('Failed to reject withdrawal:', err);
       // Rollback
       setWithdrawals(rollbackWithdrawals);
       setError(err.message || 'Failed to reject withdrawal');
     }
+  };
+
+  const cancelRejection = () => {
+    setShowRejectModal(false);
+    setRejectWithdrawalId(null);
+    setRejectionReason('');
   };
 
   const handleApproval = async (id) => {
@@ -165,7 +194,8 @@ const WithdrawalsList = () => {
       ));
 
       const response = await authedFetchJson(`/api/admin/withdrawals/${id}/approve`, {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify({ admin_note: '' })
       });
 
       if (!response?.ok) {
@@ -524,6 +554,56 @@ const WithdrawalsList = () => {
                 className="px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation transition-colors"
               >
                 Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium text-black mb-4">
+              Reject Withdrawal
+            </h3>
+            <p className="text-sm text-black mb-4">
+              Please provide a reason for rejecting this withdrawal. The user will receive this message as a notification.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => {
+                setRejectionReason(e.target.value);
+                if (error && error.includes('rejection reason')) {
+                  setError(null);
+                }
+              }}
+              placeholder="Enter rejection reason..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-black placeholder-gray-500"
+              rows={4}
+              maxLength={500}
+            />
+            <div className="text-xs text-black mb-4">
+              {rejectionReason.length}/500 characters
+            </div>
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelRejection}
+                className="px-4 py-2 text-sm font-medium text-black bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejection}
+                disabled={!rejectionReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Confirm Rejection
               </button>
             </div>
           </div>

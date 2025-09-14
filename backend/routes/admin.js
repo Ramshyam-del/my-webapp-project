@@ -203,6 +203,8 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
     const { id } = req.params;
     const { admin_note } = req.body;
     
+    console.log('🔍 Approval request received:', { id, admin_note });
+    
     // First, get the withdrawal details
     const { data: withdrawal, error: withdrawalError } = await serverSupabase
       .from('withdrawals')
@@ -267,8 +269,7 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
       .update({ 
         status: 'approved',
         admin_notes: admin_note || null,
-        processed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        processed_at: new Date().toISOString()
       })
       .eq('id', id)
       .select('*')
@@ -290,7 +291,7 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
       .update({ balance: newBalance })
       .eq('user_id', withdrawal.user_id)
       .eq('currency', withdrawal.currency);
-    
+
     if (balanceUpdateError) {
       console.error('Error updating balance:', balanceUpdateError);
       // Rollback withdrawal status
@@ -305,7 +306,27 @@ router.post('/withdrawals/:id/approve', authenticateUser, requireAdmin, async (r
         message: 'Failed to update user balance'
       });
     }
-    
+
+    // Create notification for successful withdrawal approval
+    try {
+      await serverSupabase
+        .from('notifications')
+        .insert({
+          user_id: withdrawal.user_id,
+          title: 'Withdrawal Approved',
+          message: `Your withdrawal of ${withdrawalAmount} ${withdrawal.currency.toUpperCase()} has been approved and processed successfully.`,
+          type: 'success',
+          category: 'withdrawal',
+          related_entity_type: 'withdrawal',
+          related_entity_id: withdrawal.id
+        });
+      
+      console.log('✅ Notification created for withdrawal approval:', withdrawal.id);
+    } catch (notificationError) {
+      console.error('⚠️ Failed to create notification:', notificationError);
+      // Don't fail the withdrawal approval if notification creation fails
+    }
+
     res.json({
       ok: true,
       data: updatedWithdrawal,
@@ -347,10 +368,35 @@ router.post('/withdrawals/:id/reject', authenticateUser, requireAdmin, async (re
         message: 'Withdrawal not found or cannot be rejected'
       });
     }
+
+    // Create notification for withdrawal rejection
+    try {
+      const rejectionMessage = admin_note 
+        ? `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency.toUpperCase()} has been rejected. Reason: ${admin_note}`
+        : `Your withdrawal of ${withdrawal.amount} ${withdrawal.currency.toUpperCase()} has been rejected.`;
+      
+      await serverSupabase
+        .from('notifications')
+        .insert({
+          user_id: withdrawal.user_id,
+          title: 'Withdrawal Rejected',
+          message: rejectionMessage,
+          type: 'error',
+          category: 'withdrawal',
+          related_entity_type: 'withdrawal',
+          related_entity_id: withdrawal.id
+        });
+      
+      console.log('✅ Notification created for withdrawal rejection:', withdrawal.id);
+    } catch (notificationError) {
+      console.error('⚠️ Failed to create notification:', notificationError);
+      // Don't fail the withdrawal rejection if notification creation fails
+    }
     
     res.json({
       ok: true,
-      data: withdrawal
+      data: withdrawal,
+      message: 'Withdrawal rejected successfully'
     });
   } catch (error) {
     console.error('Admin reject withdrawal error:', error);

@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { getSafeDocument } from '../utils/safeStorage';
 import AuthWrapper from '../component/AuthWrapper';
+import { authedFetchJson } from '../lib/authedFetch';
+import { supabase } from '../lib/supabase';
 
 const navTabs = [
   { label: 'HOME', icon: '🏠', route: '/exchange' },
@@ -19,17 +21,9 @@ export default function ExchangePage() {
   const [config, setConfig] = useState({
     exchangeBanner: ''
   });
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'system',
-      title: 'Welcome to Quantex',
-      message: 'Welcome to the ultimate cryptocurrency trading platform. Start exploring our features!',
-      time: 'Just now',
-      isRead: false,
-      icon: '👋'
-    }
-  ]);
+  const [notifications, setNotifications] = useState([]);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const notificationPollingRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
@@ -74,14 +68,130 @@ export default function ExchangePage() {
       document.addEventListener('storage', handleStorageChange);
     }
     
+    // Check authentication before starting notification polling
+    const checkAuthAndStartPolling = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          console.log('✅ User authenticated, starting notification polling');
+          fetchNotifications();
+          startNotificationPolling();
+        } else {
+          console.log('❌ User not authenticated, skipping notification polling');
+        }
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+      }
+    };
+    
+    checkAuthAndStartPolling();
+    
     return () => {
       const document = getSafeDocument();
       if (document) {
         document.removeEventListener('webConfigUpdated', handleConfigUpdate);
         document.removeEventListener('storage', handleStorageChange);
       }
+      // Cleanup polling on unmount
+      if (notificationPollingRef.current) {
+        clearInterval(notificationPollingRef.current);
+      }
     };
   }, []);
+
+  // Fetch notifications from API
+  const fetchNotifications = async () => {
+    try {
+      console.log('🔔 Fetching notifications...');
+      setIsLoadingNotifications(true);
+      
+      // Get Supabase session token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.log('❌ No session token available');
+        return;
+      }
+
+      console.log('✅ Session found, user ID:', session.user.id);
+      // Make request to frontend API route - fetch all notifications, not just unread
+      const response = await fetch('/api/notifications?limit=10', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('📡 Notification API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Failed to fetch notifications:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📊 Notification API response data:', data);
+      
+      if (data?.success && data?.data?.notifications) {
+        const apiNotifications = data.data.notifications.map(notification => ({
+          id: notification.id,
+          type: notification.category || 'system',
+          title: notification.title,
+          message: notification.message,
+          time: formatNotificationTime(notification.created_at),
+          isRead: notification.is_read,
+          icon: getNotificationIconByCategory(notification.category, notification.type)
+        }));
+        
+        console.log(`📬 Found ${apiNotifications.length} notifications`);
+        
+        // Set notifications directly from API
+        setNotifications(apiNotifications);
+        console.log(`🔄 Updated notifications: ${apiNotifications.length} total`);
+      }
+    } catch (error) {
+      console.error('💥 Error fetching notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  // Start polling for new notifications every 30 seconds
+  const startNotificationPolling = () => {
+    console.log('🔄 Starting notification polling...');
+    if (notificationPollingRef.current) {
+      clearInterval(notificationPollingRef.current);
+      console.log('🛑 Cleared existing polling interval');
+    }
+    
+    notificationPollingRef.current = setInterval(() => {
+      console.log('⏰ Polling interval triggered - fetching notifications');
+      fetchNotifications();
+    }, 30000); // Poll every 30 seconds
+    
+    console.log('✅ Notification polling started (30s interval)');
+  };
+
+  // Format notification time
+  const formatNotificationTime = (timestamp) => {
+    const now = new Date();
+    const notificationTime = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - notificationTime) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  };
+
+  // Get notification icon by category and type
+  const getNotificationIconByCategory = (category, type) => {
+    if (category === 'withdrawal') {
+      return type === 'success' ? '✅' : '💸';
+    }
+    return getNotificationIcon(category || 'system');
+  };
 
   // Click outside handler
   useEffect(() => {
@@ -104,11 +214,22 @@ export default function ExchangePage() {
     };
   }, [showNotifications]);
 
-
-
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
-  const markAsRead = (id) => {
+  const markAsRead = async (id) => {
+    try {
+      const response = await authedFetchJson(`/api/notifications/${id}/read`, {
+        method: 'PATCH'
+      });
+      
+      if (response?.success) {
+        console.log('Notification marked as read successfully');
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+    
+    // Update local state regardless of API call result
     setNotifications(prev => 
       prev.map(notification => 
         notification.id === id 

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend Withdrawal Approval</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Frontend Withdrawal Approval Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const { createClient } = supabase;
+        
+        // Initialize Supabase client
+        const supabaseClient = createClient(
+            'https://ixqkqvfqtqzjqzjqzjqz.supabase.co', // Replace with actual URL
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' // Replace with actual anon key
+        );
+        
+        function log(message) {
+            const output = document.getElementById('output');
+            output.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+        
+        async function getSupabaseToken() {
+            log('Getting Supabase session...');
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            
+            if (error || !session) {
+                log('❌ No active session: ' + (error?.message || 'Session is null'));
+                return null;
+            }
+            
+            log('✅ Session found, returning token');
+            return session.access_token;
+        }
+        
+        async function testWithdrawalApproval() {
+            try {
+                log('🔐 Signing in as admin...');
+                
+                // Sign in as admin
+                const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+                    email: 'ramshyamgopalhari@gmail.com',
+                    password: '@Million2026'
+                });
+                
+                if (authError) {
+                    log('❌ Auth error: ' + authError.message);
+                    return;
+                }
+                
+                log('✅ Admin signed in successfully');
+                
+                // Get token
+                const token = await getSupabaseToken();
+                if (!token) {
+                    log('❌ Failed to get token');
+                    return;
+                }
+                
+                log('✅ Token obtained: ' + token.substring(0, 20) + '...');
+                
+                // Test withdrawal approval via frontend proxy
+                log('🔄 Testing withdrawal approval via frontend proxy...');
+                
+                const response = await fetch('/api/admin/withdrawals/test-id/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        admin_note: 'Test approval from HTML'
+                    })
+                });
+                
+                log('📨 Response status: ' + response.status);
+                
+                const result = await response.json();
+                log('📋 Response data: ' + JSON.stringify(result, null, 2));
+                
+            } catch (error) {
+                log('❌ Test error: ' + error.message);
+            }
+        }
+        
+        // Run test when page loads
+        window.onload = function() {
+            log('🚀 Starting frontend withdrawal approval test...');
+            testWithdrawalApproval();
+        };
+    </script>
+</body>
+</html>
