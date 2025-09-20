@@ -46,31 +46,69 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Invalid input parameters' });
     }
 
-    // Verify target user exists - check both auth.users and public.users
+    // Verify target user exists - more flexible approach
     let targetUser = null;
     
-    // First try to find in auth.users by ID
-    const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
-    if (!authUserError && authUserData?.user) {
-      targetUser = authUserData.user;
-      console.log('Found target user in auth.users:', targetUser.email);
-    } else {
-      // Fallback: try to find in public.users
-      const { data: publicUserData, error: publicUserError } = await supabaseAdmin
-        .from('users')
-        .select('id, email, username')
-        .eq('id', userId)
-        .single();
+    console.log('Looking for target user ID:', userId);
+    
+    // If userId looks like an email, search by email
+    if (userId.includes('@')) {
+      console.log('UserId appears to be an email, searching by email...');
       
-      if (!publicUserError && publicUserData) {
-        targetUser = publicUserData;
-        console.log('Found target user in public.users:', targetUser.email);
+      // Search in auth.users by email
+      const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      if (!authUsersError && authUsers?.users) {
+        const authUser = authUsers.users.find(u => 
+          u.email?.toLowerCase() === userId.toLowerCase()
+        );
+        if (authUser) {
+          targetUser = authUser;
+          userId = authUser.id; // Update userId to actual ID
+          console.log('Found target user by email in auth.users:', targetUser.email, 'ID:', userId);
+        }
+      }
+      
+      // If not found in auth.users, try public.users
+      if (!targetUser) {
+        const { data: publicUsers, error: publicUsersError } = await supabaseAdmin
+          .from('users')
+          .select('id, email, username')
+          .ilike('email', userId)
+          .limit(1);
+        
+        if (!publicUsersError && publicUsers && publicUsers.length > 0) {
+          targetUser = publicUsers[0];
+          userId = publicUsers[0].id; // Update userId to actual ID
+          console.log('Found target user by email in public.users:', targetUser.email, 'ID:', userId);
+        }
+      }
+    } else {
+      // userId is already an ID, try to find by ID
+      console.log('UserId appears to be an ID, searching by ID...');
+      
+      // First try to find in auth.users by ID
+      const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+      if (!authUserError && authUserData?.user) {
+        targetUser = authUserData.user;
+        console.log('Found target user by ID in auth.users:', targetUser.email);
+      } else {
+        // Fallback: try to find in public.users
+        const { data: publicUserData, error: publicUserError } = await supabaseAdmin
+          .from('users')
+          .select('id, email, username')
+          .eq('id', userId)
+          .single();
+        
+        if (!publicUserError && publicUserData) {
+          targetUser = publicUserData;
+          console.log('Found target user by ID in public.users:', targetUser.email);
+        }
       }
     }
     
     if (!targetUser) {
-      console.error('Target user not found for ID:', userId);
-      return res.status(404).json({ ok: false, error: 'Target user not found' });
+      console.error('Target user not found for:', userId);
+      return res.status(404).json({ ok: false, error: `Target user not found: ${userId}` });
     }
 
     // Use the adjust_balance function to safely add balance
