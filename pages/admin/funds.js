@@ -77,6 +77,7 @@ export default function AdminFunds() {
       if (response.ok) {
         const data = await response.json();
         console.log('Fund transactions data:', data); // Debug log
+        console.log('Number of transactions fetched:', data.data?.transactions?.length || 0);
         setFunds(data.data.transactions || []);
         setStats(data.data.stats || {
           totalRecharges: 0,
@@ -168,15 +169,18 @@ export default function AdminFunds() {
       });
 
       const result = await response.json();
+      console.log('Operation result:', result); // Debug log
 
       if (response.ok && result.ok) {
         showNotification('success', `${operation.type === 'recharge' ? 'Recharge' : 'Withdrawal'} processed successfully!`);
         
+        console.log('Operation successful, refreshing data...');
         // Refresh data
         await Promise.all([
           fetchUsersWithBalances(),
           fetchFundTransactions()
         ]);
+        console.log('Data refresh completed');
         
         // Reset form
         setShowOperationModal(false);
@@ -347,7 +351,18 @@ export default function AdminFunds() {
 
       {/* Operations History */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Operations History</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Operations History</h3>
+          <button 
+            onClick={() => {
+              console.log('Refreshing operations history...');
+              fetchFundTransactions();
+            }}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            🔄 Refresh
+          </button>
+        </div>
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
