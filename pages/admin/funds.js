@@ -116,15 +116,58 @@ export default function AdminFunds() {
       return;
     }
 
-    // Find user by email/username
-    const user = userBalances.find(u => 
+    // Find user by email/username - improved lookup
+    let user = userBalances.find(u => 
       u.email === operation.userAccount || u.username === operation.userAccount
     );
     
+    // If not found in userBalances, try to find by calling Supabase directly
     if (!user) {
-      showNotification('error', 'User account not found');
+      console.log('User not found in userBalances, searching in database for:', operation.userAccount);
+      try {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        // Search for user by email in auth.users
+        const { data: authUsers } = await supabase.auth.admin.listUsers();
+        const authUser = authUsers?.users?.find(u => u.email === operation.userAccount);
+        
+        if (authUser) {
+          user = {
+            id: authUser.id,
+            email: authUser.email,
+            username: authUser.user_metadata?.username || authUser.email.split('@')[0],
+            balances: { BTC: 0, USDT: 0, ETH: 0 } // Default balances
+          };
+          console.log('Found user in auth.users:', user);
+        } else {
+          // Try public.users table
+          const { data: publicUsers } = await supabase
+            .from('users')
+            .select('id, email, username')
+            .or(`email.eq.${operation.userAccount},username.eq.${operation.userAccount}`);
+          
+          if (publicUsers && publicUsers.length > 0) {
+            const publicUser = publicUsers[0];
+            user = {
+              id: publicUser.id,
+              email: publicUser.email,
+              username: publicUser.username,
+              balances: { BTC: 0, USDT: 0, ETH: 0 } // Default balances
+            };
+            console.log('Found user in public.users:', user);
+          }
+        }
+      } catch (lookupError) {
+        console.error('Error looking up user:', lookupError);
+      }
+    }
+    
+    if (!user) {
+      showNotification('error', 'User account not found: ' + operation.userAccount);
       return;
     }
+    
+    console.log('Using user for operation:', user);
 
     // Validate amount
     const amount = parseFloat(operation.changeAmount);

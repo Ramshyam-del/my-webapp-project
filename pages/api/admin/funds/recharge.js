@@ -40,8 +40,37 @@ export default async function handler(req, res) {
     const { userId, currency, amount, adminId, remark } = req.body || {};
     const amt = Number(amount);
     
+    console.log('Recharge request:', { userId, currency, amount: amt, adminId, remark });
+    
     if (!userId || !currency || !Number.isFinite(amt) || amt <= 0) {
-      return res.status(400).json({ ok: false, error: 'Invalid input' });
+      return res.status(400).json({ ok: false, error: 'Invalid input parameters' });
+    }
+
+    // Verify target user exists - check both auth.users and public.users
+    let targetUser = null;
+    
+    // First try to find in auth.users by ID
+    const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (!authUserError && authUserData?.user) {
+      targetUser = authUserData.user;
+      console.log('Found target user in auth.users:', targetUser.email);
+    } else {
+      // Fallback: try to find in public.users
+      const { data: publicUserData, error: publicUserError } = await supabaseAdmin
+        .from('users')
+        .select('id, email, username')
+        .eq('id', userId)
+        .single();
+      
+      if (!publicUserError && publicUserData) {
+        targetUser = publicUserData;
+        console.log('Found target user in public.users:', targetUser.email);
+      }
+    }
+    
+    if (!targetUser) {
+      console.error('Target user not found for ID:', userId);
+      return res.status(404).json({ ok: false, error: 'Target user not found' });
     }
 
     // Use the adjust_balance function to safely add balance
