@@ -32,23 +32,48 @@ export default async function handler(req, res) {
     // Get unique user IDs from transactions
     const userIds = [...new Set(transactions.map(t => t.user_id).filter(Boolean))];
     console.log('User IDs found:', userIds);
+    console.log('Sample transaction user_ids:', transactions.slice(0, 3).map(t => ({ id: t.id, user_id: t.user_id, type: t.type })));
     
-    // Fetch user information separately
+    // Fetch user information from auth.users table (not public.users)
     let usersMap = {};
     if (userIds.length > 0) {
-      const { data: users, error: usersError } = await supabaseAdmin
+      // Try both auth.users and public.users tables
+      const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (!authUsersError && authUsers?.users) {
+        console.log('Auth users found:', authUsers.users.length);
+        authUsers.users.forEach(user => {
+          if (userIds.includes(user.id)) {
+            usersMap[user.id] = {
+              id: user.id,
+              email: user.email,
+              username: user.user_metadata?.username || user.email?.split('@')[0]
+            };
+          }
+        });
+        console.log('Auth users mapped:', Object.keys(usersMap));
+      } else {
+        console.error('Error fetching auth users:', authUsersError);
+      }
+      
+      // Also try public.users table as fallback
+      const { data: publicUsers, error: publicUsersError } = await supabaseAdmin
         .from('users')
         .select('id, email, username')
         .in('id', userIds);
       
-      if (!usersError && users) {
-        usersMap = users.reduce((acc, user) => {
-          acc[user.id] = user;
-          return acc;
-        }, {});
-        console.log('Users map created for:', Object.keys(usersMap));
+      if (!publicUsersError && publicUsers) {
+        console.log('Public users found:', publicUsers.length);
+        publicUsers.forEach(user => {
+          usersMap[user.id] = {
+            id: user.id,
+            email: user.email,
+            username: user.username || user.email?.split('@')[0]
+          };
+        });
+        console.log('Final users map created for:', Object.keys(usersMap));
       } else {
-        console.error('Error fetching users:', usersError);
+        console.error('Error fetching public users:', publicUsersError);
       }
     }
 
@@ -75,19 +100,22 @@ export default async function handler(req, res) {
       const user = usersMap[transaction.user_id];
       const adminUser = adminsMap[transaction.admin_id];
       
+      console.log(`Transaction ${transaction.id}: user_id=${transaction.user_id}, found_user=${!!user}, user_email=${user?.email}`);
+      
       return {
         id: transaction.id,
         type: transaction.type,
         amount: Number(transaction.amount),
         currency: transaction.currency,
         status: transaction.status || 'completed',
-        user: user?.email || 'Unknown User',
+        user: user?.email || `User ID: ${transaction.user_id}`,
         username: user?.username || user?.email?.split('@')[0] || 'Unknown',
         date: transaction.created_at,
         remark: transaction.remark || '',
         createdBy: transaction.created_by,
         adminUser: adminUser?.email || 'System',
-        adminId: transaction.admin_id
+        adminId: transaction.admin_id,
+        rawUserId: transaction.user_id // For debugging
       };
     });
 
