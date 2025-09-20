@@ -76,8 +76,14 @@ export default function AdminFunds() {
 
       if (response.ok) {
         const data = await response.json();
-        setFunds(data.data.transactions);
-        setStats(data.data.stats);
+        console.log('Fund transactions data:', data); // Debug log
+        setFunds(data.data.transactions || []);
+        setStats(data.data.stats || {
+          totalRecharges: 0,
+          totalWithdrawals: 0,
+          pendingCount: 0,
+          completedCount: 0
+        });
       } else {
         console.error('Failed to fetch fund transactions');
         showNotification('error', 'Failed to fetch fund transactions');
@@ -361,33 +367,42 @@ export default function AdminFunds() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {funds.map((fund) => (
-                  <tr key={fund.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(fund.created_at).toLocaleDateString()}
+                {funds.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                      <div className="text-sm">No fund transactions found</div>
+                      <div className="text-xs mt-1">Perform a recharge or withdraw operation to see data here</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
-                        {fund.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{fund.user_email}</div>
-                      {fund.user_username && (
-                        <div className="text-sm text-gray-500">@{fund.user_username}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(fund.amount, fund.currency)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(fund.status)}`}>
-                        {fund.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
                   </tr>
-                ))}
+                ) : (
+                  funds.map((fund) => (
+                    <tr key={fund.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(fund.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
+                          {fund.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{fund.user}</div>
+                        {fund.username && (
+                          <div className="text-sm text-gray-500">@{fund.username}</div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(fund.amount, fund.currency)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(fund.status)}`}>
+                          {fund.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
