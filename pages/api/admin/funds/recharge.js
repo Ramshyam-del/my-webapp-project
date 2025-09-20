@@ -68,8 +68,18 @@ export default async function handler(req, res) {
     const newBalance = updatedPortfolio?.balance || 0;
 
 
-    // Record fund transaction
-    const { error: txError } = await supabaseAdmin
+    // Record fund transaction with proper error handling
+    console.log('Creating fund transaction record for:', {
+      user_id: userId,
+      currency,
+      amount: amt,
+      type: 'recharge',
+      status: 'completed',
+      remark: remark || null,
+      admin_id: adminId || user.id
+    });
+
+    const { data: txData, error: txError } = await supabaseAdmin
       .from('fund_transactions')
       .insert({
         user_id: userId,
@@ -78,12 +88,22 @@ export default async function handler(req, res) {
         type: 'recharge',
         status: 'completed',
         remark: remark || null,
-        admin_id: adminId || user.id
-      });
+        admin_id: adminId || user.id,
+        created_by: user.email || 'admin'
+      })
+      .select()
+      .single();
 
     if (txError) {
       console.error('Transaction record error:', txError);
-      // Don't fail the request if transaction logging fails
+      console.error('Full error details:', JSON.stringify(txError, null, 2));
+      // This is critical - if we can't record the transaction, we should fail
+      return res.status(500).json({ 
+        ok: false, 
+        error: 'Failed to record transaction: ' + txError.message 
+      });
+    } else {
+      console.log('Transaction recorded successfully:', txData);
     }
 
     // Manually trigger real-time balance update via HTTP request to backend
@@ -110,9 +130,13 @@ export default async function handler(req, res) {
         currency,
         amount: amt,
         newBalance,
-        transactionId: Date.now().toString()
+        transactionId: txData?.id || Date.now().toString(),
+        transactionRecorded: !!txData
       }
     });
+
+    // Log successful completion
+    console.log(`Recharge completed successfully: ${amt} ${currency} to user ${userId}. Transaction ID: ${txData?.id}`);
 
   } catch (error) {
     console.error('Recharge API error:', error);
