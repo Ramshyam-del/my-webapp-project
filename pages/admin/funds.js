@@ -129,67 +129,61 @@ export default function AdminFunds() {
     
     let user = null;
     
-    // Direct database search without relying on userBalances
-    console.log('Performing direct user search for:', operation.userAccount);
-    try {
-      // Use Supabase client instead of admin for better compatibility
-      const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) {
-        console.error('Auth users list error:', authError);
-        // Try alternative approach with service role
+    // First check userBalances if available
+    if (userBalances.length > 0) {
+      user = userBalances.find(u => 
+        u.email?.toLowerCase() === operation.userAccount.toLowerCase() || 
+        u.username?.toLowerCase() === operation.userAccount.toLowerCase()
+      );
+      console.log('User found in userBalances:', user);
+    }
+    
+    // If not found in userBalances, use our find-user API
+    if (!user) {
+      console.log('User not found in userBalances, using find-user API...');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
         const response = await fetch('/api/admin/find-user', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${session?.access_token}`
           },
           body: JSON.stringify({ email: operation.userAccount })
         });
         
         if (response.ok) {
           const userData = await response.json();
-          if (userData.user) {
+          if (userData.ok && userData.user) {
             user = {
               id: userData.user.id,
               email: userData.user.email,
-              username: userData.user.username || userData.user.email.split('@')[0],
+              username: userData.user.username,
               balances: { BTC: 0, USDT: 0, ETH: 0 }
             };
-            console.log('User found via API:', user);
+            console.log('User found via find-user API:', user);
           }
+        } else {
+          const errorData = await response.json();
+          console.log('Find-user API response:', errorData);
         }
-      } else if (authData?.users) {
-        const authUser = authData.users.find(u => 
-          u.email?.toLowerCase() === operation.userAccount.toLowerCase()
-        );
         
-        if (authUser) {
-          user = {
-            id: authUser.id,
-            email: authUser.email,
-            username: authUser.user_metadata?.username || authUser.email.split('@')[0],
-            balances: { BTC: 0, USDT: 0, ETH: 0 }
-          };
-          console.log('User found in auth.users:', user);
-        }
+      } catch (apiError) {
+        console.error('Error calling find-user API:', apiError);
       }
-      
-      // Final fallback: create user if email looks valid
-      if (!user && operation.userAccount.includes('@')) {
-        console.log('User not found anywhere, but email looks valid. Proceeding with direct ID lookup...');
-        // For now, let's assume the user exists and create a minimal user object
-        user = {
-          id: operation.userAccount, // Use email as ID temporarily
-          email: operation.userAccount,
-          username: operation.userAccount.split('@')[0],
-          balances: { BTC: 0, USDT: 0, ETH: 0 }
-        };
-        console.log('Created temporary user object:', user);
-      }
-      
-    } catch (lookupError) {
-      console.error('Complete user lookup failed:', lookupError);
+    }
+    
+    // Final fallback for email format
+    if (!user && operation.userAccount.includes('@') && operation.userAccount.includes('.')) {
+      console.log('Creating fallback user object for valid email format');
+      user = {
+        id: operation.userAccount, // Use email as temporary ID
+        email: operation.userAccount,
+        username: operation.userAccount.split('@')[0],
+        balances: { BTC: 0, USDT: 0, ETH: 0 }
+      };
+      console.log('Created fallback user object:', user);
     }
     
     if (!user) {
