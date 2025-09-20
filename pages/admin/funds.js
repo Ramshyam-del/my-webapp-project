@@ -360,16 +360,17 @@ export default function AdminFunds() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target User</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remark</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {funds.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                       <div className="text-sm">No fund transactions found</div>
                       <div className="text-xs mt-1">Perform a recharge or withdraw operation to see data here</div>
                     </td>
@@ -378,26 +379,31 @@ export default function AdminFunds() {
                   funds.map((fund) => (
                     <tr key={fund.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(fund.date).toLocaleDateString()}
+                        {new Date(fund.date).toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
-                          {fund.type}
+                          {fund.type.toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{fund.user}</div>
-                        {fund.username && (
+                        {fund.username && fund.username !== 'Unknown' && (
                           <div className="text-sm text-gray-500">@{fund.username}</div>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {formatCurrency(fund.amount, fund.currency)}
+                        <span className={fund.type === 'withdraw' ? 'text-red-600' : 'text-green-600'}>
+                          {fund.type === 'withdraw' ? '-' : '+'}{formatCurrency(fund.amount, fund.currency)}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(fund.status)}`}>
                           {fund.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {fund.adminUser || 'System'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
                     </tr>
