@@ -34,10 +34,12 @@ export default function AdminFunds() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
+        console.log('No session for fetchUsersWithBalances');
         showNotification('error', 'Authentication required');
         return;
       }
 
+      console.log('Fetching users with balances...');
       const response = await fetch('/api/admin/users-with-balances', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -45,16 +47,22 @@ export default function AdminFunds() {
         }
       });
 
+      console.log('Users with balances response:', response.status, response.ok);
+      
       if (response.ok) {
         const data = await response.json();
-        setUserBalances(data.data.users);
+        console.log('Users with balances data:', data);
+        setUserBalances(data.data?.users || []);
+        console.log('Set userBalances to:', data.data?.users || []);
       } else {
-        console.error('Failed to fetch users with balances');
-        showNotification('error', 'Failed to fetch user balances');
+        const errorText = await response.text();
+        console.error('Failed to fetch users with balances:', response.status, errorText);
+        // Don't show error to user, just log it
+        setUserBalances([]); // Set empty array so we can still try direct lookup
       }
     } catch (error) {
       console.error('Error fetching users with balances:', error);
-      showNotification('error', 'Error fetching user balances');
+      setUserBalances([]); // Set empty array so we can still try direct lookup
     }
   };
 
@@ -116,37 +124,56 @@ export default function AdminFunds() {
       return;
     }
 
-    // Find user by email/username - improved lookup
-    let user = userBalances.find(u => 
-      u.email === operation.userAccount || u.username === operation.userAccount
-    );
+    console.log('Looking for user:', operation.userAccount);
+    console.log('Available users in userBalances:', userBalances.length, userBalances.map(u => ({ email: u.email, username: u.username, id: u.id })));
     
-    // If not found in userBalances, try to find by calling Supabase directly
+    let user = null;
+    
+    // First check userBalances if available
+    if (userBalances.length > 0) {
+      user = userBalances.find(u => 
+        u.email?.toLowerCase() === operation.userAccount.toLowerCase() || 
+        u.username?.toLowerCase() === operation.userAccount.toLowerCase()
+      );
+      console.log('User found in userBalances:', user);
+    }
+    
+    // If not found or userBalances is empty, search database directly
     if (!user) {
-      console.log('User not found in userBalances, searching in database for:', operation.userAccount);
+      console.log('Searching database directly for user:', operation.userAccount);
       try {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        // Search for user by email in auth.users directly
+        const { data: listResponse, error: listError } = await supabase.auth.admin.listUsers();
+        console.log('Auth users list response:', listError ? `Error: ${listError.message}` : `Found ${listResponse?.users?.length || 0} users`);
         
-        // Search for user by email in auth.users
-        const { data: authUsers } = await supabase.auth.admin.listUsers();
-        const authUser = authUsers?.users?.find(u => u.email === operation.userAccount);
+        if (!listError && listResponse?.users) {
+          const authUser = listResponse.users.find(u => 
+            u.email?.toLowerCase() === operation.userAccount.toLowerCase()
+          );
+          console.log('Found in auth users:', authUser ? `Yes (${authUser.email})` : 'No');
+          
+          if (authUser) {
+            user = {
+              id: authUser.id,
+              email: authUser.email,
+              username: authUser.user_metadata?.username || authUser.email.split('@')[0],
+              balances: { BTC: 0, USDT: 0, ETH: 0 } // Default balances
+            };
+            console.log('Created user object from auth.users:', user);
+          }
+        }
         
-        if (authUser) {
-          user = {
-            id: authUser.id,
-            email: authUser.email,
-            username: authUser.user_metadata?.username || authUser.email.split('@')[0],
-            balances: { BTC: 0, USDT: 0, ETH: 0 } // Default balances
-          };
-          console.log('Found user in auth.users:', user);
-        } else {
-          // Try public.users table
-          const { data: publicUsers } = await supabase
+        // If still not found, try public.users table
+        if (!user) {
+          console.log('Trying public.users table...');
+          const { data: publicUsers, error: publicError } = await supabase
             .from('users')
             .select('id, email, username')
-            .or(`email.eq.${operation.userAccount},username.eq.${operation.userAccount}`);
+            .ilike('email', operation.userAccount);
           
-          if (publicUsers && publicUsers.length > 0) {
+          console.log('Public users search result:', publicError ? `Error: ${publicError.message}` : `Found ${publicUsers?.length || 0} users`);
+          
+          if (!publicError && publicUsers && publicUsers.length > 0) {
             const publicUser = publicUsers[0];
             user = {
               id: publicUser.id,
@@ -154,9 +181,10 @@ export default function AdminFunds() {
               username: publicUser.username,
               balances: { BTC: 0, USDT: 0, ETH: 0 } // Default balances
             };
-            console.log('Found user in public.users:', user);
+            console.log('Created user object from public.users:', user);
           }
         }
+        
       } catch (lookupError) {
         console.error('Error looking up user:', lookupError);
       }
