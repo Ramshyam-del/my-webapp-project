@@ -40,75 +40,8 @@ export default async function handler(req, res) {
     const { userId, currency, amount, adminId, remark } = req.body || {};
     const amt = Number(amount);
     
-    console.log('Recharge request:', { userId, currency, amount: amt, adminId, remark });
-    
     if (!userId || !currency || !Number.isFinite(amt) || amt <= 0) {
-      return res.status(400).json({ ok: false, error: 'Invalid input parameters' });
-    }
-
-    // Verify target user exists - more flexible approach
-    let targetUser = null;
-    
-    console.log('Looking for target user ID:', userId);
-    
-    // If userId looks like an email, search by email
-    if (userId.includes('@')) {
-      console.log('UserId appears to be an email, searching by email...');
-      
-      // Search in auth.users by email
-      const { data: authUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
-      if (!authUsersError && authUsers?.users) {
-        const authUser = authUsers.users.find(u => 
-          u.email?.toLowerCase() === userId.toLowerCase()
-        );
-        if (authUser) {
-          targetUser = authUser;
-          userId = authUser.id; // Update userId to actual ID
-          console.log('Found target user by email in auth.users:', targetUser.email, 'ID:', userId);
-        }
-      }
-      
-      // If not found in auth.users, try public.users
-      if (!targetUser) {
-        const { data: publicUsers, error: publicUsersError } = await supabaseAdmin
-          .from('users')
-          .select('id, email, username')
-          .ilike('email', userId)
-          .limit(1);
-        
-        if (!publicUsersError && publicUsers && publicUsers.length > 0) {
-          targetUser = publicUsers[0];
-          userId = publicUsers[0].id; // Update userId to actual ID
-          console.log('Found target user by email in public.users:', targetUser.email, 'ID:', userId);
-        }
-      }
-    } else {
-      // userId is already an ID, try to find by ID
-      console.log('UserId appears to be an ID, searching by ID...');
-      
-      // First try to find in auth.users by ID
-      const { data: authUserData, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(userId);
-      if (!authUserError && authUserData?.user) {
-        targetUser = authUserData.user;
-        console.log('Found target user by ID in auth.users:', targetUser.email);
-      } else {
-        // Fallback: try to find in public.users
-        const { data: publicUserData, error: publicUserError } = await supabaseAdmin
-          .from('users')
-          .select('id, email, username')
-          .eq('id', userId)
-          .single();
-        
-        if (!publicUserError && publicUserData) {
-          targetUser = publicUserData;
-          console.log('Found target user by ID in public.users:', targetUser.email);
-        }
-      }
-    }
-    
-    if (!targetUser) {
-      console.error('Target user not found for:', userId);
-      return res.status(404).json({ ok: false, error: `Target user not found: ${userId}` });
+      return res.status(400).json({ ok: false, error: 'Invalid input' });
     }
 
     // Use the adjust_balance function to safely add balance
@@ -135,18 +68,8 @@ export default async function handler(req, res) {
     const newBalance = updatedPortfolio?.balance || 0;
 
 
-    // Record fund transaction with proper error handling
-    console.log('Creating fund transaction record for:', {
-      user_id: userId,
-      currency,
-      amount: amt,
-      type: 'recharge',
-      status: 'completed',
-      remark: remark || null,
-      admin_id: adminId || user.id
-    });
-
-    const { data: txData, error: txError } = await supabaseAdmin
+    // Record fund transaction
+    const { error: txError } = await supabaseAdmin
       .from('fund_transactions')
       .insert({
         user_id: userId,
@@ -155,22 +78,12 @@ export default async function handler(req, res) {
         type: 'recharge',
         status: 'completed',
         remark: remark || null,
-        admin_id: adminId || user.id,
-        created_by: user.email || 'admin'
-      })
-      .select()
-      .single();
+        admin_id: adminId || user.id
+      });
 
     if (txError) {
       console.error('Transaction record error:', txError);
-      console.error('Full error details:', JSON.stringify(txError, null, 2));
-      // This is critical - if we can't record the transaction, we should fail
-      return res.status(500).json({ 
-        ok: false, 
-        error: 'Failed to record transaction: ' + txError.message 
-      });
-    } else {
-      console.log('Transaction recorded successfully:', txData);
+      // Don't fail the request if transaction logging fails
     }
 
     // Manually trigger real-time balance update via HTTP request to backend
@@ -197,13 +110,9 @@ export default async function handler(req, res) {
         currency,
         amount: amt,
         newBalance,
-        transactionId: txData?.id || Date.now().toString(),
-        transactionRecorded: !!txData
+        transactionId: Date.now().toString()
       }
     });
-
-    // Log successful completion
-    console.log(`Recharge completed successfully: ${amt} ${currency} to user ${userId}. Transaction ID: ${txData?.id}`);
 
   } catch (error) {
     console.error('Recharge API error:', error);

@@ -34,12 +34,10 @@ export default function AdminFunds() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('No session for fetchUsersWithBalances');
         showNotification('error', 'Authentication required');
         return;
       }
 
-      console.log('Fetching users with balances...');
       const response = await fetch('/api/admin/users-with-balances', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -47,22 +45,16 @@ export default function AdminFunds() {
         }
       });
 
-      console.log('Users with balances response:', response.status, response.ok);
-      
       if (response.ok) {
         const data = await response.json();
-        console.log('Users with balances data:', data);
-        setUserBalances(data.data?.users || []);
-        console.log('Set userBalances to:', data.data?.users || []);
+        setUserBalances(data.data.users);
       } else {
-        const errorText = await response.text();
-        console.error('Failed to fetch users with balances:', response.status, errorText);
-        // Don't show error to user, just log it
-        setUserBalances([]); // Set empty array so we can still try direct lookup
+        console.error('Failed to fetch users with balances');
+        showNotification('error', 'Failed to fetch user balances');
       }
     } catch (error) {
       console.error('Error fetching users with balances:', error);
-      setUserBalances([]); // Set empty array so we can still try direct lookup
+      showNotification('error', 'Error fetching user balances');
     }
   };
 
@@ -84,15 +76,8 @@ export default function AdminFunds() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Fund transactions data:', data); // Debug log
-        console.log('Number of transactions fetched:', data.data?.transactions?.length || 0);
-        setFunds(data.data.transactions || []);
-        setStats(data.data.stats || {
-          totalRecharges: 0,
-          totalWithdrawals: 0,
-          pendingCount: 0,
-          completedCount: 0
-        });
+        setFunds(data.data.transactions);
+        setStats(data.data.stats);
       } else {
         console.error('Failed to fetch fund transactions');
         showNotification('error', 'Failed to fetch fund transactions');
@@ -124,74 +109,15 @@ export default function AdminFunds() {
       return;
     }
 
-    console.log('Looking for user:', operation.userAccount);
-    console.log('Available users in userBalances:', userBalances.length, userBalances.map(u => ({ email: u.email, username: u.username, id: u.id })));
-    
-    let user = null;
-    
-    // First check userBalances if available
-    if (userBalances.length > 0) {
-      user = userBalances.find(u => 
-        u.email?.toLowerCase() === operation.userAccount.toLowerCase() || 
-        u.username?.toLowerCase() === operation.userAccount.toLowerCase()
-      );
-      console.log('User found in userBalances:', user);
-    }
-    
-    // If not found in userBalances, use our find-user API
-    if (!user) {
-      console.log('User not found in userBalances, using find-user API...');
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        const response = await fetch('/api/admin/find-user', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
-          },
-          body: JSON.stringify({ email: operation.userAccount })
-        });
-        
-        if (response.ok) {
-          const userData = await response.json();
-          if (userData.ok && userData.user) {
-            user = {
-              id: userData.user.id,
-              email: userData.user.email,
-              username: userData.user.username,
-              balances: { BTC: 0, USDT: 0, ETH: 0 }
-            };
-            console.log('User found via find-user API:', user);
-          }
-        } else {
-          const errorData = await response.json();
-          console.log('Find-user API response:', errorData);
-        }
-        
-      } catch (apiError) {
-        console.error('Error calling find-user API:', apiError);
-      }
-    }
-    
-    // Final fallback for email format
-    if (!user && operation.userAccount.includes('@') && operation.userAccount.includes('.')) {
-      console.log('Creating fallback user object for valid email format');
-      user = {
-        id: operation.userAccount, // Use email as temporary ID
-        email: operation.userAccount,
-        username: operation.userAccount.split('@')[0],
-        balances: { BTC: 0, USDT: 0, ETH: 0 }
-      };
-      console.log('Created fallback user object:', user);
-    }
+    // Find user by email/username
+    const user = userBalances.find(u => 
+      u.email === operation.userAccount || u.username === operation.userAccount
+    );
     
     if (!user) {
-      showNotification('error', 'User account not found: ' + operation.userAccount);
+      showNotification('error', 'User account not found');
       return;
     }
-    
-    console.log('Using user for operation:', user);
 
     // Validate amount
     const amount = parseFloat(operation.changeAmount);
@@ -236,18 +162,15 @@ export default function AdminFunds() {
       });
 
       const result = await response.json();
-      console.log('Operation result:', result); // Debug log
 
       if (response.ok && result.ok) {
         showNotification('success', `${operation.type === 'recharge' ? 'Recharge' : 'Withdrawal'} processed successfully!`);
         
-        console.log('Operation successful, refreshing data...');
         // Refresh data
         await Promise.all([
           fetchUsersWithBalances(),
           fetchFundTransactions()
         ]);
-        console.log('Data refresh completed');
         
         // Reset form
         setShowOperationModal(false);
@@ -418,18 +341,7 @@ export default function AdminFunds() {
 
       {/* Operations History */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Operations History</h3>
-          <button 
-            onClick={() => {
-              console.log('Refreshing operations history...');
-              fetchFundTransactions();
-            }}
-            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            🔄 Refresh
-          </button>
-        </div>
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Operations History</h3>
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -442,55 +354,40 @@ export default function AdminFunds() {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target User</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remark</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {funds.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                      <div className="text-sm">No fund transactions found</div>
-                      <div className="text-xs mt-1">Perform a recharge or withdraw operation to see data here</div>
+                {funds.map((fund) => (
+                  <tr key={fund.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(fund.created_at).toLocaleDateString()}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
+                        {fund.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{fund.user_email}</div>
+                      {fund.user_username && (
+                        <div className="text-sm text-gray-500">@{fund.user_username}</div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatCurrency(fund.amount, fund.currency)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(fund.status)}`}>
+                        {fund.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
                   </tr>
-                ) : (
-                  funds.map((fund) => (
-                    <tr key={fund.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(fund.date).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(fund.type)}`}>
-                          {fund.type.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{fund.user}</div>
-                        {fund.username && fund.username !== 'Unknown' && (
-                          <div className="text-sm text-gray-500">@{fund.username}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className={fund.type === 'withdraw' ? 'text-red-600' : 'text-green-600'}>
-                          {fund.type === 'withdraw' ? '-' : '+'}{formatCurrency(fund.amount, fund.currency)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(fund.status)}`}>
-                          {fund.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {fund.adminUser || 'System'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{fund.remark || '-'}</td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
@@ -517,7 +414,7 @@ export default function AdminFunds() {
                 <select
                   value={operation.type}
                   onChange={(e) => setOperation({...operation, type: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="recharge">Recharge</option>
                   <option value="withdraw">Withdraw</option>
@@ -531,7 +428,7 @@ export default function AdminFunds() {
                   required
                   value={operation.userAccount}
                   onChange={(e) => setOperation({...operation, userAccount: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter user email or username"
                 />
               </div>
@@ -541,7 +438,7 @@ export default function AdminFunds() {
                 <select
                   value={operation.currency}
                   onChange={(e) => setOperation({...operation, currency: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="BTC">BTC</option>
                   <option value="USDT">USDT</option>
@@ -557,7 +454,7 @@ export default function AdminFunds() {
                   required
                   value={operation.changeAmount}
                   onChange={(e) => setOperation({...operation, changeAmount: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter amount"
                 />
               </div>
@@ -567,7 +464,7 @@ export default function AdminFunds() {
                 <textarea
                   value={operation.remark}
                   onChange={(e) => setOperation({...operation, remark: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter remark"
                   rows="3"
                 />
