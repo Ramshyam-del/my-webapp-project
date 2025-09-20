@@ -23,14 +23,21 @@ export default async function handler(req, res) {
     // Get limit from query params (default to 10)
     const limit = parseInt(req.query.limit) || 10;
 
-    // Fetch completed trades for the user
+    // Fetch completed trades for the user (including auto-expired trades)
+    console.log('🔍 [TRADE-HISTORY] Fetching trades for user:', user.id);
     const { data: trades, error: tradesError } = await supabase
       .from('trades')
       .select('*')
       .eq('user_id', user.id)
-      .in('status', ['CLOSED', 'completed', 'SETTLED', 'COMPLETED'])
+      .or('status.in.(CLOSED,completed,SETTLED,COMPLETED),and(trade_result.in.(win,loss),auto_expired.eq.true)')
       .order('created_at', { ascending: false })
       .limit(limit);
+      
+    console.log('🔍 [TRADE-HISTORY] Query result:', { 
+      tradesCount: trades?.length || 0, 
+      error: tradesError,
+      firstTrade: trades?.[0] 
+    });
 
     if (tradesError) {
       console.error('Error fetching trade history:', tradesError);

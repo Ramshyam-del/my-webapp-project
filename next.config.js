@@ -19,6 +19,10 @@ const nextConfig = {
         destination: '/api/crypto/:path*', // Keep crypto routes local
       },
       {
+        source: '/api/trading/:path*',
+        destination: '/api/trading/:path*', // Keep trading routes local
+      },
+      {
         source: '/api/:path*',
         destination: `${BACKEND_URL}/api/:path*`,
       },

@@ -52,7 +52,8 @@ export default function MarketPage() {
         const data = await response.json();
         
         const formattedData = data.data.map(crypto => ({
-          id: crypto.symbol.toLowerCase(),
+          id: crypto.id || crypto.symbol.toLowerCase(), // Use proper ID from API
+          symbol: crypto.symbol,
           name: `${crypto.symbol}/USDT`,
           icon: crypto.icon || `https://s2.coinmarketcap.com/static/img/coins/64x64/${crypto.id || '1'}.png`,
           price: parseFloat(crypto.price).toFixed(2),

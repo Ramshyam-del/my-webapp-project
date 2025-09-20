@@ -414,7 +414,7 @@ export default function AdminFunds() {
                 <select
                   value={operation.type}
                   onChange={(e) => setOperation({...operation, type: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                 >
                   <option value="recharge">Recharge</option>
                   <option value="withdraw">Withdraw</option>
@@ -428,7 +428,7 @@ export default function AdminFunds() {
                   required
                   value={operation.userAccount}
                   onChange={(e) => setOperation({...operation, userAccount: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   placeholder="Enter user email or username"
                 />
               </div>
@@ -438,7 +438,7 @@ export default function AdminFunds() {
                 <select
                   value={operation.currency}
                   onChange={(e) => setOperation({...operation, currency: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                 >
                   <option value="BTC">BTC</option>
                   <option value="USDT">USDT</option>
@@ -454,7 +454,7 @@ export default function AdminFunds() {
                   required
                   value={operation.changeAmount}
                   onChange={(e) => setOperation({...operation, changeAmount: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   placeholder="Enter amount"
                 />
               </div>
@@ -464,7 +464,7 @@ export default function AdminFunds() {
                 <textarea
                   value={operation.remark}
                   onChange={(e) => setOperation({...operation, remark: e.target.value})}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
                   placeholder="Enter remark"
                   rows="3"
                 />

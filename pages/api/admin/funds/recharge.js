@@ -44,33 +44,29 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: 'Invalid input' });
     }
 
-    // Upsert portfolio - create if doesn't exist, update if exists
-    const { data: pf, error: pfError } = await supabaseAdmin
+    // Use the adjust_balance function to safely add balance
+    const { data: adjustResult, error: adjustError } = await supabaseAdmin
+      .rpc('adjust_balance', {
+        p_user_id: userId,
+        p_currency: currency,
+        p_delta: amt
+      });
+
+    if (adjustError) {
+      console.error('Balance adjustment error:', adjustError);
+      return res.status(500).json({ ok: false, error: 'Failed to adjust balance: ' + adjustError.message });
+    }
+
+    // Get the updated balance for response
+    const { data: updatedPortfolio, error: portfolioError } = await supabaseAdmin
       .from('portfolios')
-      .upsert(
-        { user_id: userId, currency, balance: 0 },
-        { onConflict: 'user_id,currency', ignoreDuplicates: false }
-      )
-      .select()
+      .select('balance')
+      .eq('user_id', userId)
+      .eq('currency', currency)
       .single();
 
-    if (pfError) {
-      console.error('Portfolio upsert error:', pfError);
-      return res.status(500).json({ ok: false, error: 'Failed to update portfolio' });
-    }
+    const newBalance = updatedPortfolio?.balance || 0;
 
-    // Update balance
-    const newBalance = Number(pf.balance) + amt;
-    const { error: updateError } = await supabaseAdmin
-      .from('portfolios')
-      .update({ balance: newBalance })
-      .eq('user_id', userId)
-      .eq('currency', currency);
-
-    if (updateError) {
-      console.error('Balance update error:', updateError);
-      return res.status(500).json({ ok: false, error: 'Failed to update balance' });
-    }
 
     // Record fund transaction
     const { error: txError } = await supabaseAdmin

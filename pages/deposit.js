@@ -5,6 +5,7 @@ import { safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { useConfig } from '../hooks/useConfig';
 import DepositMonitor from '../components/DepositMonitor';
 import { getCryptoImageUrl } from '../utils/cryptoIcons';
+import configSync from '../utils/configSync';
 
 export default function DepositPage() {
   const router = useRouter();
@@ -204,7 +205,35 @@ export default function DepositPage() {
     // Load active deposits
     loadDepositHistory();
 
-    // Listen for config updates from other tabs/windows
+    // Start config sync polling for real-time updates
+    configSync.startPolling(5000); // Poll every 5 seconds
+
+    // Add listener for config updates
+    const handleConfigSync = (newConfig) => {
+      const updatedOptions = cryptoOptions.map(crypto => {
+        let address = crypto.address;
+        
+        // Map admin panel field names to crypto IDs
+        if (crypto.id === 'bitcoin' && newConfig.btcAddress) {
+          address = newConfig.btcAddress;
+        } else if (crypto.id === 'ethereum' && newConfig.ethAddress) {
+          address = newConfig.ethAddress;
+        } else if (crypto.id === 'usdt' && newConfig.usdtAddress) {
+          address = newConfig.usdtAddress;
+        }
+        
+        return {
+          ...crypto,
+          address: address,
+          qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+        };
+      });
+      setCryptoOptions(updatedOptions);
+    };
+
+    configSync.addListener(handleConfigSync);
+
+    // Listen for config updates from other tabs/windows (backward compatibility)
     const handleConfigUpdate = (event) => {
       if (event.detail?.config) {
         const config = event.detail.config;
@@ -263,6 +292,7 @@ export default function DepositPage() {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         loadConfig();
+        configSync.forceRefresh(); // Force check for updates
       }
     };
 
@@ -274,6 +304,10 @@ export default function DepositPage() {
     }
 
     return () => {
+      // Stop polling and remove listeners
+      configSync.stopPolling();
+      configSync.removeListener(handleConfigSync);
+      
       const document = getSafeDocument();
       if (document) {
         document.removeEventListener('webConfigUpdated', handleConfigUpdate);

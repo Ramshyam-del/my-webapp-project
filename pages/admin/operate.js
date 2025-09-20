@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../../utils/safeStorage';
+import configSync from '../../utils/configSync';
 
 export default function AdminOperate() {
   const [activeTab, setActiveTab] = useState('home');
@@ -232,7 +233,11 @@ export default function AdminOperate() {
       if (adminConfigResponse.ok) {
         // Also save to localStorage as backup
         safeLocalStorage.setItem('webConfig', JSON.stringify(config));
-        // Trigger events for frontend updates
+        
+        // Force refresh config sync to notify all devices
+        await configSync.forceRefresh();
+        
+        // Trigger events for frontend updates (backward compatibility)
         const document = getSafeDocument();
         if (document) {
           document.dispatchEvent(new StorageEvent('storage', {
@@ -243,7 +248,7 @@ export default function AdminOperate() {
             detail: { config }
           }));
         }
-        alert('Configuration saved successfully! Settings have been updated.');
+        alert('Configuration saved successfully! Settings have been updated across all devices.');
       } else {
         alert('Failed to save configuration to database. Please try again.');
       }
@@ -381,7 +386,7 @@ export default function AdminOperate() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Working hours</label>
             <div className="space-y-2">
-              {Object.entries(config.workingHours).map(([key, value]) => (
+              {Object.entries(config.workingHours || {}).map(([key, value]) => (
                 <label key={key} className="flex items-center">
                   <input
                     type="checkbox"
@@ -398,7 +403,7 @@ export default function AdminOperate() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Menu management</label>
             <div className="space-y-2">
-              {Object.entries(config.menuManagement).map(([key, value]) => (
+              {Object.entries(config.menuManagement || {}).map(([key, value]) => (
                 <label key={key} className="flex items-center">
                   <input
                     type="checkbox"
