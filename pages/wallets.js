@@ -17,7 +17,7 @@ function DepositModal({ open, onClose, walletAddresses }) {
   if (!open) return null;
 
   const cryptoOptions = [
-    { value: 'usdt', label: 'USDT', icon: getCryptoImageUrl('USDT'), network: 'ERC-20 Token' },
+    { value: 'usdt', label: 'USDT', icon: getCryptoImageUrl('USDT'), network: 'TRC-20 Token' },
     { value: 'btc', label: 'BTC', icon: getCryptoImageUrl('BTC'), network: 'Bitcoin Network' },
     { value: 'eth', label: 'ETH', icon: getCryptoImageUrl('ETH'), network: 'Ethereum Network' }
   ];

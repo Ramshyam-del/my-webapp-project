@@ -1566,7 +1566,7 @@ export default function PortfolioPage() {
                   className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2"
                 >
                   <option value="">Select Network</option>
-                  <option value="ethereum">Ethereum (ERC-20)</option>
+                  <option value="ethereum">Ethereum (TRC-20)</option>
                   <option value="tron">Tron (TRC-20)</option>
                   <option value="bitcoin">Bitcoin</option>
                 </select>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useConfig } from '../hooks/useConfig';
 import { supabase } from '../lib/supabase';
@@ -24,7 +23,6 @@ export default function WithdrawPage() {
   const [cryptoPrices, setCryptoPrices] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [successWithdrawal, setSuccessWithdrawal] = useState(null); // Store withdrawal details for success modal
 
   const currencies = [
     { 
@@ -192,10 +190,15 @@ export default function WithdrawPage() {
 
   // Handle withdraw
   const handleWithdraw = async () => {
-    if (!user) {
+    // Check authentication state first
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (!session || sessionError) {
       alert('Please log in to make a withdrawal');
+      router.push('/login');
       return;
     }
+    
     if (!selectedCurrency) {
       alert('Please select a currency');
       return;
@@ -221,16 +224,7 @@ export default function WithdrawPage() {
     setWithdrawalLoading(true);
     
     try {
-      // Get user session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        alert('Please log in again to continue');
-        router.push('/login');
-        return;
-      }
-
-      // Call the withdrawal API endpoint
+      // Use the session we already verified above
       const response = await fetch('/api/withdrawals/create', {
         method: 'POST',
         headers: {
@@ -248,16 +242,9 @@ export default function WithdrawPage() {
       const result = await response.json();
 
       if (result.ok) {
-        // Store withdrawal details for success modal BEFORE resetting form
-        setSuccessWithdrawal({
-          currency: selectedCurrency,
-          amount: amount,
-          network: selectedNetwork,
-          address: address
-        });
         setSuccessMessage('Withdrawal request submitted successfully! Your request is now pending admin approval.');
         setShowSuccessModal(true);
-        // Reset form AFTER storing withdrawal details
+        // Reset form
         setAddress('');
         setAmount('');
         setWithdrawalNote('');
@@ -272,12 +259,17 @@ export default function WithdrawPage() {
     }
   };
 
-  // Redirect if not authenticated
+  // Only redirect if we're certain the user is not authenticated
+  // Don't redirect during loading states
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/login');
+    if (!authLoading && !isAuthenticated && user === null) {
+      // Only redirect if auth is fully loaded and we're certain user is not authenticated
+      const timer = setTimeout(() => {
+        router.push('/login');
+      }, 1000); // Give a small delay to allow auth state to settle
+      return () => clearTimeout(timer);
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, user, router]);
 
   // Fetch balance when user is loaded
   useEffect(() => {
@@ -298,7 +290,8 @@ export default function WithdrawPage() {
     }
   }, [selectedCurrency, selectedNetwork]);
 
-  if (!mounted || configLoading || authLoading || balanceLoading) {
+  // Show loading while authentication is being resolved
+  if (!mounted || configLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <div className="text-center">
@@ -309,11 +302,18 @@ export default function WithdrawPage() {
     );
   }
 
-  if (!isAuthenticated || !user) {
+  // Show login prompt only if we're certain user is not authenticated
+  if (!authLoading && !isAuthenticated && user === null) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <p>Redirecting to login...</p>
+        <div className="text-center space-y-4">
+          <p className="text-xl">Please log in to access withdrawals</p>
+          <button 
+            onClick={() => router.push('/login')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     );
@@ -602,15 +602,15 @@ export default function WithdrawPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Currency:</span>
-                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.currency || selectedCurrency}</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedCurrency}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Amount:</span>
-                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.amount || amount} {successWithdrawal?.currency || selectedCurrency}</span>
+                  <span className="text-sm font-medium text-gray-900">{amount} {selectedCurrency}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Network:</span>
-                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.network || selectedNetwork}</span>
+                  <span className="text-sm font-medium text-gray-900">{selectedNetwork}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Status:</span>
