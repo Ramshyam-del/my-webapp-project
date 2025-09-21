@@ -285,11 +285,26 @@ export default function PortfolioPage() {
       let next;
       if (saved) {
         const cfg = JSON.parse(saved);
+        console.log('Loading deposit addresses from localStorage:', cfg);
+        
+        // Extract addresses with fallbacks to ensure we always have the correct production addresses
         next = {
-          usdt: cfg.usdtAddress || (cfg.deposit_addresses?.usdt ?? 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W'),
-          btc: cfg.btcAddress || (cfg.deposit_addresses?.btc ?? '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4'),
-          eth: cfg.ethAddress || (cfg.deposit_addresses?.eth ?? '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'),
+          usdt: cfg.usdtAddress || cfg.deposit_addresses?.usdt || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: cfg.btcAddress || cfg.deposit_addresses?.btc || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: cfg.ethAddress || cfg.deposit_addresses?.eth || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
         };
+        
+        // If any address is missing from config, force update with production addresses
+        if (!cfg.usdtAddress || !cfg.btcAddress || !cfg.ethAddress) {
+          console.warn('Missing wallet addresses in config, forcing update with production addresses');
+          const updatedConfig = {
+            ...cfg,
+            usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+            btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+            ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+          };
+          safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+        }
       } else {
         // Use default addresses if no config exists
         next = {
@@ -298,16 +313,18 @@ export default function PortfolioPage() {
           eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
         };
       }
-      console.log('Loading deposit addresses:', next);
+      console.log('Final deposit addresses loaded:', next);
       setDepositAddresses(next);
     } catch (_e) {
       console.error('Error loading deposit addresses:', _e);
       // Fallback to default addresses on error
-      setDepositAddresses({
+      const fallbackAddresses = {
         usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
         btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
         eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-      });
+      };
+      console.log('Using fallback addresses:', fallbackAddresses);
+      setDepositAddresses(fallbackAddresses);
     }
   };
 

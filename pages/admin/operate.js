@@ -992,6 +992,82 @@ export default function AdminOperate() {
           </button>
           <button
             onClick={() => {
+              try {
+                // Clear localStorage cache completely
+                safeLocalStorage.removeItem('webConfig');
+                
+                // Set fresh config with correct addresses
+                const freshConfig = {
+                  ...config,
+                  usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                  btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                  ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
+                  lastClearTime: new Date().toISOString()
+                };
+                
+                safeLocalStorage.setItem('webConfig', JSON.stringify(freshConfig));
+                
+                // Trigger events to update all pages
+                const document = getSafeDocument();
+                if (document) {
+                  document.dispatchEvent(new StorageEvent('storage', {
+                    key: 'webConfig',
+                    newValue: JSON.stringify(freshConfig)
+                  }));
+                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: freshConfig, forceClear: true }
+                  }));
+                  document.dispatchEvent(new CustomEvent('forceAddressUpdate', {
+                    detail: { addresses: freshConfig, timestamp: Date.now() }
+                  }));
+                }
+                
+                alert('🧹 Cache cleared and fresh addresses deployed!');
+              } catch (error) {
+                console.error('Cache clear error:', error);
+                alert('❌ Cache clear failed: ' + error.message);
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+          >
+            🧹 Clear Cache & Redeploy
+          </button>
+          <button
+            onClick={() => {
+              try {
+                const currentConfig = safeLocalStorage.getItem('webConfig');
+                if (currentConfig) {
+                  const parsed = JSON.parse(currentConfig);
+                  const debugInfo = {
+                    usdtAddress: parsed.usdtAddress || 'MISSING',
+                    btcAddress: parsed.btcAddress || 'MISSING',
+                    ethAddress: parsed.ethAddress || 'MISSING',
+                    hasDepositAddresses: !!parsed.deposit_addresses,
+                    configKeys: Object.keys(parsed)
+                  };
+                  console.log('Current localStorage config:', parsed);
+                  console.log('Address debug info:', debugInfo);
+                  alert(`Debug Info:
+
+USDT: ${debugInfo.usdtAddress}
+BTC: ${debugInfo.btcAddress}
+ETH: ${debugInfo.ethAddress}
+
+Has deposit_addresses: ${debugInfo.hasDepositAddresses}
+Config keys: ${debugInfo.configKeys.length}`);
+                } else {
+                  alert('No webConfig found in localStorage');
+                }
+              } catch (error) {
+                alert('Error reading config: ' + error.message);
+              }
+            }}
+            className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+          >
+            🔍 Debug Config
+          </button>
+          <button
+            onClick={() => {
               // Trigger a storage event to test real-time updates
               const testConfig = {
                 ...config,
