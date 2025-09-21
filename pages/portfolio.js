@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { supabase } from '../lib/supabase';
 import useRealTimeBalance from '../hooks/useRealTimeBalance';
 import { useAuth } from '../contexts/AuthContext';
 import { getCryptoImageUrl } from '../utils/cryptoIcons';
+import { useConfig } from '../hooks/useConfig';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -75,6 +77,9 @@ export default function PortfolioPage() {
   const router = useRouter();
   const [marketData, setMarketData] = useState([]);
   
+  // Enhanced configuration hook with cross-device sync
+  const { config: configFromHook, loading: configLoading } = useConfig();
+  
   // Authentication context
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
   
@@ -97,7 +102,11 @@ export default function PortfolioPage() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositAddresses, setDepositAddresses] = useState({ usdt: '', btc: '', eth: '' });
+  const [depositAddresses, setDepositAddresses] = useState({ 
+    usdt: configFromHook.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W', 
+    btc: configFromHook.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4', 
+    eth: configFromHook.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975' 
+  });
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawalAddress, setWithdrawalAddress] = useState('');
   const [withdrawalNetwork, setWithdrawalNetwork] = useState('');
@@ -274,23 +283,18 @@ export default function PortfolioPage() {
     }
   };
 
-  // Load deposit addresses from webConfig stored by admin /admin/operate
-  const loadDepositAddressesFromLocal = () => {
-    try {
-      const saved = safeLocalStorage.getItem('webConfig');
-      if (!saved) return;
-      const cfg = JSON.parse(saved);
-      const next = {
-        usdt: cfg.usdtAddress || (cfg.deposit_addresses?.usdt ?? ''),
-        btc: cfg.btcAddress || (cfg.deposit_addresses?.btc ?? ''),
-        eth: cfg.ethAddress || (cfg.deposit_addresses?.eth ?? ''),
+  // Update deposit addresses when config changes (cross-device sync)
+  useEffect(() => {
+    if (configFromHook && !configLoading) {
+      const updatedAddresses = {
+        usdt: configFromHook.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+        btc: configFromHook.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+        eth: configFromHook.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
       };
-      console.log('Loading deposit addresses:', next);
-      setDepositAddresses(next);
-    } catch (_e) {
-      console.error('Error loading deposit addresses:', _e);
+      console.log('Updating deposit addresses from config:', updatedAddresses);
+      setDepositAddresses(updatedAddresses);
     }
-  };
+  }, [configFromHook, configLoading]);
 
   // Handle withdrawal submission
   const handleWithdrawalSubmit = async () => {
@@ -676,7 +680,7 @@ export default function PortfolioPage() {
     
     setMounted(true);
     fetchContactConfig(); // Fetch contact configuration
-    loadDepositAddressesFromLocal();
+    // Deposit addresses now handled by useConfig hook with cross-device sync
 
 
 
