@@ -47,7 +47,27 @@ export default function AdminOperate() {
     // Load configuration from localStorage or API
     const savedConfig = safeLocalStorage.getItem('webConfig');
     if (savedConfig) {
-      setConfig(JSON.parse(savedConfig));
+      const parsedConfig = JSON.parse(savedConfig);
+      // Force update with production addresses if they're still old/empty
+      const updatedConfig = {
+        ...parsedConfig,
+        usdtAddress: parsedConfig.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+        btcAddress: parsedConfig.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+        ethAddress: parsedConfig.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+      };
+      setConfig(updatedConfig);
+      // Save the updated config back to localStorage
+      safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+    } else {
+      // No saved config, use production defaults
+      const defaultConfig = {
+        ...config,
+        usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+        btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+        ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+      };
+      setConfig(defaultConfig);
+      safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
     }
   }, []);
 
@@ -920,21 +940,44 @@ export default function AdminOperate() {
           </button>
           <button
             onClick={() => {
+              // Clear localStorage cache first
+              safeLocalStorage.removeItem('webConfig');
+              
               const defaultConfig = {
                 ...config,
                 usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
                 btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
                 ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
               };
+              
+              // Update state immediately
+              setConfig(defaultConfig);
+              
+              // Save to localStorage
+              safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
+              
               // Update each field individually to ensure database persistence
               updateConfigField('usdtAddress', defaultConfig.usdtAddress);
               updateConfigField('btcAddress', defaultConfig.btcAddress);
               updateConfigField('ethAddress', defaultConfig.ethAddress);
-              alert('Default addresses restored!');
+              
+              // Trigger frontend updates
+              const document = getSafeDocument();
+              if (document) {
+                document.dispatchEvent(new StorageEvent('storage', {
+                  key: 'webConfig',
+                  newValue: JSON.stringify(defaultConfig)
+                }));
+                document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                  detail: { config: defaultConfig }
+                }));
+              }
+              
+              alert('Cache cleared and production addresses restored! Please refresh the page if needed.');
             }}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
-            Restore Default Addresses
+            Force Update Production Addresses
           </button>
         </div>
       </div>
@@ -990,24 +1033,61 @@ export default function AdminOperate() {
 
         {/* Action Buttons */}
         <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={resetConfig}
-              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
-            >
-              Reset
-            </button>
-            <button
-              onClick={saveConfig}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              OK
-            </button>
+          <div className="flex justify-between">
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  // Clear all cached configuration data
+                  safeLocalStorage.removeItem('webConfig');
+                  safeLocalStorage.removeItem('config');
+                  
+                  // Force reload with production addresses
+                  const productionConfig = {
+                    ...config,
+                    usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                    btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                    ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+                  };
+                  
+                  setConfig(productionConfig);
+                  safeLocalStorage.setItem('webConfig', JSON.stringify(productionConfig));
+                  
+                  // Force frontend updates
+                  const document = getSafeDocument();
+                  if (document) {
+                    document.dispatchEvent(new StorageEvent('storage', {
+                      key: 'webConfig',
+                      newValue: JSON.stringify(productionConfig)
+                    }));
+                    document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                      detail: { config: productionConfig }
+                    }));
+                  }
+                  
+                  alert('Cache cleared! Production addresses loaded. Please refresh any open portfolio pages to see the updated addresses.');
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Clear Cache & Force Production Addresses
+              </button>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={resetConfig}
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Reset
+              </button>
+              <button
+                onClick={saveConfig}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
           </div>
         </div>
       </div>
-
-      
     </div>
   );
 }
