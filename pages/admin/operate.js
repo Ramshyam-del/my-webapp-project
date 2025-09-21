@@ -44,6 +44,18 @@ export default function AdminOperate() {
 
 
   useEffect(() => {
+    // Initialize cross-device config synchronization
+    configSync.startPolling(3000); // Poll every 3 seconds for wallet address updates
+    
+    // Add listener for config updates from other devices
+    const handleConfigUpdate = (newConfig) => {
+      console.log('Received config update from another device:', newConfig);
+      setConfig(newConfig);
+      safeLocalStorage.setItem('webConfig', JSON.stringify(newConfig));
+    };
+    
+    configSync.addListener(handleConfigUpdate);
+    
     // Load configuration from localStorage or API
     const savedConfig = safeLocalStorage.getItem('webConfig');
     if (savedConfig) {
@@ -69,6 +81,12 @@ export default function AdminOperate() {
       setConfig(defaultConfig);
       safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
     }
+    
+    // Cleanup function
+    return () => {
+      configSync.removeListener(handleConfigUpdate);
+      configSync.stopPolling();
+    };
   }, []);
 
   // Auto-close frontend preview after 10 seconds
@@ -162,6 +180,17 @@ export default function AdminOperate() {
       // Also save to main config API for deposit addresses
       if (['usdtAddress', 'btcAddress', 'ethAddress'].includes(field)) {
         await saveConfigToDatabase(updatedConfig);
+      }
+      
+      // Force cross-device synchronization for wallet address changes
+      if (['usdtAddress', 'btcAddress', 'ethAddress'].includes(field)) {
+        console.log('Triggering cross-device sync for wallet address update');
+        await configSync.forceRefresh();
+        
+        // Additional broadcast to ensure all devices get the update
+        setTimeout(async () => {
+          await configSync.forceRefresh();
+        }, 1000);
       }
       
     } catch (error) {
@@ -751,9 +780,9 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={() => {
-                   updateConfigField('usdtAddress', 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W');
-                   alert('USDT address updated and saved successfully!');
+                 onClick={async () => {
+                   await updateConfigField('usdtAddress', 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W');
+                   alert('USDT address updated and synced to all devices!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -794,9 +823,9 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={() => {
-                   updateConfigField('btcAddress', '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4');
-                   alert('BTC address updated and saved successfully!');
+                 onClick={async () => {
+                   await updateConfigField('btcAddress', '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4');
+                   alert('BTC address updated and synced to all devices!');
                  }}
                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
                >
@@ -837,9 +866,9 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={() => {
-                   updateConfigField('ethAddress', '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975');
-                   alert('ETH address updated and saved successfully!');
+                 onClick={async () => {
+                   await updateConfigField('ethAddress', '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975');
+                   alert('ETH address updated and synced to all devices!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -939,7 +968,7 @@ export default function AdminOperate() {
             Apply Test Addresses
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               // Clear localStorage cache first
               safeLocalStorage.removeItem('webConfig');
               
@@ -957,9 +986,9 @@ export default function AdminOperate() {
               safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
               
               // Update each field individually to ensure database persistence
-              updateConfigField('usdtAddress', defaultConfig.usdtAddress);
-              updateConfigField('btcAddress', defaultConfig.btcAddress);
-              updateConfigField('ethAddress', defaultConfig.ethAddress);
+              await updateConfigField('usdtAddress', defaultConfig.usdtAddress);
+              await updateConfigField('btcAddress', defaultConfig.btcAddress);
+              await updateConfigField('ethAddress', defaultConfig.ethAddress);
               
               // Trigger frontend updates
               const document = getSafeDocument();
@@ -973,11 +1002,20 @@ export default function AdminOperate() {
                 }));
               }
               
-              alert('Cache cleared and production addresses restored! Please refresh the page if needed.');
+              // Force cross-device synchronization
+              console.log('Syncing wallet addresses to all devices...');
+              await configSync.forceRefresh();
+              
+              // Additional sync to ensure all devices receive updates
+              setTimeout(async () => {
+                await configSync.forceRefresh();
+              }, 3000);
+              
+              alert('Production addresses updated and synced to ALL devices! All browsers and devices will receive the new wallet addresses within 10 seconds.');
             }}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
-            Force Update Production Addresses
+            🔄 Force Update Production Addresses (All Devices)
           </button>
         </div>
       </div>
@@ -1036,7 +1074,7 @@ export default function AdminOperate() {
           <div className="flex justify-between">
             <div className="flex space-x-3">
               <button
-                onClick={() => {
+                onClick={async () => {
                   // Clear all cached configuration data
                   safeLocalStorage.removeItem('webConfig');
                   safeLocalStorage.removeItem('config');
@@ -1052,6 +1090,24 @@ export default function AdminOperate() {
                   setConfig(productionConfig);
                   safeLocalStorage.setItem('webConfig', JSON.stringify(productionConfig));
                   
+                  // Update each field individually in database
+                  await updateConfigField('usdtAddress', productionConfig.usdtAddress);
+                  await updateConfigField('btcAddress', productionConfig.btcAddress);
+                  await updateConfigField('ethAddress', productionConfig.ethAddress);
+                  
+                  // Force cross-device synchronization
+                  console.log('Forcing cross-device sync for all devices...');
+                  await configSync.forceRefresh();
+                  
+                  // Additional sync attempts to ensure propagation
+                  setTimeout(async () => {
+                    await configSync.forceRefresh();
+                  }, 2000);
+                  
+                  setTimeout(async () => {
+                    await configSync.forceRefresh();
+                  }, 5000);
+                  
                   // Force frontend updates
                   const document = getSafeDocument();
                   if (document) {
@@ -1064,11 +1120,11 @@ export default function AdminOperate() {
                     }));
                   }
                   
-                  alert('Cache cleared! Production addresses loaded. Please refresh any open portfolio pages to see the updated addresses.');
+                  alert('Cache cleared and production addresses deployed to ALL DEVICES! Please wait 10 seconds for all devices to sync, then refresh any open portfolio pages.');
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
               >
-                Clear Cache & Force Production Addresses
+                🌐 Deploy to All Devices - Clear Cache & Force Production Addresses
               </button>
             </div>
             <div className="flex space-x-3">
