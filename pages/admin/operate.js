@@ -732,8 +732,7 @@ export default function AdminOperate() {
                          <div className="mt-2 flex gap-2">
                <button
                  onClick={() => {
-                   const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
-                   updateConfigField('usdtAddress', newAddress);
+                   updateConfigField('usdtAddress', 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W');
                    alert('USDT address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
@@ -776,8 +775,7 @@ export default function AdminOperate() {
                          <div className="mt-2 flex gap-2">
                <button
                  onClick={() => {
-                   const newAddress = 'bc1' + Math.random().toString(16).substr(2, 30);
-                   updateConfigField('btcAddress', newAddress);
+                   updateConfigField('btcAddress', '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4');
                    alert('BTC address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
@@ -820,8 +818,7 @@ export default function AdminOperate() {
                          <div className="mt-2 flex gap-2">
                <button
                  onClick={() => {
-                   const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
-                   updateConfigField('ethAddress', newAddress);
+                   updateConfigField('ethAddress', '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975');
                    alert('ETH address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
@@ -925,9 +922,9 @@ export default function AdminOperate() {
             onClick={() => {
               const defaultConfig = {
                 ...config,
-                usdtAddress: '0x1234abcd5678efgh9012ijkl3456mnop7890qrst',
-                btcAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-                ethAddress: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+                usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
               };
               // Update each field individually to ensure database persistence
               updateConfigField('usdtAddress', defaultConfig.usdtAddress);
