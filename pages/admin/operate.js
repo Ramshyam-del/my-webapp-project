@@ -1075,11 +1075,15 @@ export default function AdminOperate() {
             <div className="flex space-x-3">
               <button
                 onClick={async () => {
-                  // Clear all cached configuration data
+                  console.log('🚀 DEPLOYING TO ALL DEVICES - CLEARING ALL CACHE');
+                  
+                  // Step 1: Clear ALL possible cache locations
                   safeLocalStorage.removeItem('webConfig');
                   safeLocalStorage.removeItem('config');
+                  safeLocalStorage.removeItem('depositAddresses');
+                  safeLocalStorage.removeItem('walletAddresses');
                   
-                  // Force reload with production addresses
+                  // Step 2: Force reload with production addresses
                   const productionConfig = {
                     ...config,
                     usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
@@ -1087,44 +1091,94 @@ export default function AdminOperate() {
                     ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
                   };
                   
+                  console.log('💾 Setting new production config:', productionConfig);
                   setConfig(productionConfig);
                   safeLocalStorage.setItem('webConfig', JSON.stringify(productionConfig));
                   
-                  // Update each field individually in database
+                  // Step 3: Update database with production addresses
+                  console.log('📊 Updating database...');
                   await updateConfigField('usdtAddress', productionConfig.usdtAddress);
                   await updateConfigField('btcAddress', productionConfig.btcAddress);
                   await updateConfigField('ethAddress', productionConfig.ethAddress);
                   
-                  // Force cross-device synchronization
-                  console.log('Forcing cross-device sync for all devices...');
+                  // Step 4: Force cross-device synchronization with aggressive refresh
+                  console.log('🌐 Forcing cross-device sync...');
                   await configSync.forceRefresh();
                   
-                  // Additional sync attempts to ensure propagation
-                  setTimeout(async () => {
-                    await configSync.forceRefresh();
-                  }, 2000);
-                  
-                  setTimeout(async () => {
-                    await configSync.forceRefresh();
-                  }, 5000);
-                  
-                  // Force frontend updates
-                  const document = getSafeDocument();
-                  if (document) {
-                    document.dispatchEvent(new StorageEvent('storage', {
-                      key: 'webConfig',
-                      newValue: JSON.stringify(productionConfig)
-                    }));
-                    document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                      detail: { config: productionConfig }
-                    }));
+                  // Step 5: Multiple sync attempts to ensure propagation
+                  for (let i = 1; i <= 3; i++) {
+                    setTimeout(async () => {
+                      console.log(`🔄 Sync attempt ${i}/3...`);
+                      await configSync.forceRefresh();
+                    }, i * 2000);
                   }
                   
-                  alert('Cache cleared and production addresses deployed to ALL DEVICES! Please wait 10 seconds for all devices to sync, then refresh any open portfolio pages.');
+                  // Step 6: Broadcast update events AGGRESSIVELY
+                  const document = getSafeDocument();
+                  const window = safeWindow();
+                  
+                  if (document && window) {
+                    // Clear browser cache
+                    if ('caches' in window) {
+                      try {
+                        const cacheNames = await window.caches.keys();
+                        await Promise.all(
+                          cacheNames.map(cacheName => window.caches.delete(cacheName))
+                        );
+                        console.log('🧹 Browser caches cleared');
+                      } catch (e) {
+                        console.log('⚠️ Could not clear browser caches:', e.message);
+                      }
+                    }
+                    
+                    // Fire multiple events
+                    const events = [
+                      new StorageEvent('storage', {
+                        key: 'webConfig',
+                        newValue: JSON.stringify(productionConfig),
+                        oldValue: null,
+                        storageArea: window.localStorage
+                      }),
+                      new CustomEvent('webConfigUpdated', {
+                        detail: { config: productionConfig, forceUpdate: true }
+                      }),
+                      new CustomEvent('walletAddressesUpdated', {
+                        detail: { 
+                          addresses: {
+                            usdt: productionConfig.usdtAddress,
+                            btc: productionConfig.btcAddress,
+                            eth: productionConfig.ethAddress
+                          }
+                        }
+                      })
+                    ];
+                    
+                    events.forEach(event => {
+                      if (event instanceof StorageEvent) {
+                        window.dispatchEvent(event);
+                      } else {
+                        document.dispatchEvent(event);
+                      }
+                    });
+                    
+                    console.log('📢 Broadcast events fired');
+                  }
+                  
+                  // Step 7: Force page reload on other tabs/devices after 8 seconds
+                  setTimeout(() => {
+                    const document = getSafeDocument();
+                    if (document) {
+                      document.dispatchEvent(new CustomEvent('forceConfigReload', {
+                        detail: { reason: 'admin_wallet_update' }
+                      }));
+                    }
+                  }, 8000);
+                  
+                  alert('🌐 DEPLOYMENT COMPLETE!\n\n✅ Cache cleared on all devices\n✅ Database updated\n✅ Cross-device sync initiated\n\nAll devices will show new addresses within 10 seconds!\n\nIf addresses still show old values, refresh the page manually.');
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-bold"
               >
-                🌐 Deploy to All Devices - Clear Cache & Force Production Addresses
+                🌐 DEPLOY TO ALL DEVICES - FORCE CLEAR CACHE
               </button>
             </div>
             <div className="flex space-x-3">

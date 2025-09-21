@@ -305,7 +305,7 @@ export default function PortfolioPage() {
     }
   }, [configFromHook, configLoading, depositAddresses]);
   
-  // Additional fallback: Listen for direct localStorage and storage events
+  // Additional fallback: Listen for direct localStorage and storage events + FORCE RELOAD events
   useEffect(() => {
     const handleDirectStorageUpdate = () => {
       console.log('🔊 Portfolio: Direct storage event detected');
@@ -340,6 +340,39 @@ export default function PortfolioPage() {
       }
     };
     
+    const handleWalletAddressEvent = (event) => {
+      console.log('💰 Portfolio: Wallet addresses event detected:', event.detail);
+      if (event.detail && event.detail.addresses) {
+        const addresses = event.detail.addresses;
+        const walletAddresses = {
+          usdt: addresses.usdt || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: addresses.btc || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: addresses.eth || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        };
+        console.log('💳 Portfolio: Wallet event update addresses:', walletAddresses);
+        setDepositAddresses(walletAddresses);
+      }
+    };
+    
+    const handleForceReload = (event) => {
+      console.log('🔄 Portfolio: Force reload event detected:', event.detail);
+      // Clear all local cache first
+      try {
+        safeLocalStorage.removeItem('webConfig');
+        safeLocalStorage.removeItem('config');
+        safeLocalStorage.removeItem('depositAddresses');
+        console.log('🧹 Portfolio: Local cache cleared');
+        
+        // Force reload page after 2 seconds to get fresh data
+        setTimeout(() => {
+          console.log('🔄 Portfolio: Reloading page to get fresh data...');
+          window.location.reload();
+        }, 2000);
+      } catch (error) {
+        console.error('Error in force reload:', error);
+      }
+    };
+    
     const handleStorageEvent = (e) => {
       if (e.key === 'webConfig') {
         console.log('🖼️ Portfolio: Cross-tab storage event detected');
@@ -353,17 +386,44 @@ export default function PortfolioPage() {
     
     if (doc) {
       doc.addEventListener('webConfigUpdated', handleCustomConfigEvent);
+      doc.addEventListener('walletAddressesUpdated', handleWalletAddressEvent);
+      doc.addEventListener('forceConfigReload', handleForceReload);
     }
     if (win) {
       win.addEventListener('storage', handleStorageEvent);
     }
     
-    // Initial load from localStorage
-    handleDirectStorageUpdate();
+    // Initial load from localStorage with fallback to production defaults
+    try {
+      const saved = safeLocalStorage.getItem('webConfig');
+      if (saved) {
+        const cfg = JSON.parse(saved);
+        const initialAddresses = {
+          usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        };
+        console.log('🚀 Portfolio: Initial addresses loaded:', initialAddresses);
+        setDepositAddresses(initialAddresses);
+      } else {
+        // No cache, use production defaults
+        const defaultAddresses = {
+          usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        };
+        console.log('🎯 Portfolio: Using production defaults:', defaultAddresses);
+        setDepositAddresses(defaultAddresses);
+      }
+    } catch (error) {
+      console.error('Error loading initial addresses:', error);
+    }
     
     return () => {
       if (doc) {
         doc.removeEventListener('webConfigUpdated', handleCustomConfigEvent);
+        doc.removeEventListener('walletAddressesUpdated', handleWalletAddressEvent);
+        doc.removeEventListener('forceConfigReload', handleForceReload);
       }
       if (win) {
         win.removeEventListener('storage', handleStorageEvent);
@@ -1566,30 +1626,41 @@ export default function PortfolioPage() {
                 </button>
                 <button 
                   onClick={() => {
-                    console.log('Manual address refresh triggered');
+                    console.log('💪 AGGRESSIVE MANUAL REFRESH TRIGGERED');
                     try {
-                      const saved = safeLocalStorage.getItem('webConfig');
-                      if (saved) {
-                        const cfg = JSON.parse(saved);
-                        const refreshedAddresses = {
-                          usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-                          btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-                          eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-                        };
-                        console.log('Manually refreshed addresses:', refreshedAddresses);
-                        setDepositAddresses(refreshedAddresses);
-                        alert('Addresses refreshed from cache!');
-                      } else {
-                        alert('No cached config found');
-                      }
+                      // Clear ALL possible cache locations
+                      safeLocalStorage.removeItem('webConfig');
+                      safeLocalStorage.removeItem('config');
+                      safeLocalStorage.removeItem('depositAddresses');
+                      safeLocalStorage.removeItem('walletAddresses');
+                      
+                      // Force set production addresses immediately
+                      const productionAddresses = {
+                        usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                        btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                        eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+                      };
+                      
+                      // Set new cache with production values
+                      const newConfig = {
+                        usdtAddress: productionAddresses.usdt,
+                        btcAddress: productionAddresses.btc,
+                        ethAddress: productionAddresses.eth
+                      };
+                      safeLocalStorage.setItem('webConfig', JSON.stringify(newConfig));
+                      
+                      console.log('🚀 FORCE UPDATING TO PRODUCTION:', productionAddresses);
+                      setDepositAddresses(productionAddresses);
+                      
+                      alert('🚀 FORCED REFRESH COMPLETE!\n\nProduction addresses loaded:\n• USDT: TURT2sJxx...kJ88W\n• BTC: 19yUq4C...ZEuN4\n• ETH: 0x251a6...5975\n\nIf still showing old values, the admin panel needs to run deployment.');
                     } catch (error) {
-                      console.error('Manual refresh error:', error);
-                      alert('Error refreshing addresses');
+                      console.error('Aggressive refresh error:', error);
+                      alert('Error in aggressive refresh: ' + error.message);
                     }
                   }}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded"
+                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-bold"
                 >
-                  🔄
+                  💪 FORCE
                 </button>
                 <button 
                   onClick={() => {
