@@ -28,8 +28,8 @@ export default function DepositPage() {
       network: 'Bitcoin Network',
       icon: '₿',
       color: 'bg-orange-500',
-      address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
+      address: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4'
     },
     {
       id: 'ethereum',
@@ -38,8 +38,8 @@ export default function DepositPage() {
       network: 'Ethereum (ERC20)',
       icon: 'Ξ',
       color: 'bg-blue-500',
-      address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
+      address: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
     },
     {
       id: 'usdt',
@@ -48,8 +48,8 @@ export default function DepositPage() {
       network: 'TRON (TRC 20)',
       icon: 'T',
       color: 'bg-green-500',
-      address: '0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x33a329fbdd48e3877cb71de3d3b2e7be4390ca75'
+      address: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W'
     }
   ]);
 
@@ -258,6 +258,32 @@ export default function DepositPage() {
         setCryptoOptions(updatedOptions);
       }
     };
+    
+    // Handle force address updates from admin panel
+    const handleForceUpdate = (event) => {
+      console.log('Deposit: Force address update received:', event.detail);
+      if (event.detail?.addresses) {
+        const updatedOptions = cryptoOptions.map(crypto => {
+          let address = crypto.address;
+          
+          // Map admin panel field names to crypto IDs
+          if (crypto.id === 'bitcoin' && event.detail.addresses.btcAddress) {
+            address = event.detail.addresses.btcAddress;
+          } else if (crypto.id === 'ethereum' && event.detail.addresses.ethAddress) {
+            address = event.detail.addresses.ethAddress;
+          } else if (crypto.id === 'usdt' && event.detail.addresses.usdtAddress) {
+            address = event.detail.addresses.usdtAddress;
+          }
+          
+          return {
+            ...crypto,
+            address: address,
+            qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
+          };
+        });
+        setCryptoOptions(updatedOptions);
+      }
+    };
 
     const handleStorageChange = (event) => {
       if (event.key === 'webConfig' && event.newValue) {
@@ -301,6 +327,7 @@ export default function DepositPage() {
       document.addEventListener('webConfigUpdated', handleConfigUpdate);
       document.addEventListener('storage', handleStorageChange);
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      document.addEventListener('forceAddressUpdate', handleForceUpdate);
     }
 
     return () => {
@@ -313,6 +340,7 @@ export default function DepositPage() {
         document.removeEventListener('webConfigUpdated', handleConfigUpdate);
         document.removeEventListener('storage', handleStorageChange);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        document.removeEventListener('forceAddressUpdate', handleForceUpdate);
       }
     };
   }, []);

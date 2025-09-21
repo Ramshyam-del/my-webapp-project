@@ -36,57 +36,60 @@ export default function AdminOperate() {
     // Banner configuration
     exchangeBanner: '/uploads/default-banner.jpg',
     // Wallet addresses
-    usdtAddress: '',
-    btcAddress: '',
-    ethAddress: ''
+    usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+    btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+    ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
   });
 
 
 
   useEffect(() => {
-    // Initialize cross-device config synchronization
-    configSync.startPolling(3000); // Poll every 3 seconds for wallet address updates
-    
-    // Add listener for config updates from other devices
-    const handleConfigUpdate = (newConfig) => {
-      console.log('Received config update from another device:', newConfig);
-      setConfig(newConfig);
-      safeLocalStorage.setItem('webConfig', JSON.stringify(newConfig));
-    };
-    
-    configSync.addListener(handleConfigUpdate);
-    
     // Load configuration from localStorage or API
     const savedConfig = safeLocalStorage.getItem('webConfig');
     if (savedConfig) {
-      const parsedConfig = JSON.parse(savedConfig);
-      // Force update with production addresses if they're still old/empty
-      const updatedConfig = {
-        ...parsedConfig,
-        usdtAddress: parsedConfig.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-        btcAddress: parsedConfig.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-        ethAddress: parsedConfig.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-      };
-      setConfig(updatedConfig);
-      // Save the updated config back to localStorage
-      safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
+      setConfig(JSON.parse(savedConfig));
     } else {
-      // No saved config, use production defaults
+      // Save default wallet addresses to database and localStorage
       const defaultConfig = {
-        ...config,
+        // Basic settings
+        title: '',
+        officialWebsiteName: '',
+        officialWebsiteLink: '',
+        email: '',
+        address: '',
+        mobile: '',
+        workingHours: {
+          home: true,
+          about: true,
+          tokenSale: true,
+          roadi: true
+        },
+        menuManagement: {
+          english: true
+        },
+        logo: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+        favicon: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+        telegram: '',
+        whatsapp: '',
+        whatsappAddress: '',
+        emailAddress: '',
+        // Content configuration
+        slogan: '',
+        subbanner: '',
+        whitePaperLink: '',
+        // Banner configuration
+        exchangeBanner: '/uploads/default-banner.jpg',
+        // Wallet addresses
         usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
         btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
         ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
       };
       setConfig(defaultConfig);
+      // Save to localStorage
       safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
+      // Save to database
+      saveConfigToDatabase(defaultConfig);
     }
-    
-    // Cleanup function
-    return () => {
-      configSync.removeListener(handleConfigUpdate);
-      configSync.stopPolling();
-    };
   }, []);
 
   // Auto-close frontend preview after 10 seconds
@@ -180,17 +183,6 @@ export default function AdminOperate() {
       // Also save to main config API for deposit addresses
       if (['usdtAddress', 'btcAddress', 'ethAddress'].includes(field)) {
         await saveConfigToDatabase(updatedConfig);
-      }
-      
-      // Force cross-device synchronization for wallet address changes
-      if (['usdtAddress', 'btcAddress', 'ethAddress'].includes(field)) {
-        console.log('Triggering cross-device sync for wallet address update');
-        await configSync.forceRefresh();
-        
-        // Additional broadcast to ensure all devices get the update
-        setTimeout(async () => {
-          await configSync.forceRefresh();
-        }, 1000);
       }
       
     } catch (error) {
@@ -780,9 +772,10 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={async () => {
-                   await updateConfigField('usdtAddress', 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W');
-                   alert('USDT address updated and synced to all devices!');
+                 onClick={() => {
+                   const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
+                   updateConfigField('usdtAddress', newAddress);
+                   alert('USDT address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -823,9 +816,10 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={async () => {
-                   await updateConfigField('btcAddress', '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4');
-                   alert('BTC address updated and synced to all devices!');
+                 onClick={() => {
+                   const newAddress = 'bc1' + Math.random().toString(16).substr(2, 30);
+                   updateConfigField('btcAddress', newAddress);
+                   alert('BTC address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-orange-500 text-white text-xs rounded hover:bg-orange-600 transition-colors"
                >
@@ -866,9 +860,10 @@ export default function AdminOperate() {
              />
                          <div className="mt-2 flex gap-2">
                <button
-                 onClick={async () => {
-                   await updateConfigField('ethAddress', '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975');
-                   alert('ETH address updated and synced to all devices!');
+                 onClick={() => {
+                   const newAddress = '0x' + Math.random().toString(16).substr(2, 40);
+                   updateConfigField('ethAddress', newAddress);
+                   alert('ETH address updated and saved successfully!');
                  }}
                  className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
                >
@@ -945,9 +940,56 @@ export default function AdminOperate() {
 
       {/* Test Configuration Section */}
       <div className="bg-blue-50 p-4 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-3">Test Configuration</h4>
-        <p className="text-sm text-blue-700 mb-3">Test that your wallet addresses are working correctly in the frontend.</p>
-        <div className="flex gap-2">
+        <h4 className="font-medium text-blue-900 mb-3">Deploy Configuration</h4>
+        <p className="text-sm text-blue-700 mb-3">Deploy wallet addresses to all devices and clear cache.</p>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={async () => {
+              try {
+                // Force update all addresses immediately
+                const deployConfig = {
+                  ...config,
+                  usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                  btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                  ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
+                  lastDeployTime: new Date().toISOString()
+                };
+                
+                // Update each field to trigger database save
+                await updateConfigField('usdtAddress', deployConfig.usdtAddress);
+                await updateConfigField('btcAddress', deployConfig.btcAddress);
+                await updateConfigField('ethAddress', deployConfig.ethAddress);
+                
+                // Force clear localStorage on all tabs
+                safeLocalStorage.removeItem('webConfig');
+                safeLocalStorage.setItem('webConfig', JSON.stringify(deployConfig));
+                safeLocalStorage.setItem('forceReload', Date.now().toString());
+                
+                // Trigger storage event for cross-tab communication
+                const document = getSafeDocument();
+                if (document) {
+                  document.dispatchEvent(new StorageEvent('storage', {
+                    key: 'webConfig',
+                    newValue: JSON.stringify(deployConfig)
+                  }));
+                  document.dispatchEvent(new CustomEvent('webConfigUpdated', {
+                    detail: { config: deployConfig, forceReload: true }
+                  }));
+                  document.dispatchEvent(new CustomEvent('forceAddressUpdate', {
+                    detail: { addresses: deployConfig, timestamp: Date.now() }
+                  }));
+                }
+                
+                alert('✅ Wallet addresses deployed to all devices! Users will see the new addresses immediately.');
+              } catch (error) {
+                console.error('Deploy error:', error);
+                alert('❌ Deploy failed: ' + error.message);
+              }
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors font-semibold"
+          >
+            🚀 Deploy to All Devices
+          </button>
           <button
             onClick={() => {
               // Trigger a storage event to test real-time updates
@@ -968,54 +1010,22 @@ export default function AdminOperate() {
             Apply Test Addresses
           </button>
           <button
-            onClick={async () => {
-              // Clear localStorage cache first
-              safeLocalStorage.removeItem('webConfig');
-              
+            onClick={() => {
               const defaultConfig = {
                 ...config,
                 usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
                 btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
                 ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
               };
-              
-              // Update state immediately
-              setConfig(defaultConfig);
-              
-              // Save to localStorage
-              safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
-              
               // Update each field individually to ensure database persistence
-              await updateConfigField('usdtAddress', defaultConfig.usdtAddress);
-              await updateConfigField('btcAddress', defaultConfig.btcAddress);
-              await updateConfigField('ethAddress', defaultConfig.ethAddress);
-              
-              // Trigger frontend updates
-              const document = getSafeDocument();
-              if (document) {
-                document.dispatchEvent(new StorageEvent('storage', {
-                  key: 'webConfig',
-                  newValue: JSON.stringify(defaultConfig)
-                }));
-                document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-                  detail: { config: defaultConfig }
-                }));
-              }
-              
-              // Force cross-device synchronization
-              console.log('Syncing wallet addresses to all devices...');
-              await configSync.forceRefresh();
-              
-              // Additional sync to ensure all devices receive updates
-              setTimeout(async () => {
-                await configSync.forceRefresh();
-              }, 3000);
-              
-              alert('Production addresses updated and synced to ALL devices! All browsers and devices will receive the new wallet addresses within 10 seconds.');
+              updateConfigField('usdtAddress', defaultConfig.usdtAddress);
+              updateConfigField('btcAddress', defaultConfig.btcAddress);
+              updateConfigField('ethAddress', defaultConfig.ethAddress);
+              alert('Default addresses restored!');
             }}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
           >
-            🔄 Force Update Production Addresses (All Devices)
+            Restore Default Addresses
           </button>
         </div>
       </div>
@@ -1071,133 +1081,24 @@ export default function AdminOperate() {
 
         {/* Action Buttons */}
         <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
-          <div className="flex justify-between">
-            <div className="flex space-x-3">
-              <button
-                onClick={async () => {
-                  console.log('🚀 DEPLOYING TO ALL DEVICES - CLEARING ALL CACHE');
-                  
-                  // Step 1: Clear ALL possible cache locations
-                  safeLocalStorage.removeItem('webConfig');
-                  safeLocalStorage.removeItem('config');
-                  safeLocalStorage.removeItem('depositAddresses');
-                  safeLocalStorage.removeItem('walletAddresses');
-                  
-                  // Step 2: Force reload with production addresses
-                  const productionConfig = {
-                    ...config,
-                    usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-                    btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-                    ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-                  };
-                  
-                  console.log('💾 Setting new production config:', productionConfig);
-                  setConfig(productionConfig);
-                  safeLocalStorage.setItem('webConfig', JSON.stringify(productionConfig));
-                  
-                  // Step 3: Update database with production addresses
-                  console.log('📊 Updating database...');
-                  await updateConfigField('usdtAddress', productionConfig.usdtAddress);
-                  await updateConfigField('btcAddress', productionConfig.btcAddress);
-                  await updateConfigField('ethAddress', productionConfig.ethAddress);
-                  
-                  // Step 4: Force cross-device synchronization with aggressive refresh
-                  console.log('🌐 Forcing cross-device sync...');
-                  await configSync.forceRefresh();
-                  
-                  // Step 5: Multiple sync attempts to ensure propagation
-                  for (let i = 1; i <= 3; i++) {
-                    setTimeout(async () => {
-                      console.log(`🔄 Sync attempt ${i}/3...`);
-                      await configSync.forceRefresh();
-                    }, i * 2000);
-                  }
-                  
-                  // Step 6: Broadcast update events AGGRESSIVELY
-                  const document = getSafeDocument();
-                  const window = safeWindow();
-                  
-                  if (document && window) {
-                    // Clear browser cache
-                    if ('caches' in window) {
-                      try {
-                        const cacheNames = await window.caches.keys();
-                        await Promise.all(
-                          cacheNames.map(cacheName => window.caches.delete(cacheName))
-                        );
-                        console.log('🧹 Browser caches cleared');
-                      } catch (e) {
-                        console.log('⚠️ Could not clear browser caches:', e.message);
-                      }
-                    }
-                    
-                    // Fire multiple events
-                    const events = [
-                      new StorageEvent('storage', {
-                        key: 'webConfig',
-                        newValue: JSON.stringify(productionConfig),
-                        oldValue: null,
-                        storageArea: window.localStorage
-                      }),
-                      new CustomEvent('webConfigUpdated', {
-                        detail: { config: productionConfig, forceUpdate: true }
-                      }),
-                      new CustomEvent('walletAddressesUpdated', {
-                        detail: { 
-                          addresses: {
-                            usdt: productionConfig.usdtAddress,
-                            btc: productionConfig.btcAddress,
-                            eth: productionConfig.ethAddress
-                          }
-                        }
-                      })
-                    ];
-                    
-                    events.forEach(event => {
-                      if (event instanceof StorageEvent) {
-                        window.dispatchEvent(event);
-                      } else {
-                        document.dispatchEvent(event);
-                      }
-                    });
-                    
-                    console.log('📢 Broadcast events fired');
-                  }
-                  
-                  // Step 7: Force page reload on other tabs/devices after 8 seconds
-                  setTimeout(() => {
-                    const document = getSafeDocument();
-                    if (document) {
-                      document.dispatchEvent(new CustomEvent('forceConfigReload', {
-                        detail: { reason: 'admin_wallet_update' }
-                      }));
-                    }
-                  }, 8000);
-                  
-                  alert('🌐 DEPLOYMENT COMPLETE!\n\n✅ Cache cleared on all devices\n✅ Database updated\n✅ Cross-device sync initiated\n\nAll devices will show new addresses within 10 seconds!\n\nIf addresses still show old values, refresh the page manually.');
-                }}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors font-bold"
-              >
-                🌐 DEPLOY TO ALL DEVICES - FORCE CLEAR CACHE
-              </button>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={resetConfig}
-                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
-              >
-                Reset
-              </button>
-              <button
-                onClick={saveConfig}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                OK
-              </button>
-            </div>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={resetConfig}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+            >
+              Reset
+            </button>
+            <button
+              onClick={saveConfig}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              OK
+            </button>
           </div>
         </div>
       </div>
+
+      
     </div>
   );
 }

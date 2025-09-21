@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { safeLocalStorage, safeWindow, getSafeDocument } from '../utils/safeStorage';
 import { supabase } from '../lib/supabase';
 import useRealTimeBalance from '../hooks/useRealTimeBalance';
 import { useAuth } from '../contexts/AuthContext';
 import { getCryptoImageUrl } from '../utils/cryptoIcons';
-import { useConfig } from '../hooks/useConfig';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -77,9 +75,6 @@ export default function PortfolioPage() {
   const router = useRouter();
   const [marketData, setMarketData] = useState([]);
   
-  // Enhanced configuration hook with cross-device sync
-  const { config: configFromHook, loading: configLoading } = useConfig();
-  
   // Authentication context
   const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
   
@@ -103,9 +98,9 @@ export default function PortfolioPage() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositAddresses, setDepositAddresses] = useState({ 
-    usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W', 
-    btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4', 
-    eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975' 
+    usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+    btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+    eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
   });
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawalAddress, setWithdrawalAddress] = useState('');
@@ -283,153 +278,38 @@ export default function PortfolioPage() {
     }
   };
 
-  // Update deposit addresses when config changes (cross-device sync) with debug logging
-  useEffect(() => {
-    console.log('🔄 Portfolio config update detected:', { configFromHook, configLoading });
-    
-    if (configFromHook && !configLoading) {
-      const updatedAddresses = {
-        usdt: configFromHook.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-        btc: configFromHook.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-        eth: configFromHook.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-      };
-      
-      console.log('📍 Updating portfolio deposit addresses from useConfig:', updatedAddresses);
-      console.log('📍 Previous addresses:', depositAddresses);
-      
-      setDepositAddresses(updatedAddresses);
-      
-      // Force a visual update indication
-      const timestamp = new Date().toLocaleTimeString();
-      console.log(`✅ Portfolio addresses updated via useConfig at ${timestamp}`);
-    }
-  }, [configFromHook, configLoading, depositAddresses]);
-  
-  // Additional fallback: Listen for direct localStorage and storage events + FORCE RELOAD events
-  useEffect(() => {
-    const handleDirectStorageUpdate = () => {
-      console.log('🔊 Portfolio: Direct storage event detected');
-      try {
-        const saved = safeLocalStorage.getItem('webConfig');
-        if (saved) {
-          const cfg = JSON.parse(saved);
-          const directAddresses = {
-            usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-            btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-            eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-          };
-          console.log('📡 Portfolio: Direct storage update addresses:', directAddresses);
-          setDepositAddresses(directAddresses);
-        }
-      } catch (error) {
-        console.error('Error in direct storage update:', error);
-      }
-    };
-    
-    const handleCustomConfigEvent = (event) => {
-      console.log('🔥 Portfolio: Custom config event detected:', event.detail);
-      if (event.detail && event.detail.config) {
-        const config = event.detail.config;
-        const eventAddresses = {
-          usdt: config.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: config.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: config.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-        };
-        console.log('🎆 Portfolio: Custom event update addresses:', eventAddresses);
-        setDepositAddresses(eventAddresses);
-      }
-    };
-    
-    const handleWalletAddressEvent = (event) => {
-      console.log('💰 Portfolio: Wallet addresses event detected:', event.detail);
-      if (event.detail && event.detail.addresses) {
-        const addresses = event.detail.addresses;
-        const walletAddresses = {
-          usdt: addresses.usdt || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: addresses.btc || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: addresses.eth || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-        };
-        console.log('💳 Portfolio: Wallet event update addresses:', walletAddresses);
-        setDepositAddresses(walletAddresses);
-      }
-    };
-    
-    const handleForceReload = (event) => {
-      console.log('🔄 Portfolio: Force reload event detected:', event.detail);
-      // Clear all local cache first
-      try {
-        safeLocalStorage.removeItem('webConfig');
-        safeLocalStorage.removeItem('config');
-        safeLocalStorage.removeItem('depositAddresses');
-        console.log('🧹 Portfolio: Local cache cleared');
-        
-        // Force reload page after 2 seconds to get fresh data
-        setTimeout(() => {
-          console.log('🔄 Portfolio: Reloading page to get fresh data...');
-          window.location.reload();
-        }, 2000);
-      } catch (error) {
-        console.error('Error in force reload:', error);
-      }
-    };
-    
-    const handleStorageEvent = (e) => {
-      if (e.key === 'webConfig') {
-        console.log('🖼️ Portfolio: Cross-tab storage event detected');
-        handleDirectStorageUpdate();
-      }
-    };
-    
-    // Add event listeners
-    const doc = getSafeDocument();
-    const win = safeWindow();
-    
-    if (doc) {
-      doc.addEventListener('webConfigUpdated', handleCustomConfigEvent);
-      doc.addEventListener('walletAddressesUpdated', handleWalletAddressEvent);
-      doc.addEventListener('forceConfigReload', handleForceReload);
-    }
-    if (win) {
-      win.addEventListener('storage', handleStorageEvent);
-    }
-    
-    // Initial load from localStorage with fallback to production defaults
+  // Load deposit addresses from webConfig stored by admin /admin/operate
+  const loadDepositAddressesFromLocal = () => {
     try {
       const saved = safeLocalStorage.getItem('webConfig');
+      let next;
       if (saved) {
         const cfg = JSON.parse(saved);
-        const initialAddresses = {
-          usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        next = {
+          usdt: cfg.usdtAddress || (cfg.deposit_addresses?.usdt ?? 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W'),
+          btc: cfg.btcAddress || (cfg.deposit_addresses?.btc ?? '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4'),
+          eth: cfg.ethAddress || (cfg.deposit_addresses?.eth ?? '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'),
         };
-        console.log('🚀 Portfolio: Initial addresses loaded:', initialAddresses);
-        setDepositAddresses(initialAddresses);
       } else {
-        // No cache, use production defaults
-        const defaultAddresses = {
+        // Use default addresses if no config exists
+        next = {
           usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
           btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
           eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
         };
-        console.log('🎯 Portfolio: Using production defaults:', defaultAddresses);
-        setDepositAddresses(defaultAddresses);
       }
-    } catch (error) {
-      console.error('Error loading initial addresses:', error);
+      console.log('Loading deposit addresses:', next);
+      setDepositAddresses(next);
+    } catch (_e) {
+      console.error('Error loading deposit addresses:', _e);
+      // Fallback to default addresses on error
+      setDepositAddresses({
+        usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+        btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+        eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+      });
     }
-    
-    return () => {
-      if (doc) {
-        doc.removeEventListener('webConfigUpdated', handleCustomConfigEvent);
-        doc.removeEventListener('walletAddressesUpdated', handleWalletAddressEvent);
-        doc.removeEventListener('forceConfigReload', handleForceReload);
-      }
-      if (win) {
-        win.removeEventListener('storage', handleStorageEvent);
-      }
-    };
-  }, []);
+  };
 
   // Handle withdrawal submission
   const handleWithdrawalSubmit = async () => {
@@ -815,7 +695,7 @@ export default function PortfolioPage() {
     
     setMounted(true);
     fetchContactConfig(); // Fetch contact configuration
-    // Deposit addresses now handled by useConfig hook with cross-device sync
+    loadDepositAddressesFromLocal();
 
 
 
@@ -873,7 +753,23 @@ export default function PortfolioPage() {
       loadDepositAddressesFromLocal();
       fetchContactConfig();
     };
-    if (document) document.addEventListener('webConfigUpdated', onCfg);
+    
+    // Listen for force address updates
+    const onForceUpdate = (event) => {
+      console.log('Force address update received:', event.detail);
+      if (event.detail?.addresses) {
+        setDepositAddresses({
+          usdt: event.detail.addresses.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: event.detail.addresses.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: event.detail.addresses.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        });
+      }
+    };
+    
+    if (document) {
+      document.addEventListener('webConfigUpdated', onCfg);
+      document.addEventListener('forceAddressUpdate', onForceUpdate);
+    }
     
     // Listen for page visibility changes to refresh balance when user returns
     const handleVisibilityChange = async () => {
@@ -892,6 +788,7 @@ export default function PortfolioPage() {
       clearInterval(balanceInterval);
       if (document) {
         document.removeEventListener('webConfigUpdated', onCfg);
+        document.removeEventListener('forceAddressUpdate', onForceUpdate);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
       if (kycChannel) {
@@ -1582,28 +1479,22 @@ export default function PortfolioPage() {
               </div>
               {(depositAddresses.usdt || depositAddresses.btc || depositAddresses.eth) && (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium mb-1 flex justify-between items-center">
-                    <span>Deposit Addresses</span>
-                    <span className="text-xs text-gray-500">Live Sync Active 🔄</span>
-                  </div>
+                  <div className="text-sm font-medium mb-1">Deposit Addresses</div>
                   {depositAddresses.usdt && (
-                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
-                      <span className="text-green-400 mr-2 font-medium">USDT (TRC-20):</span>{depositAddresses.usdt}
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">USDT:</span>{depositAddresses.usdt}
                     </div>
                   )}
                   {depositAddresses.btc && (
-                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
-                      <span className="text-orange-400 mr-2 font-medium">BTC:</span>{depositAddresses.btc}
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">BTC:</span>{depositAddresses.btc}
                     </div>
                   )}
                   {depositAddresses.eth && (
-                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
-                      <span className="text-blue-400 mr-2 font-medium">ETH:</span>{depositAddresses.eth}
+                    <div className="text-xs text-gray-300 break-all">
+                      <span className="text-gray-400 mr-2">ETH:</span>{depositAddresses.eth}
                     </div>
                   )}
-                  <div className="text-xs text-gray-500 mt-2 p-2 bg-blue-900 rounded">
-                    💡 These addresses update automatically across all devices when changed in admin panel
-                  </div>
                 </div>
               )}
               <div>
@@ -1623,44 +1514,6 @@ export default function PortfolioPage() {
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
                 >
                   Cancel
-                </button>
-                <button 
-                  onClick={() => {
-                    console.log('💪 AGGRESSIVE MANUAL REFRESH TRIGGERED');
-                    try {
-                      // Clear ALL possible cache locations
-                      safeLocalStorage.removeItem('webConfig');
-                      safeLocalStorage.removeItem('config');
-                      safeLocalStorage.removeItem('depositAddresses');
-                      safeLocalStorage.removeItem('walletAddresses');
-                      
-                      // Force set production addresses immediately
-                      const productionAddresses = {
-                        usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-                        btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-                        eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-                      };
-                      
-                      // Set new cache with production values
-                      const newConfig = {
-                        usdtAddress: productionAddresses.usdt,
-                        btcAddress: productionAddresses.btc,
-                        ethAddress: productionAddresses.eth
-                      };
-                      safeLocalStorage.setItem('webConfig', JSON.stringify(newConfig));
-                      
-                      console.log('🚀 FORCE UPDATING TO PRODUCTION:', productionAddresses);
-                      setDepositAddresses(productionAddresses);
-                      
-                      alert('🚀 FORCED REFRESH COMPLETE!\n\nProduction addresses loaded:\n• USDT: TURT2sJxx...kJ88W\n• BTC: 19yUq4C...ZEuN4\n• ETH: 0x251a6...5975\n\nIf still showing old values, the admin panel needs to run deployment.');
-                    } catch (error) {
-                      console.error('Aggressive refresh error:', error);
-                      alert('Error in aggressive refresh: ' + error.message);
-                    }
-                  }}
-                  className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded font-bold"
-                >
-                  💪 FORCE
                 </button>
                 <button 
                   onClick={() => {

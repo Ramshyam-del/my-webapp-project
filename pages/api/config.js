@@ -26,9 +26,9 @@ export default async function handler(req, res) {
         // Return default config if database fails
         const defaultConfig = {
           deposit_addresses: {
-            usdt: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6',
-            btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-            eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+            usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+            btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+            eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
           },
           system_settings: {
             maintenance_mode: false,

@@ -97,9 +97,9 @@ export default function Wallets() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [walletAddresses, setWalletAddresses] = useState({
-    usdt: '0x1234abcd5678efgh9012ijkl3456mnop7890qrst',
-    btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-    eth: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6'
+    usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+    btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+    eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
   });
   const [mounted, setMounted] = useState(false);
 
@@ -168,11 +168,24 @@ export default function Wallets() {
         handleConfigUpdate(event);
       }
     };
+    
+    // Handle force address updates
+    const handleForceUpdate = (event) => {
+      console.log('Wallets: Force address update received:', event.detail);
+      if (event.detail?.addresses) {
+        setWalletAddresses({
+          usdt: event.detail.addresses.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: event.detail.addresses.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: event.detail.addresses.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        });
+      }
+    };
 
     const document = getSafeDocument();
     if (document) {
       document.addEventListener('webConfigUpdated', handleCustomStorageEvent);
       document.addEventListener('storage', handleStorageChange);
+      document.addEventListener('forceAddressUpdate', handleForceUpdate);
     }
 
     // Cleanup event listeners
@@ -181,6 +194,7 @@ export default function Wallets() {
       if (document) {
         document.removeEventListener('webConfigUpdated', handleCustomStorageEvent);
         document.removeEventListener('storage', handleStorageChange);
+        document.removeEventListener('forceAddressUpdate', handleForceUpdate);
       }
     };
   }, []);
