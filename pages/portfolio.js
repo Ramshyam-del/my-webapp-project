@@ -103,9 +103,9 @@ export default function PortfolioPage() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositAddresses, setDepositAddresses] = useState({ 
-    usdt: configFromHook.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W', 
-    btc: configFromHook.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4', 
-    eth: configFromHook.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975' 
+    usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W', 
+    btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4', 
+    eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975' 
   });
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawalAddress, setWithdrawalAddress] = useState('');
@@ -283,18 +283,93 @@ export default function PortfolioPage() {
     }
   };
 
-  // Update deposit addresses when config changes (cross-device sync)
+  // Update deposit addresses when config changes (cross-device sync) with debug logging
   useEffect(() => {
+    console.log('🔄 Portfolio config update detected:', { configFromHook, configLoading });
+    
     if (configFromHook && !configLoading) {
       const updatedAddresses = {
         usdt: configFromHook.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
         btc: configFromHook.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
         eth: configFromHook.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
       };
-      console.log('Updating deposit addresses from config:', updatedAddresses);
+      
+      console.log('📍 Updating portfolio deposit addresses from useConfig:', updatedAddresses);
+      console.log('📍 Previous addresses:', depositAddresses);
+      
       setDepositAddresses(updatedAddresses);
+      
+      // Force a visual update indication
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`✅ Portfolio addresses updated via useConfig at ${timestamp}`);
     }
-  }, [configFromHook, configLoading]);
+  }, [configFromHook, configLoading, depositAddresses]);
+  
+  // Additional fallback: Listen for direct localStorage and storage events
+  useEffect(() => {
+    const handleDirectStorageUpdate = () => {
+      console.log('🔊 Portfolio: Direct storage event detected');
+      try {
+        const saved = safeLocalStorage.getItem('webConfig');
+        if (saved) {
+          const cfg = JSON.parse(saved);
+          const directAddresses = {
+            usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+            btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+            eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+          };
+          console.log('📡 Portfolio: Direct storage update addresses:', directAddresses);
+          setDepositAddresses(directAddresses);
+        }
+      } catch (error) {
+        console.error('Error in direct storage update:', error);
+      }
+    };
+    
+    const handleCustomConfigEvent = (event) => {
+      console.log('🔥 Portfolio: Custom config event detected:', event.detail);
+      if (event.detail && event.detail.config) {
+        const config = event.detail.config;
+        const eventAddresses = {
+          usdt: config.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: config.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: config.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        };
+        console.log('🎆 Portfolio: Custom event update addresses:', eventAddresses);
+        setDepositAddresses(eventAddresses);
+      }
+    };
+    
+    const handleStorageEvent = (e) => {
+      if (e.key === 'webConfig') {
+        console.log('🖼️ Portfolio: Cross-tab storage event detected');
+        handleDirectStorageUpdate();
+      }
+    };
+    
+    // Add event listeners
+    const doc = getSafeDocument();
+    const win = safeWindow();
+    
+    if (doc) {
+      doc.addEventListener('webConfigUpdated', handleCustomConfigEvent);
+    }
+    if (win) {
+      win.addEventListener('storage', handleStorageEvent);
+    }
+    
+    // Initial load from localStorage
+    handleDirectStorageUpdate();
+    
+    return () => {
+      if (doc) {
+        doc.removeEventListener('webConfigUpdated', handleCustomConfigEvent);
+      }
+      if (win) {
+        win.removeEventListener('storage', handleStorageEvent);
+      }
+    };
+  }, []);
 
   // Handle withdrawal submission
   const handleWithdrawalSubmit = async () => {
@@ -1447,22 +1522,28 @@ export default function PortfolioPage() {
               </div>
               {(depositAddresses.usdt || depositAddresses.btc || depositAddresses.eth) && (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium mb-1">Deposit Addresses</div>
+                  <div className="text-sm font-medium mb-1 flex justify-between items-center">
+                    <span>Deposit Addresses</span>
+                    <span className="text-xs text-gray-500">Live Sync Active 🔄</span>
+                  </div>
                   {depositAddresses.usdt && (
-                    <div className="text-xs text-gray-300 break-all">
-                      <span className="text-gray-400 mr-2">USDT:</span>{depositAddresses.usdt}
+                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
+                      <span className="text-green-400 mr-2 font-medium">USDT (TRC-20):</span>{depositAddresses.usdt}
                     </div>
                   )}
                   {depositAddresses.btc && (
-                    <div className="text-xs text-gray-300 break-all">
-                      <span className="text-gray-400 mr-2">BTC:</span>{depositAddresses.btc}
+                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
+                      <span className="text-orange-400 mr-2 font-medium">BTC:</span>{depositAddresses.btc}
                     </div>
                   )}
                   {depositAddresses.eth && (
-                    <div className="text-xs text-gray-300 break-all">
-                      <span className="text-gray-400 mr-2">ETH:</span>{depositAddresses.eth}
+                    <div className="text-xs text-gray-300 break-all bg-gray-700 p-2 rounded">
+                      <span className="text-blue-400 mr-2 font-medium">ETH:</span>{depositAddresses.eth}
                     </div>
                   )}
+                  <div className="text-xs text-gray-500 mt-2 p-2 bg-blue-900 rounded">
+                    💡 These addresses update automatically across all devices when changed in admin panel
+                  </div>
                 </div>
               )}
               <div>
@@ -1482,6 +1563,33 @@ export default function PortfolioPage() {
                   className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded"
                 >
                   Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('Manual address refresh triggered');
+                    try {
+                      const saved = safeLocalStorage.getItem('webConfig');
+                      if (saved) {
+                        const cfg = JSON.parse(saved);
+                        const refreshedAddresses = {
+                          usdt: cfg.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+                          btc: cfg.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+                          eth: cfg.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+                        };
+                        console.log('Manually refreshed addresses:', refreshedAddresses);
+                        setDepositAddresses(refreshedAddresses);
+                        alert('Addresses refreshed from cache!');
+                      } else {
+                        alert('No cached config found');
+                      }
+                    } catch (error) {
+                      console.error('Manual refresh error:', error);
+                      alert('Error refreshing addresses');
+                    }
+                  }}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded"
+                >
+                  🔄
                 </button>
                 <button 
                   onClick={() => {
