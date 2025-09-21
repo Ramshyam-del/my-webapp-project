@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useConfig } from '../hooks/useConfig';
 import { supabase } from '../lib/supabase';
@@ -23,6 +24,7 @@ export default function WithdrawPage() {
   const [cryptoPrices, setCryptoPrices] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [successWithdrawal, setSuccessWithdrawal] = useState(null); // Store withdrawal details for success modal
 
   const currencies = [
     { 
@@ -246,9 +248,16 @@ export default function WithdrawPage() {
       const result = await response.json();
 
       if (result.ok) {
+        // Store withdrawal details for success modal BEFORE resetting form
+        setSuccessWithdrawal({
+          currency: selectedCurrency,
+          amount: amount,
+          network: selectedNetwork,
+          address: address
+        });
         setSuccessMessage('Withdrawal request submitted successfully! Your request is now pending admin approval.');
         setShowSuccessModal(true);
-        // Reset form
+        // Reset form AFTER storing withdrawal details
         setAddress('');
         setAmount('');
         setWithdrawalNote('');
@@ -593,15 +602,15 @@ export default function WithdrawPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Currency:</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedCurrency}</span>
+                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.currency || selectedCurrency}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Amount:</span>
-                  <span className="text-sm font-medium text-gray-900">{amount} {selectedCurrency}</span>
+                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.amount || amount} {successWithdrawal?.currency || selectedCurrency}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Network:</span>
-                  <span className="text-sm font-medium text-gray-900">{selectedNetwork}</span>
+                  <span className="text-sm font-medium text-gray-900">{successWithdrawal?.network || selectedNetwork}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Status:</span>

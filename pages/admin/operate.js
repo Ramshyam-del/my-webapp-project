@@ -717,7 +717,7 @@ export default function AdminOperate() {
             </div>
             <div>
               <h4 className="font-medium text-gray-900">USDT (Tether)</h4>
-              <p className="text-sm text-gray-600">ERC-20 Token</p>
+              <p className="text-sm text-gray-600">TRC-20 Token</p>
             </div>
           </div>
           <div>
