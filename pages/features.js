@@ -146,11 +146,21 @@ export default function FeaturesPage() {
         setTradeHistory(data.trades || []);
       } else {
         console.error('Failed to fetch trade history:', response.status);
-        setTradeHistory([]);
+        // Show error in UI
+        setTradeHistory([{ 
+          id: 'error', 
+          error: true, 
+          message: `Failed to load trade history: ${response.status}` 
+        }]);
       }
     } catch (error) {
       console.error('Error fetching trade history:', error);
-      setTradeHistory([]);
+      // Show error in UI
+      setTradeHistory([{ 
+        id: 'error', 
+        error: true, 
+        message: `Error loading trade history: ${error.message}` 
+      }]);
     } finally {
       setHistoryLoading(false);
     }
@@ -393,7 +403,11 @@ export default function FeaturesPage() {
       // Show success message
       showNotification(
         'Order Confirmed!', 
-        `Type: ${order.type}\nDuration: ${order.duration}s (${order.durationPercentage}%)\nAmount: $${order.amount}\nLeverage: ${order.leverage}\nEntry Price: $${result.data.execution.price}`,
+        `Type: ${order.type}
+Duration: ${order.duration}s (${order.durationPercentage}%)
+Amount: $${order.amount}
+Leverage: ${order.leverage}
+Entry Price: $${result.data.execution.price}`,
         'success'
       );
       
@@ -526,6 +540,15 @@ export default function FeaturesPage() {
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       fetchActiveTrades();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Refresh trade history periodically
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchTradeHistory();
     }, 30000); // Refresh every 30 seconds
     
     return () => clearInterval(refreshInterval);
@@ -783,8 +806,22 @@ export default function FeaturesPage() {
                 <p className="text-sm">No completed trades</p>
                 <p className="text-xs mt-1">Your trading results will appear here</p>
               </div>
+            ) : tradeHistory.some(trade => trade.error) ? (
+              <div className="text-center py-8 text-red-400">
+                <div className="text-4xl mb-2">❌</div>
+                <p className="text-sm">{tradeHistory[0].message}</p>
+              </div>
             ) : (
               tradeHistory.map((trade) => {
+                // Handle error items
+                if (trade.error) {
+                  return (
+                    <div key={trade.id} className="bg-red-900/30 rounded-xl p-3 border border-red-700/50">
+                      <div className="text-red-300 text-center">{trade.message}</div>
+                    </div>
+                  );
+                }
+                
                 const formatDate = (dateString) => {
                   const date = new Date(dateString);
                   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});

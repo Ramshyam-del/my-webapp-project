@@ -1,3 +1,4 @@
+import { supabase } from '../../../../../lib/supabase';
 import { createClient } from '@supabase/supabase-js'
 
 export default async function handler(req, res) {
@@ -26,7 +27,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ ok: false, code: 'server_misconfig', message: 'Server misconfiguration' })
     }
 
-    const server = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    // FIX: Use the existing supabase client instead of undefined supabaseAdmin
+    const server = supabase;
 
     const { data: authData, error: authErr } = await server.auth.getUser(token)
     if (authErr || !authData?.user) {
@@ -80,7 +82,7 @@ export default async function handler(req, res) {
     }
 
     // Update the trade
-    const { data: updatedTrade, error: updateError } = await supabaseAdmin
+    const { data: updatedTrade, error: updateError } = await server
       .from('trades')
       .update({
         status: 'completed',
@@ -130,6 +132,6 @@ export default async function handler(req, res) {
 
   } catch (e) {
     console.error('Close trade API error:', e)
-    return res.status(500).json({ ok: false, code: 'internal_error', message: 'Internal error' })
+    return res.status(500).json({ ok: false, code: 'internal_error', message: 'Internal error: ' + e.message })
   }
 }

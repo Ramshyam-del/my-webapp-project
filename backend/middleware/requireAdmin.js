@@ -31,6 +31,7 @@ async function authenticateUser(req, res, next) {
   try {
     // Check if Supabase is configured
     if (!serverSupabase) {
+      console.log('❌ [AUTH] Supabase not configured');
       return res.status(503).json({ 
         ok: false, 
         code: 'misconfigured', 
@@ -39,7 +40,7 @@ async function authenticateUser(req, res, next) {
     }
 
     const token = extractToken(req);
-    console.log('🔍 [AUTH] Token extracted:', !!token);
+    console.log('🔍 [AUTH] Token extracted:', token ? 'YES' : 'NO');
     
     if (!token) {
       console.log('❌ [AUTH] No authentication token found');
@@ -102,7 +103,10 @@ async function authenticateUser(req, res, next) {
  * Require admin role middleware - must be used after authenticateUser
  */
 async function requireAdmin(req, res, next) {
+  console.log('🔍 [ADMIN] Checking admin access for user:', req.user?.email, 'Role:', req.user?.role);
+  
   if (!req.user) {
+    console.log('❌ [ADMIN] No user in request');
     return res.status(401).json({ 
       ok: false, 
       code: 'unauthorized', 
@@ -111,6 +115,7 @@ async function requireAdmin(req, res, next) {
   }
 
   if (req.user.role !== 'admin') {
+    console.log('❌ [ADMIN] User is not admin:', req.user.role);
     return res.status(403).json({ 
       ok: false, 
       code: 'access_denied', 
@@ -118,6 +123,7 @@ async function requireAdmin(req, res, next) {
     });
   }
 
+  console.log('✅ [ADMIN] User has admin access');
   next();
 }
 

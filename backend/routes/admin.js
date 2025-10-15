@@ -503,9 +503,15 @@ router.get('/trades', authenticateUser, requireAdmin, async (req, res) => {
 // POST /api/admin/trade-outcome - Set trade outcome
 router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) => {
   try {
+    console.log('🔍 [TRADE-OUTCOME] Request received');
+    console.log('🔍 [TRADE-OUTCOME] Request body:', JSON.stringify(req.body, null, 2));
+    console.log('🔍 [TRADE-OUTCOME] User:', req.user);
+    
     const { tradeId, outcome } = req.body;
+    console.log('🔍 [TRADE-OUTCOME] Parsed values:', { tradeId, outcome });
     
     if (!tradeId || !outcome || !['win', 'loss'].includes(outcome)) {
+      console.log('❌ [TRADE-OUTCOME] Invalid input:', { tradeId, outcome });
       return res.status(400).json({
         ok: false,
         code: 'invalid_input',
@@ -513,7 +519,18 @@ router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) =
       });
     }
     
-    // Find trade by ID
+    // Check if Supabase is configured
+    if (!serverSupabase) {
+      console.log('❌ [TRADE-OUTCOME] Supabase not configured');
+      return res.status(500).json({
+        ok: false,
+        code: 'server_error',
+        message: 'Database not configured'
+      });
+    }
+    
+    // Find trade by ID that is still pending
+    console.log('🔍 [TRADE-OUTCOME] Looking for trade:', tradeId);
     const { data: trade, error: tradeError } = await serverSupabase
       .from('trades')
       .select('*')
@@ -522,6 +539,33 @@ router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) =
       .single();
     
     if (tradeError || !trade) {
+      console.log('❌ [TRADE-OUTCOME] Trade not found with pending status:', tradeError?.message || 'No trade found');
+      // Check if trade exists but already has a result
+      const { data: existingTrade, error: existingTradeError } = await serverSupabase
+        .from('trades')
+        .select('*')
+        .eq('id', tradeId)
+        .single();
+      
+      if (existingTradeError || !existingTrade) {
+        console.log('❌ [TRADE-OUTCOME] Trade not found at all:', existingTradeError?.message || 'No trade found');
+        return res.status(400).json({
+          ok: false,
+          code: 'trade_not_found',
+          message: 'Trade not found'
+        });
+      }
+      
+      // If trade already has a result, return appropriate message
+      if (existingTrade.trade_result !== 'pending') {
+        console.log('❌ [TRADE-OUTCOME] Trade already completed:', existingTrade.trade_result);
+        return res.status(400).json({
+          ok: false,
+          code: 'trade_already_completed',
+          message: `Trade already marked as ${existingTrade.trade_result}`
+        });
+      }
+      
       return res.status(400).json({
         ok: false,
         code: 'trade_not_found',
@@ -529,37 +573,83 @@ router.post('/trade-outcome', authenticateUser, requireAdmin, async (req, res) =
       });
     }
     
+    console.log('✅ [TRADE-OUTCOME] Found trade:', trade.id);
     // Calculate PnL
     const pnl = trade.amount * trade.leverage * (outcome === 'win' ? 0.5 : -1);
+    console.log('🔍 [TRADE-OUTCOME] Calculated PnL:', pnl);
+    
+    // Validate user object before using it
+    console.log('🔍 [TRADE-OUTCOME] User object:', req.user);
+    if (!req.user || !req.user.id) {
+      console.error('❌ [TRADE-OUTCOME] User object is invalid:', req.user);
+      return res.status(500).json({
+        ok: false,
+        code: 'server_error',
+        message: 'User authentication data is missing'
+      });
+    }
     
     // Update trade
+    console.log('🔍 [TRADE-OUTCOME] Updating trade with:', { 
+      status: 'OPEN',
+      trade_result: outcome,
+      final_pnl: pnl,
+      admin_action: outcome.toLowerCase(), // Record admin decision (must be lowercase to match constraint)
+      admin_action_at: new Date().toISOString(), // Record when admin made the decision
+      admin_user_id: req.user.id // Record which admin made the decision
+    });
+    
+    const updatePayload = {
+      // Don't change trade_result immediately - keep it as 'pending' so it still shows in active trades
+      // The settlement worker will apply the admin decision and change trade_result when the trade expires
+      final_pnl: pnl,
+      admin_action: outcome.toLowerCase(), // Record admin decision (must be lowercase to match constraint)
+      admin_action_at: new Date().toISOString(), // Record when admin made the decision
+      result_determined_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    
+    // Only add admin_user_id if it looks like a valid UUID
+    if (req.user.id && typeof req.user.id === 'string' && req.user.id.length === 36) {
+      updatePayload.admin_user_id = req.user.id;
+      console.log('✅ [TRADE-OUTCOME] Adding admin_user_id to update payload');
+    } else {
+      console.log('⚠️ [TRADE-OUTCOME] Skipping admin_user_id - not a valid UUID:', req.user.id);
+    }
+    
+    // Log the full update payload for debugging
+    console.log('🔍 [TRADE-OUTCOME] Full update payload:', JSON.stringify(updatePayload, null, 2));
+    
     const { data: updatedTrade, error: updateError } = await serverSupabase
       .from('trades')
-      .update({
-        status: 'completed',
-        trade_result: outcome,
-        final_pnl: pnl,
-        result_determined_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', trade.id)
       .select('*')
       .single();
     
     if (updateError) {
-      throw updateError;
+      console.error('❌ [TRADE-OUTCOME] Trade update error:', updateError);
+      console.error('❌ [TRADE-OUTCOME] Full error details:', JSON.stringify(updateError, null, 2));
+      return res.status(500).json({
+        ok: false,
+        code: 'update_failed',
+        message: 'Failed to update trade: ' + (updateError.message || 'Database error'),
+        debug: process.env.NODE_ENV === 'development' ? updateError : undefined
+      });
     }
     
+    console.log('✅ [TRADE-OUTCOME] Trade updated successfully');
     res.json({
       ok: true,
       data: updatedTrade
     });
   } catch (error) {
-    console.error('Admin trade outcome error:', error);
+    console.error('❌ [TRADE-OUTCOME] Admin trade outcome error:', error);
+    console.error('❌ [TRADE-OUTCOME] Error stack:', error.stack);
     res.status(500).json({
       ok: false,
       code: 'server_error',
-      message: 'Failed to set trade outcome'
+      message: 'Failed to set trade outcome: ' + (error.message || 'Internal server error')
     });
   }
 });

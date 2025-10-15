@@ -7,10 +7,12 @@ async function settleBatch() {
     if (!supabaseAdmin) { console.warn('[settle] Supabase not configured'); return; }
     const nowIso = new Date().toISOString();
 
+    // Select trades that are OPEN and have expired
     const { data: trades, error } = await supabaseAdmin
       .from('trades')
       .select('*')
-      .eq('settled', false)
+      .eq('status', 'OPEN')
+      .eq('trade_result', 'pending') // Only select trades with pending result
       .lte('expiry_ts', nowIso)
       .order('expiry_ts', { ascending: true })
       .limit(100);
@@ -30,10 +32,15 @@ async function settleBatch() {
           outcome = 'WIN';
           // For wins: return original amount + profit
           delta = Number(t.amount) + pnl;
-        } else {
+        } else if (t.admin_action === 'loss') {
           pnl = -Number(t.amount);
           outcome = 'LOSS';
           // For losses: do nothing (amount was already deducted when trade was created)
+          delta = 0;
+        } else {
+          // If no admin decision, default to LOSS
+          pnl = -Number(t.amount);
+          outcome = 'LOSS';
           delta = 0;
         }
 

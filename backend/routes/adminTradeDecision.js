@@ -46,7 +46,7 @@ router.patch('/:id/decision', async (req, res) => {
     // Update trade with decision, outcome, PnL, and settlement status
     const { data: updated, error: uErr } = await supabaseAdmin.from('trades')
       .update({ 
-        admin_decision: decision, 
+        admin_action: decision, 
         outcome: decision, 
         pnl: pnl,
         settled: true, 

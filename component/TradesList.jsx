@@ -125,6 +125,7 @@ const TradesList = () => {
       setError(null);
       setConfirmationModal({ isOpen: false, tradeId: null, decision: null, tradePair: null });
 
+      console.log('Sending trade decision request:', { tradeId, decision });
       const response = await authedFetchJson('/api/admin/trade-outcome', {
         method: 'POST',
         body: JSON.stringify({ 
@@ -132,16 +133,45 @@ const TradesList = () => {
           outcome: decision.toLowerCase() 
         })
       });
+      console.log('Trade decision response:', response);
 
       if (response && response.ok) {
-        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully. P&L: $${response.data.final_pnl.toFixed(2)}`);
+        // Check if final_pnl exists before trying to format it
+        const pnl = response.data && response.data.final_pnl !== undefined ? response.data.final_pnl : 0;
+        setSuccess(`Trade marked as ${decision.toLowerCase()} successfully. PnL: $${pnl.toFixed(2)}`);
         fetchTrades(); // Refresh the list
       } else {
-        throw new Error(response?.message || `Failed to mark trade as ${decision.toLowerCase()}`);
+        // Handle specific error codes
+        if (response?.code === 'trade_already_completed') {
+          setError(`Trade has already been marked as ${response.data?.trade_result || 'completed'}`);
+        } else if (response?.code === 'trade_not_found') {
+          setError('Trade not found or no longer available');
+        } else {
+          throw new Error(response?.message || `Failed to mark trade as ${decision.toLowerCase()}`);
+        }
       }
     } catch (error) {
       console.error('Error setting trade decision:', error);
-      setError(`Failed to mark trade as ${decision.toLowerCase()}: ` + error.message);
+      // Provide more detailed error information
+      let errorMessage = `Failed to mark trade as ${decision.toLowerCase()}: `;
+      if (error.code === 'network_error') {
+        errorMessage += 'Network connection failed. Please check your internet connection and try again.';
+      } else if (error.code === 'unauthorized') {
+        errorMessage += 'Authentication failed. Please log in again.';
+      } else if (error.code === 'forbidden') {
+        errorMessage += 'Access denied. You may not have admin privileges.';
+      } else if (error.status === 400) {
+        errorMessage += 'Invalid request. Please check the trade details.';
+      } else if (error.status === 500) {
+        errorMessage += 'Server error. Please try again later.';
+        // Log additional debug information for 500 errors
+        if (error.original) {
+          console.error('Server error details:', error.original);
+        }
+      } else {
+        errorMessage += error.message || 'Unknown error occurred.';
+      }
+      setError(errorMessage);
     } finally {
       setProcessingTrade(null);
     }
@@ -164,7 +194,9 @@ const TradesList = () => {
       });
 
       if (response && response.ok && response.data) {
-        setSuccess(`Trade closed successfully. PnL: $${response.data.trade.pnl.toFixed(2)}`);
+        // Check if trade and pnl exist before trying to format them
+        const pnl = response.data.trade && response.data.trade.pnl !== undefined ? response.data.trade.pnl : 0;
+        setSuccess(`Trade closed successfully. PnL: $${pnl.toFixed(2)}`);
         setCloseModalOpen(false);
         setSelectedTrade(null);
         setExitPrice('');
