@@ -1,10 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// Use service role key for server-side operations to bypass RLS
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 console.log('🔧 [ACTIVE-TRADES] Using service role key for database access');
 
@@ -24,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     const token = authHeader.split(' ')[1];
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
     console.log('🔍 [ACTIVE-TRADES] User ID:', user?.id);
     
     if (authError || !user) {
@@ -36,7 +30,7 @@ export default async function handler(req, res) {
     console.log('🔍 [ACTIVE-TRADES] Querying for user:', user.id);
     
     // First, test basic query
-    const { data: allUserTrades, error: allTradesError } = await supabase
+    const { data: allUserTrades, error: allTradesError } = await supabaseAdmin
       .from('trades')
       .select('id, status, trade_result')
       .eq('user_id', user.id)
@@ -44,7 +38,7 @@ export default async function handler(req, res) {
     
     console.log('🔍 [ACTIVE-TRADES] All user trades test:', allUserTrades?.length || 0, allUserTrades);
     
-    const { data: trades, error: tradesError } = await supabase
+    const { data: trades, error: tradesError } = await supabaseAdmin
       .from('trades')
       .select(`
         id,

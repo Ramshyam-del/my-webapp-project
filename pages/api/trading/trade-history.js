@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabaseAdmin';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     }
 
     const token = authHeader.split(' ')[1];
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
       console.error('Auth error:', userError);
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
     // Fetch completed trades for the user (including auto-expired trades)
     console.log('🔍 [TRADE-HISTORY] Fetching trades for user:', user.id);
-    const { data: trades, error: tradesError } = await supabase
+    const { data: trades, error: tradesError } = await supabaseAdmin
       .from('trades')
       .select('*')
       .eq('user_id', user.id)
