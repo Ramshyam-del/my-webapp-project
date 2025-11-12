@@ -274,24 +274,8 @@ const Portfolio = () => {
 
   const totalMargin = calculateTotalMargin();
   const unrealizedPnL = calculateUnrealizedPnL();
-  // Use our calculated total value instead of the API's incorrect totalBalance
-  // Fallback calculation if state isn't updated yet
-  // FORCE IMMEDIATE CALCULATION - bypass state completely
-  const immediateTotal = portfolioBalances.currencies && portfolioBalances.currencies.length > 0 && Object.keys(cryptoPrices).length > 0 
-    ? portfolioBalances.currencies.reduce((sum, currency) => {
-        const balance = parseFloat(currency.balance) || 0;
-        const price = cryptoPrices[currency.currency] || 0;
-        console.log(`🔍 [Portfolio] IMMEDIATE: ${currency.currency}: balance=${balance}, price=${price}, value=${balance * price}`);
-        return sum + (balance * price);
-      }, 0)
-    : 0;
-  
-  console.log('🔍 [Portfolio] IMMEDIATE TOTAL:', immediateTotal);
-  console.log('🔍 [Portfolio] Available currencies:', portfolioBalances?.currencies?.map(c => c.currency));
-  console.log('🔍 [Portfolio] Available prices:', Object.keys(cryptoPrices || {}));
-  
-  // Force recalculation every time - no caching
-  const totalPortfolioValue = immediateTotal || 0;
+  // Use the API's totalBalance instead of recalculating in production
+  const totalPortfolioValue = portfolioBalances?.totalBalance || 0;
   const availableBalance = (portfolio?.balance || 0) - totalMargin;
   const totalEquity = totalPortfolioValue + unrealizedPnL;
 
