@@ -289,9 +289,9 @@ export default function PortfolioPage() {
         
         // Extract addresses with fallbacks to ensure we always have the correct production addresses
         next = {
-          usdt: cfg.usdtAddress || cfg.deposit_addresses?.usdt || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: cfg.btcAddress || cfg.deposit_addresses?.btc || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: cfg.ethAddress || cfg.deposit_addresses?.eth || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
+          usdt: cfg.usdtAddress || cfg.deposit_addresses?.usdt || '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+          btc: cfg.btcAddress || cfg.deposit_addresses?.btc || 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+          eth: cfg.ethAddress || cfg.deposit_addresses?.eth || '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819',
         };
         
         // If any address is missing from config, force update with production addresses
@@ -299,18 +299,18 @@ export default function PortfolioPage() {
           console.warn('Missing wallet addresses in config, forcing update with production addresses');
           const updatedConfig = {
             ...cfg,
-            usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-            btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-            ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+            usdtAddress: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+            btcAddress: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+            ethAddress: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
           };
           safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
         }
       } else {
         // Use default addresses if no config exists
         next = {
-          usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+          usdt: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+          btc: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+          eth: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
         };
       }
       console.log('Final deposit addresses loaded:', next);
@@ -319,11 +319,10 @@ export default function PortfolioPage() {
       console.error('Error loading deposit addresses:', _e);
       // Fallback to default addresses on error
       const fallbackAddresses = {
-        usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-        btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-        eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        usdt: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+        btc: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+        eth: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
       };
-      console.log('Using fallback addresses:', fallbackAddresses);
       setDepositAddresses(fallbackAddresses);
     }
   };

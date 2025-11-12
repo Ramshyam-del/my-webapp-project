@@ -97,9 +97,9 @@ export default function Wallets() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [walletAddresses, setWalletAddresses] = useState({
-    usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-    btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-    eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+    usdt: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+    btc: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+    eth: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
   });
   const [mounted, setMounted] = useState(false);
 

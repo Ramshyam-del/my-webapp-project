@@ -35,10 +35,10 @@ export default function AdminOperate() {
     whitePaperLink: '',
     // Banner configuration
     exchangeBanner: '/uploads/default-banner.jpg',
-    // Wallet addresses
-    usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-    btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-    ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+    // Updated wallet addresses
+    usdtAddress: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+    btcAddress: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+    ethAddress: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
   });
 
 
@@ -79,10 +79,10 @@ export default function AdminOperate() {
         whitePaperLink: '',
         // Banner configuration
         exchangeBanner: '/uploads/default-banner.jpg',
-        // Wallet addresses
-        usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-        btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-        ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        // Updated wallet addresses
+        usdtAddress: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+        btcAddress: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+        ethAddress: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
       };
       setConfig(defaultConfig);
       // Save to localStorage

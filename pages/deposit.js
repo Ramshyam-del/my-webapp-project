@@ -7,19 +7,15 @@ import DepositMonitor from '../components/DepositMonitor';
 import { getCryptoImageUrl } from '../utils/cryptoIcons';
 import configSync from '../utils/configSync';
 
-export default function DepositPage() {
+export default function Deposit() {
   const router = useRouter();
-  const { config, loading: configLoading } = useConfig();
+  const { config } = useConfig();
   const [mounted, setMounted] = useState(false);
-  const [selectedCrypto, setSelectedCrypto] = useState(null);
-  const [showQRModal, setShowQRModal] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedCrypto, setSelectedCrypto] = useState(null);
   const [activeDeposits, setActiveDeposits] = useState([]);
   const [showDepositHistory, setShowDepositHistory] = useState(false);
-
-
-  // Cryptocurrency options - will be loaded from database
   const [cryptoOptions, setCryptoOptions] = useState([
     {
       id: 'bitcoin',
@@ -28,8 +24,8 @@ export default function DepositPage() {
       network: 'Bitcoin Network',
       icon: '₿',
       color: 'bg-orange-500',
-      address: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4'
+      address: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f'
     },
     {
       id: 'ethereum',
@@ -38,8 +34,8 @@ export default function DepositPage() {
       network: 'Ethereum (ERC20)',
       icon: 'Ξ',
       color: 'bg-blue-500',
-      address: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+      address: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
     },
     {
       id: 'usdt',
@@ -48,8 +44,8 @@ export default function DepositPage() {
       network: 'TRON (TRC 20)',
       icon: 'T',
       color: 'bg-green-500',
-      address: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W'
+      address: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=19RAJKBpy663RXA767p2umFRWfSPbo71B4'
     }
   ]);
 
@@ -157,8 +153,6 @@ export default function DepositPage() {
     }
   };
 
-
-
   // Handle crypto selection
   const handleCryptoSelect = (crypto) => {
     setSelectedCrypto({
@@ -167,8 +161,6 @@ export default function DepositPage() {
     });
     setShowQRModal(true);
   };
-
-
 
   // Load deposit history
   const loadDepositHistory = async () => {
@@ -366,7 +358,7 @@ export default function DepositPage() {
         >
           ←
         </button>
-        <h1 className="text-xl font-bold">{config.title || config.officialWebsiteName || 'Quantex'}</h1>
+        <h1 className="text-xl font-bold">{config?.title || config?.officialWebsiteName || 'Quantex'}</h1>
         <button 
           onClick={() => router.push('/portfolio')}
           className="text-gray-400 hover:text-white transition-colors"
