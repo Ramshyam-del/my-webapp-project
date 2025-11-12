@@ -23,8 +23,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: false, // Always false for localhost development
-  sameSite: 'lax', // Always lax for cross-origin requests in development
+  secure: isProduction, // Only secure in production
+  sameSite: isProduction ? 'strict' : 'lax', // Strict in production, lax in development
   path: '/', // Explicitly set path
   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 };
@@ -166,12 +166,14 @@ const clearSupabaseTokenCookies = (res) => {
   res.clearCookie('sb-access-token', {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax'
+    sameSite: isProduction ? 'strict' : 'lax',
+    path: '/'
   });
   res.clearCookie('sb-refresh-token', {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax'
+    sameSite: isProduction ? 'strict' : 'lax',
+    path: '/'
   });
 };
 
