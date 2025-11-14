@@ -1,11 +1,73 @@
+# Environment files - NEVER commit real credentials
 .env
+.env.local
+.env.production
+.env.railway
 .env.*
+!.env.example
 !.env.*.template
+!.env.*.example
+
+# Backend environment files
 backend/.env
+backend/.env.local
+backend/.env.production
 backend/.env.*
+!backend/.env.example
 !backend/.env.*.template
+
+# Component environment files
+component/.env
+component/.env.*
+
+# Dependencies
 node_modules
+backend/node_modules
+
+# Build outputs
 .next
 dist
 build
+out
+
+# Logs
 *.log
+logs/
+backend/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Debug files (should not be in production)
+debug-*.js
+debug-*.html
+test-*.js
+test-*.html
+**/debug-*.js
+**/test-*.js
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Git artifacts
+tatus
+ow --name-only HEAD
+tatus --porcelain

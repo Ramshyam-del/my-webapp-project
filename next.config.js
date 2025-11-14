@@ -4,6 +4,21 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:400
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  
+  // Exclude debug and test pages from production builds
+  pageExtensions: ['js', 'jsx', 'ts', 'tsx'],
+  
+  webpack: (config, { isServer, dev }) => {
+    // Exclude debug/test pages in production
+    if (!dev && isServer) {
+      config.externals = config.externals || [];
+    }
+    return config;
+  },
+
+  // Exclude debug pages from production build
+  excludeDefaultMomentLocales: true,
+  
   async rewrites() {
     return [
       {
@@ -25,6 +40,41 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: `${BACKEND_URL}/api/:path*`,
+      },
+    ];
+  },
+
+  // Security headers
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          },
+        ],
       },
     ];
   },

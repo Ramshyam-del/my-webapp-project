@@ -8,9 +8,14 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const { generalLimiter } = require('./middleware/rateLimiter');
+const { requestMonitoring, errorMonitoring } = require('./middleware/monitoring');
+const monitoringService = require('./services/monitoringService');
 
 const app = express();
 app.set('trust proxy', 1);
+
+// Request monitoring middleware (before other middleware)
+app.use(requestMonitoring);
 
 // Per-request logging
 app.use((req, _res, next) => {
@@ -76,6 +81,7 @@ const tradingRouter = require('./routes/trading');
 const depositsRouter = require('./routes/deposits');
 const sessionsRouter = require('./routes/sessions');
 const triggerBalanceUpdateRouter = require('./routes/triggerBalanceUpdate');
+const monitoringRouter = require('./routes/monitoring');
 const { startSettlementWorker } = require('./worker/settleTrades');
 
 // Admin routes with Supabase authentication (for /me, /users, etc.)
@@ -104,6 +110,9 @@ app.use('/api/trading', tradingRouter);
 // Session management routes
 app.use('/api/sessions', sessionsRouter);
 
+// Monitoring routes (public health check, admin metrics)
+app.use('/api/monitoring', monitoringRouter);
+
 // Internal system routes
 app.use('/api', triggerBalanceUpdateRouter);
 
@@ -128,6 +137,7 @@ app.use((req, res) => {
 
 // Enhanced Error Handling
 const { errorHandler } = require('./middleware/errorHandler');
+app.use(errorMonitoring); // Monitor errors
 app.use(errorHandler);
 
 // Start server
@@ -144,6 +154,10 @@ const server = app.listen(PORT, HOST, async () => {
   try {
     await serviceManager.initialize();
     
+    // Initialize monitoring service
+    monitoringService.initialize();
+    console.log('✅ Monitoring service initialized');
+    
     // Initialize security services
     securityMonitor.initialize();
     keyRotationService.initialize();
@@ -156,11 +170,14 @@ const server = app.listen(PORT, HOST, async () => {
     app.realTimeBalanceService = realTimeBalanceService;
     app.securityMonitor = securityMonitor;
     app.keyRotationService = keyRotationService;
+    app.monitoringService = monitoringService;
     
-    console.log('✅ Security services initialized');
+    console.log('✅ All services initialized successfully');
+    console.log('📊 Monitoring endpoint: /api/monitoring/health');
     
   } catch (error) {
-    console.error('Failed to initialize services:', error);
+    console.error('❌ Failed to initialize services:', error);
+    monitoringService.recordError(error, { severity: 'critical', context: 'service_initialization' });
     process.exit(1);
   }
 });
