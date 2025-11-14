@@ -275,6 +275,9 @@ export default function AdminOperate() {
         // Also save to localStorage as backup
         safeLocalStorage.setItem('webConfig', JSON.stringify(config));
         
+        // Immediately broadcast to all tabs/browsers
+        configSync.broadcastConfigUpdate(config);
+        
         // Force refresh config sync to notify all devices
         await configSync.forceRefresh();
         

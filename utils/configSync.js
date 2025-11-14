@@ -7,6 +7,18 @@ class ConfigSync {
     this.pollInterval = null;
     this.listeners = new Set();
     this.isPolling = false;
+    this.broadcastChannel = null;
+    
+    // Initialize BroadcastChannel for cross-browser sync
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      this.broadcastChannel = new BroadcastChannel('wallet-config-sync');
+      this.broadcastChannel.addEventListener('message', (event) => {
+        if (event.data.type === 'WALLET_UPDATE') {
+          console.log('Received wallet update from another tab/browser:', event.data.config);
+          this.handleRemoteConfigUpdate(event.data.config);
+        }
+      });
+    }
   }
 
   // Add listener for config updates
@@ -28,6 +40,53 @@ class ConfigSync {
         console.error('Error in config listener:', error);
       }
     });
+  }
+
+  // Handle config update from remote browser/tab
+  handleRemoteConfigUpdate(config) {
+    try {
+      // Update localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('webConfig', JSON.stringify(config));
+        
+        // Update hash to prevent duplicate polling
+        const configString = JSON.stringify(config);
+        this.lastUpdate = this.hashCode(configString);
+        
+        // Notify local listeners
+        this.notifyListeners(config);
+        
+        // Dispatch events for components
+        window.dispatchEvent(new CustomEvent('webConfigUpdated', {
+          detail: { config: config }
+        }));
+        
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'webConfig',
+          newValue: JSON.stringify(config),
+          oldValue: localStorage.getItem('webConfig'),
+          storageArea: localStorage
+        }));
+      }
+    } catch (error) {
+      console.error('Error handling remote config update:', error);
+    }
+  }
+
+  // Broadcast config update to other tabs/browsers
+  broadcastConfigUpdate(config) {
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({
+          type: 'WALLET_UPDATE',
+          config: config,
+          timestamp: Date.now()
+        });
+        console.log('Broadcasted wallet config update to other tabs/browsers');
+      } catch (error) {
+        console.error('Error broadcasting config update:', error);
+      }
+    }
   }
 
   // Start polling for config updates
@@ -81,6 +140,9 @@ class ConfigSync {
             // Update localStorage
             localStorage.setItem('webConfig', configString);
             
+            // Broadcast to other tabs/browsers immediately
+            this.broadcastConfigUpdate(serverConfig);
+            
             // Notify listeners
             this.notifyListeners(serverConfig);
             
@@ -98,7 +160,7 @@ class ConfigSync {
               }));
             }
             
-            console.log('Configuration updated from server:', serverConfig);
+            console.log('Configuration updated from server and broadcasted:', serverConfig);
           }
         }
       }
@@ -150,6 +212,16 @@ class ConfigSync {
     // Fallback to localStorage
     const saved = localStorage.getItem('webConfig');
     return saved ? JSON.parse(saved) : null;
+  }
+
+  // Cleanup resources
+  destroy() {
+    this.stopPolling();
+    if (this.broadcastChannel) {
+      this.broadcastChannel.close();
+      this.broadcastChannel = null;
+    }
+    this.listeners.clear();
   }
 }
 

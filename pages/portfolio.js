@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import useRealTimeBalance from '../hooks/useRealTimeBalance';
 import { useAuth } from '../contexts/AuthContext';
 import { getCryptoImageUrl } from '../utils/cryptoIcons';
+import configSync from '../utils/configSync';
 
 // Cryptocurrency list with more trading pairs
 const cryptoList = [
@@ -782,6 +783,22 @@ export default function PortfolioPage() {
       }
     };
     
+    // Set up configSync listener for real-time cross-browser wallet updates
+    const handleConfigUpdate = (config) => {
+      console.log('Received wallet config update:', config);
+      if (config?.walletAddresses) {
+        setDepositAddresses({
+          usdt: config.walletAddresses.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: config.walletAddresses.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: config.walletAddresses.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        });
+        console.log('Deposit addresses updated from cross-browser sync');
+      }
+    };
+    
+    configSync.addListener(handleConfigUpdate);
+    configSync.startPolling(5000); // Check for updates every 5 seconds
+    
     if (document) {
       document.addEventListener('webConfigUpdated', onCfg);
       document.addEventListener('forceAddressUpdate', onForceUpdate);
@@ -810,6 +827,9 @@ export default function PortfolioPage() {
       if (kycChannel) {
         kycChannel.close();
       }
+      // Clean up configSync
+      configSync.removeListener(handleConfigUpdate);
+      configSync.stopPolling();
     };
   }, [wsConnected]);
 
