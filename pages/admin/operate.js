@@ -275,11 +275,17 @@ export default function AdminOperate() {
         // Also save to localStorage as backup
         safeLocalStorage.setItem('webConfig', JSON.stringify(config));
         
-        // Immediately broadcast to all tabs/browsers
-        configSync.broadcastConfigUpdate(config);
-        
-        // Force refresh config sync to notify all devices
-        await configSync.forceRefresh();
+        // Immediately broadcast to all tabs/browsers (only on client-side)
+        try {
+          if (typeof window !== 'undefined' && configSync) {
+            configSync.broadcastConfigUpdate(config);
+            // Force refresh config sync to notify all devices
+            await configSync.forceRefresh();
+          }
+        } catch (syncError) {
+          console.warn('Config sync broadcast failed:', syncError);
+          // Continue even if sync fails
+        }
         
         // Trigger events for frontend updates (backward compatibility)
         const document = getSafeDocument();
