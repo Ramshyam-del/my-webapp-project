@@ -31,8 +31,11 @@ export default function FeaturesPage() {
   const [volume24h, setVolume24h] = useState('0');
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [tradeType, setTradeType] = useState('BUY');
-  const [selectedLeverage, setSelectedLeverage] = useState('1x');
+  const [selectedLeverage, setSelectedLeverage] = useState(1);
   const [selectedDuration, setSelectedDuration] = useState(360); // Default to 360s
+  
+  // Leverage options (max 20x)
+  const leverageOptions = [1, 2, 3, 5, 10, 15, 20];
   
   // Enhanced UI state variables
   const [lastPrice, setLastPrice] = useState('0.00');
@@ -301,7 +304,7 @@ export default function FeaturesPage() {
     const amount = parseFloat(orderAmount);
     const selectedOption = durationOptions.find(opt => opt.seconds === selectedDuration);
     const percentage = selectedOption ? selectedOption.percentage : 0;
-    const leverage = parseInt(selectedLeverage.replace('x', ''));
+    const leverage = selectedLeverage; // Already a number
     
     // Calculate profit: Amount * (Percentage / 100) * Leverage
     const profit = amount * (percentage / 100) * leverage;
@@ -367,7 +370,7 @@ export default function FeaturesPage() {
           side: orderSide, // 'buy' or 'sell'
           type: 'market',
           amount: parseFloat(orderAmount),
-          leverage: parseInt(selectedLeverage.replace('x', '')),
+          leverage: selectedLeverage, // Already a number
           duration: durationString
         })
       });
@@ -975,6 +978,53 @@ Entry Price: $${result.data.execution.price}`,
                   </select>
                 </div>
                 
+                {/* Leverage Selector */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    ⚡ Leverage: <span className={`font-bold ${selectedLeverage >= 15 ? 'text-red-400' : selectedLeverage >= 10 ? 'text-yellow-400' : 'text-green-400'}`}>{selectedLeverage}x</span>
+                  </label>
+                  <div className="bg-gray-800 border border-gray-600 rounded p-2">
+                    {/* Slider */}
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={selectedLeverage}
+                      onChange={(e) => setSelectedLeverage(parseInt(e.target.value))}
+                      className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      style={{
+                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((selectedLeverage - 1) / 19) * 100}%, #374151 ${((selectedLeverage - 1) / 19) * 100}%, #374151 100%)`
+                      }}
+                    />
+                    
+                    {/* Quick Select Buttons */}
+                    <div className="grid grid-cols-7 gap-1 mt-2">
+                      {leverageOptions.map((lev) => (
+                        <button
+                          key={lev}
+                          type="button"
+                          onClick={() => setSelectedLeverage(lev)}
+                          className={`py-1 px-1 rounded text-[10px] font-bold transition-all ${
+                            selectedLeverage === lev
+                              ? 'bg-blue-600 text-white border border-blue-400'
+                              : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600'
+                          }`}
+                        >
+                          {lev}x
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Risk Warning */}
+                    {selectedLeverage >= 15 && (
+                      <div className="mt-2 text-[10px] text-red-400 flex items-center gap-1">
+                        <span>⚠️</span>
+                        <span>High leverage increases risk of liquidation</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
                 {/* Amount */}
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">💰 Amount</label>
@@ -1015,15 +1065,25 @@ Entry Price: $${result.data.execution.price}`,
                 </div>
                 
                 {/* Balance Info */}
-                <div className="bg-gray-800 rounded p-2 text-xs">
-                  <div className="flex justify-between mb-1">
+                <div className="bg-gray-800 rounded p-2 text-xs space-y-1">
+                  <div className="flex justify-between">
                     <span className="text-gray-400">💰 Balance:</span>
                     <span className="text-green-400">${getAvailableBalance(modalSelectedPair).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">📈 Profit:</span>
+                    <span className="text-gray-400">� Position Size:</span>
+                    <span className="text-blue-400">${(parseFloat(orderAmount || 0) * selectedLeverage).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">�📈 Est. Profit ({selectedLeverage}x):</span>
                     <span className="text-green-400">+${calculateProjectedProfit().toFixed(2)}</span>
                   </div>
+                  {selectedLeverage > 1 && (
+                    <div className="flex justify-between text-[10px] pt-1 border-t border-gray-700">
+                      <span className="text-yellow-400">⚠️ Margin Required:</span>
+                      <span className="text-yellow-400">${(parseFloat(orderAmount || 0)).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Action Buttons */}
