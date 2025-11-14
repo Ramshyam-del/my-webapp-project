@@ -32,7 +32,12 @@ export default async function handler(req, res) {
           mobile: '',
           title: 'Quantex',
           logo: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
-          favicon: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg'
+          favicon: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+          walletAddresses: {
+            usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+            btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+            ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+          }
         };
         return res.status(200).json({
           success: true,
@@ -41,9 +46,20 @@ export default async function handler(req, res) {
         });
       }
 
+      // Include wallet addresses in response
+      const responseData = {
+        ...(config?.system_settings || {}),
+        // Ensure walletAddresses are included
+        walletAddresses: config?.system_settings?.walletAddresses || {
+          usdtAddress: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btcAddress: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          ethAddress: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        }
+      };
+
       res.status(200).json({
         success: true,
-        data: config?.system_settings || {},
+        data: responseData,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -56,7 +72,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PUT') {
     try {
-      const { system_settings } = req.body || {};
+      const { system_settings, walletAddresses } = req.body || {};
 
       if (system_settings && typeof system_settings === 'object') {
         // Get current configuration
@@ -75,6 +91,14 @@ export default async function handler(req, res) {
           ...(currentConfig?.system_settings || {}),
           ...system_settings
         };
+
+        // Merge wallet addresses if provided
+        if (walletAddresses && typeof walletAddresses === 'object') {
+          updatedSystemSettings.walletAddresses = {
+            ...(updatedSystemSettings.walletAddresses || {}),
+            ...walletAddresses
+          };
+        }
 
         // Update configuration in database
         const { data: updatedConfig, error: updateError } = await supabase

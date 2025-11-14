@@ -44,52 +44,54 @@ export default function AdminOperate() {
 
 
   useEffect(() => {
-    // Load configuration from localStorage or API
-    const savedConfig = safeLocalStorage.getItem('webConfig');
-    if (savedConfig) {
-      setConfig(JSON.parse(savedConfig));
-    } else {
-      // Save default wallet addresses to database and localStorage
-      const defaultConfig = {
-        // Basic settings
-        title: '',
-        officialWebsiteName: '',
-        officialWebsiteLink: '',
-        email: '',
-        address: '',
-        mobile: '',
-        workingHours: {
-          home: true,
-          about: true,
-          tokenSale: true,
-          roadi: true
-        },
-        menuManagement: {
-          english: true
-        },
-        logo: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
-        favicon: '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
-        telegram: '',
-        whatsapp: '',
-        whatsappAddress: '',
-        emailAddress: '',
-        // Content configuration
-        slogan: '',
-        subbanner: '',
-        whitePaperLink: '',
-        // Banner configuration
-        exchangeBanner: '/uploads/default-banner.jpg',
-        // Updated wallet addresses
-        usdtAddress: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
-        btcAddress: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
-        ethAddress: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
-      };
-      setConfig(defaultConfig);
-      // Save to localStorage
-      safeLocalStorage.setItem('webConfig', JSON.stringify(defaultConfig));
-      // Save to database
-      saveConfigToDatabase(defaultConfig);
-    }
+    // Load configuration from database first
+    const loadConfigFromDatabase = async () => {
+      try {
+        const response = await fetch('/api/admin/config');
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          console.log('Loaded config from database:', result.data);
+          const dbConfig = result.data;
+          
+          // Merge database config with wallet addresses
+          const loadedConfig = {
+            ...config,
+            telegram: dbConfig.telegram || '',
+            whatsapp: dbConfig.whatsapp || '',
+            email: dbConfig.email || '',
+            address: dbConfig.address || '',
+            mobile: dbConfig.mobile || '',
+            title: dbConfig.title || '',
+            logo: dbConfig.logo || '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+            favicon: dbConfig.favicon || '/uploads/2025059851ad8dd1115bc6055cc45d56.jpg',
+            // Load wallet addresses
+            usdtAddress: dbConfig.walletAddresses?.usdtAddress || '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
+            btcAddress: dbConfig.walletAddresses?.btcAddress || 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
+            ethAddress: dbConfig.walletAddresses?.ethAddress || '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
+          };
+          
+          console.log('Setting config with wallet addresses:', {
+            usdt: loadedConfig.usdtAddress,
+            btc: loadedConfig.btcAddress,
+            eth: loadedConfig.ethAddress
+          });
+          
+          setConfig(loadedConfig);
+          // Also save to localStorage as backup
+          safeLocalStorage.setItem('webConfig', JSON.stringify(loadedConfig));
+        }
+      } catch (error) {
+        console.error('Failed to load config from database:', error);
+        // Fall back to localStorage
+        const savedConfig = safeLocalStorage.getItem('webConfig');
+        if (savedConfig) {
+          setConfig(JSON.parse(savedConfig));
+        }
+      }
+    };
+    
+    loadConfigFromDatabase();
   }, []);
 
   // Auto-close frontend preview after 10 seconds
@@ -249,9 +251,15 @@ export default function AdminOperate() {
 
   const saveConfig = async () => {
     try {
+      console.log('Saving wallet addresses:', {
+        usdt: config.usdtAddress,
+        btc: config.btcAddress,
+        eth: config.ethAddress
+      });
+      
       const success = await saveConfigToDatabase();
       
-      // Also save to admin config API for customer service
+      // Save to admin config API with ALL wallet addresses
       const adminConfigResponse = await fetch('/api/admin/config', {
         method: 'PUT',
         headers: {
@@ -267,18 +275,35 @@ export default function AdminOperate() {
             title: config.title,
             logo: config.logo,
             favicon: config.favicon
+          },
+          walletAddresses: {
+            usdtAddress: config.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+            btcAddress: config.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+            ethAddress: config.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
           }
         })
       });
       
+      console.log('Admin config API response:', adminConfigResponse.status);
+      
       if (adminConfigResponse.ok) {
+        // Create config object with wallet addresses for frontend
+        const frontendConfig = {
+          ...config,
+          walletAddresses: {
+            usdtAddress: config.usdtAddress,
+            btcAddress: config.btcAddress,
+            ethAddress: config.ethAddress
+          }
+        };
+        
         // Also save to localStorage as backup
-        safeLocalStorage.setItem('webConfig', JSON.stringify(config));
+        safeLocalStorage.setItem('webConfig', JSON.stringify(frontendConfig));
         
         // Immediately broadcast to all tabs/browsers (only on client-side)
         try {
           if (typeof window !== 'undefined' && configSync) {
-            configSync.broadcastConfigUpdate(config);
+            configSync.broadcastConfigUpdate(frontendConfig);
             // Force refresh config sync to notify all devices
             await configSync.forceRefresh();
           }
@@ -292,13 +317,13 @@ export default function AdminOperate() {
         if (document) {
           document.dispatchEvent(new StorageEvent('storage', {
             key: 'webConfig',
-            newValue: JSON.stringify(config)
+            newValue: JSON.stringify(frontendConfig)
           }));
           document.dispatchEvent(new CustomEvent('webConfigUpdated', {
-            detail: { config }
+            detail: { config: frontendConfig }
           }));
         }
-        alert('Configuration saved successfully! Settings have been updated across all devices.');
+        alert('Configuration saved successfully! Wallet addresses have been updated across all devices.');
       } else {
         alert('Failed to save configuration to database. Please try again.');
       }
@@ -928,6 +953,30 @@ export default function AdminOperate() {
           </div>
         </div>
       )}
+
+      {/* Save Wallet Addresses Button */}
+      <div className="bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+        <div className="flex justify-between items-center">
+          <div>
+            <h4 className="font-medium text-blue-900 mb-1">💾 Save Wallet Configuration</h4>
+            <p className="text-sm text-blue-700">Click to save and deploy wallet addresses to all users</p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                await saveConfig();
+                alert('✅ Wallet addresses saved successfully and deployed to all users!');
+              } catch (error) {
+                console.error('Save error:', error);
+                alert('❌ Failed to save wallet addresses: ' + error.message);
+              }
+            }}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg shadow-lg"
+          >
+            💾 Save Configuration
+          </button>
+        </div>
+      </div>
 
       {/* Show Frontend Preview Button */}
       {!showFrontendPreview && (

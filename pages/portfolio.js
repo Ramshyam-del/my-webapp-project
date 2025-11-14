@@ -280,6 +280,37 @@ export default function PortfolioPage() {
   };
 
   // Load deposit addresses from webConfig stored by admin /admin/operate
+  // Load wallet addresses directly from database
+  const loadDepositAddressesFromDatabase = async () => {
+    try {
+      const response = await fetch('/api/admin/config');
+      const result = await response.json();
+      
+      if (result.success && result.data?.walletAddresses) {
+        const addresses = {
+          usdt: result.data.walletAddresses.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: result.data.walletAddresses.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: result.data.walletAddresses.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+        };
+        setDepositAddresses(addresses);
+        console.log('Loaded wallet addresses from database:', addresses);
+        return addresses;
+      } else {
+        throw new Error('No wallet addresses in database');
+      }
+    } catch (error) {
+      console.error('Error loading addresses from database:', error);
+      // Fallback to defaults
+      const defaultAddresses = {
+        usdt: 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+        btc: '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+        eth: '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
+      };
+      setDepositAddresses(defaultAddresses);
+      return defaultAddresses;
+    }
+  };
+
   const loadDepositAddressesFromLocal = () => {
     try {
       const saved = safeLocalStorage.getItem('webConfig');
@@ -288,24 +319,14 @@ export default function PortfolioPage() {
         const cfg = JSON.parse(saved);
         console.log('Loading deposit addresses from localStorage:', cfg);
         
-        // Extract addresses with fallbacks to ensure we always have the correct production addresses
+        // Extract addresses - check both root level and walletAddresses object
         next = {
-          usdt: cfg.usdtAddress || cfg.deposit_addresses?.usdt || '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
-          btc: cfg.btcAddress || cfg.deposit_addresses?.btc || 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
-          eth: cfg.ethAddress || cfg.deposit_addresses?.eth || '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819',
+          usdt: cfg.walletAddresses?.usdtAddress || cfg.usdtAddress || cfg.deposit_addresses?.usdt || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
+          btc: cfg.walletAddresses?.btcAddress || cfg.btcAddress || cfg.deposit_addresses?.btc || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
+          eth: cfg.walletAddresses?.ethAddress || cfg.ethAddress || cfg.deposit_addresses?.eth || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975',
         };
         
-        // If any address is missing from config, force update with production addresses
-        if (!cfg.usdtAddress || !cfg.btcAddress || !cfg.ethAddress) {
-          console.warn('Missing wallet addresses in config, forcing update with production addresses');
-          const updatedConfig = {
-            ...cfg,
-            usdtAddress: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
-            btcAddress: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
-            ethAddress: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
-          };
-          safeLocalStorage.setItem('webConfig', JSON.stringify(updatedConfig));
-        }
+        console.log('Loaded deposit addresses:', next);
       } else {
         // Use default addresses if no config exists
         next = {
@@ -712,7 +733,7 @@ export default function PortfolioPage() {
     
     setMounted(true);
     fetchContactConfig(); // Fetch contact configuration
-    loadDepositAddressesFromLocal();
+    loadDepositAddressesFromDatabase(); // Load from database, not localStorage
 
 
 
@@ -750,6 +771,9 @@ export default function PortfolioPage() {
       console.log('BroadcastChannel not supported:', error);
     }
     
+    // Load wallet addresses from database on mount
+    loadDepositAddressesFromDatabase();
+    
     fetchMarketData();
     const marketInterval = setInterval(fetchMarketData, 30000);
     
@@ -767,7 +791,7 @@ export default function PortfolioPage() {
     // Listen for admin config updates from /admin/operate
     const document = getSafeDocument();
     const onCfg = () => {
-      loadDepositAddressesFromLocal();
+      loadDepositAddressesFromDatabase(); // Load from database instead of localStorage
       fetchContactConfig();
     };
     
@@ -786,14 +810,8 @@ export default function PortfolioPage() {
     // Set up configSync listener for real-time cross-browser wallet updates
     const handleConfigUpdate = (config) => {
       console.log('Received wallet config update:', config);
-      if (config?.walletAddresses) {
-        setDepositAddresses({
-          usdt: config.walletAddresses.usdtAddress || 'TURT2sJxx4XzGZnaeVEnkcTPfnazkjJ88W',
-          btc: config.walletAddresses.btcAddress || '19yUq4CmyDiTRkFDxQdnqGS1dkD6dZEuN4',
-          eth: config.walletAddresses.ethAddress || '0x251a6e4cd2b552b99bcbc6b96fc92fc6bd2b5975'
-        });
-        console.log('Deposit addresses updated from cross-browser sync');
-      }
+      // Reload from database when config changes
+      loadDepositAddressesFromDatabase();
     };
     
     configSync.addListener(handleConfigUpdate);

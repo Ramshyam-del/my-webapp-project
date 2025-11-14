@@ -24,8 +24,8 @@ export default function Deposit() {
       network: 'Bitcoin Network',
       icon: '₿',
       color: 'bg-orange-500',
-      address: 'bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=bc1qjqm6eamdr7rdz5jj3v2wlu56akjnzc932sy35f'
+      address: 'Loading...',  // Will be loaded from database
+      qrCode: ''
     },
     {
       id: 'ethereum',
@@ -34,8 +34,8 @@ export default function Deposit() {
       network: 'Ethereum (ERC20)',
       icon: 'Ξ',
       color: 'bg-blue-500',
-      address: '0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=0xCB2008F629Ad57Ea770Bb1Bd3BD7c4E956e25819'
+      address: 'Loading...',  // Will be loaded from database
+      qrCode: ''
     },
     {
       id: 'usdt',
@@ -44,29 +44,41 @@ export default function Deposit() {
       network: 'TRON (TRC 20)',
       icon: 'T',
       color: 'bg-green-500',
-      address: '19RAJKBpy663RXA767p2umFRWfSPbo71B4',
-      qrCode: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=19RAJKBpy663RXA767p2umFRWfSPbo71B4'
+      address: 'Loading...',  // Will be loaded from database
+      qrCode: ''
     }
   ]);
 
-  // Load configuration from database and localStorage
+  // Load configuration from database (not localStorage)
   const loadConfig = async () => {
     try {
-      // First try to load from localStorage (most up-to-date)
-      const saved = localStorage.getItem('webConfig');
-      if (saved) {
-        const cfg = JSON.parse(saved);
+      console.log('🔄 Loading wallet addresses from database API...');
+      // Load from admin config API (database)
+      const response = await fetch('/api/admin/config');
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('📡 API response:', result);
+      
+      if (result.success && result.data?.walletAddresses) {
+        const walletAddresses = result.data.walletAddresses;
+        console.log('✅ Wallet addresses from database:', walletAddresses);
+        
         const updatedOptions = cryptoOptions.map(crypto => {
           let address = crypto.address;
           
-          // Map admin panel field names to crypto IDs
-          if (crypto.id === 'bitcoin' && cfg.btcAddress) {
-            address = cfg.btcAddress;
-          } else if (crypto.id === 'ethereum' && cfg.ethAddress) {
-            address = cfg.ethAddress;
-          } else if (crypto.id === 'usdt' && cfg.usdtAddress) {
-            address = cfg.usdtAddress;
+          // Map wallet addresses to crypto IDs
+          if (crypto.id === 'bitcoin') {
+            address = walletAddresses.btcAddress || crypto.address;
+          } else if (crypto.id === 'ethereum') {
+            address = walletAddresses.ethAddress || crypto.address;
+          } else if (crypto.id === 'usdt') {
+            address = walletAddresses.usdtAddress || crypto.address;
           }
+          
+          console.log(`${crypto.symbol} address set to:`, address);
           
           return {
             ...crypto,
@@ -74,29 +86,15 @@ export default function Deposit() {
             qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
           };
         });
+        
         setCryptoOptions(updatedOptions);
-        console.log('Loaded deposit addresses from localStorage:', cfg);
-        return;
-      }
-
-      // Fallback to API
-      const response = await fetch('/api/config');
-      if (response.ok) {
-        const config = await response.json();
-        if (config.deposit_addresses) {
-          const updatedOptions = cryptoOptions.map(crypto => {
-            const address = config.deposit_addresses[crypto.id] || crypto.address;
-            return {
-              ...crypto,
-              address: address,
-              qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${address}`
-            };
-          });
-          setCryptoOptions(updatedOptions);
-        }
+        console.log('✨ Updated crypto options:', updatedOptions);
+      } else {
+        console.warn('⚠️ No wallet addresses in API response, using defaults');
       }
     } catch (error) {
-      console.error('Error loading config:', error);
+      console.error('❌ Error loading wallet addresses from database:', error);
+      // Keep default addresses on error
     }
   };
 
